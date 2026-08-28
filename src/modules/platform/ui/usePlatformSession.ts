@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AuthUser } from '../application/AuthGateway';
 import type { AccessContext, CompanySummary } from '../domain/AccessContext';
+import {
+  flattenAuthorizedCompanies,
+  isCompanyAuthorized,
+  resolveActiveCompanyId,
+} from '../application/companyContext';
 import { SupabaseAccessRepository } from '../infrastructure/SupabaseAccessRepository';
 import { SupabaseAuthGateway } from '../infrastructure/SupabaseAuthGateway';
 
@@ -39,17 +44,11 @@ export function usePlatformSession(): PlatformSession {
     }
 
     const nextContexts = await accessRepository.listContextsForCurrentUser();
-    const firstCompany = nextContexts.flatMap((context) => context.companies)[0] ?? null;
+    const nextCompanies = flattenAuthorizedCompanies(nextContexts);
 
     setUser(currentUser);
     setContexts(nextContexts);
-    setActiveCompanyId((current) => {
-      const stillAllowed = nextContexts.some((context) =>
-        context.companies.some((company) => company.id === current),
-      );
-
-      return stillAllowed ? current : firstCompany?.id ?? null;
-    });
+    setActiveCompanyId((current) => resolveActiveCompanyId(nextCompanies, current));
     setErrorMessage(null);
     setStatus('ready');
   }, [accessRepository, authGateway]);
@@ -86,13 +85,11 @@ export function usePlatformSession(): PlatformSession {
     setStatus('anonymous');
   }, [authGateway]);
 
-  const companies = contexts.flatMap((context) => context.companies);
+  const companies = flattenAuthorizedCompanies(contexts);
 
   const selectCompany = useCallback(
     (companyId: string) => {
-      const isAllowed = companies.some((company) => company.id === companyId);
-
-      if (!isAllowed) {
+      if (!isCompanyAuthorized(companies, companyId)) {
         return;
       }
 
