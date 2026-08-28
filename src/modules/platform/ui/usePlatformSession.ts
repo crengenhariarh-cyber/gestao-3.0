@@ -13,9 +13,9 @@ export interface PlatformSession {
   companies: readonly CompanySummary[];
   activeCompanyId: string | null;
   errorMessage: string | null;
-  signIn(email: string, password: string): Promise<void>;
-  signOut(): Promise<void>;
-  selectCompany(companyId: string): void;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  selectCompany: (companyId: string) => void;
 }
 
 export function usePlatformSession(): PlatformSession {
