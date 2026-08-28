@@ -7,7 +7,7 @@ import { Input } from '../../../shared/ui/Input';
 export interface LoginPageProps {
   loading: boolean;
   errorMessage: string | null;
-  onSignIn(email: string, password: string): Promise<void>;
+  onSignIn: (email: string, password: string) => Promise<void>;
 }
 
 export function LoginPage({ loading, errorMessage, onSignIn }: LoginPageProps) {
