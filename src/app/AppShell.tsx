@@ -43,7 +43,7 @@ export function AppShell({ session }: AppShellProps) {
       <main className="app-page app-page--centered">
         <EmptyState
           title="Nenhuma empresa liberada"
-          description="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."
+          message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."
         />
         <Button variant="secondary" onClick={() => void session.signOut()}>
           Sair
@@ -142,7 +142,7 @@ export function AppShell({ session }: AppShellProps) {
             element={
               <EmptyState
                 title="Página não encontrada"
-                description="A rota informada não existe neste ambiente."
+                message="A rota informada não existe neste ambiente."
               />
             }
           />
