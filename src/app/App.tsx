@@ -3,6 +3,7 @@ import { LoginPage } from '../modules/platform/ui/LoginPage';
 import { usePlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { LoadingState } from '../shared/ui/Feedback';
 import { AppShell } from './AppShell';
+import './shell.css';
 
 export function App() {
   const session = usePlatformSession();
