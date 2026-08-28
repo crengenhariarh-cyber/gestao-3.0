@@ -47,9 +47,11 @@ export function LoginPage({ loading, errorMessage, onSignIn }: LoginPageProps) {
               required
             />
             {errorMessage && (
-              <Feedback tone="danger" title="Não foi possível entrar">
-                {errorMessage}
-              </Feedback>
+              <Feedback
+                tone="danger"
+                title="Não foi possível entrar"
+                message={errorMessage}
+              />
             )}
             <Button type="submit" size="lg" disabled={loading} loading={loading}>
               Entrar
