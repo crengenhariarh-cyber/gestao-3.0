@@ -7,9 +7,9 @@ export function normalizeFinanceMonthlyFilters(raw: FinanceMonthlyFilters): Fina
   const companyId = raw.companyId.trim();
   const competenceFrom = raw.competenceFrom.trim();
   const competenceTo = raw.competenceTo.trim();
-  const categoryId = raw.categoryId?.trim() || undefined;
-  const costCenterId = raw.costCenterId?.trim() || undefined;
-  const counterparty = raw.counterparty?.trim() || undefined;
+  const categoryId = raw.categoryId?.trim();
+  const costCenterId = raw.costCenterId?.trim();
+  const counterparty = raw.counterparty?.trim();
 
   if (!tenantId) throw new Error('tenantId is required');
   if (!companyId) throw new Error('companyId is required');
@@ -22,11 +22,11 @@ export function normalizeFinanceMonthlyFilters(raw: FinanceMonthlyFilters): Fina
     companyId,
     competenceFrom,
     competenceTo,
-    categoryId,
-    costCenterId,
-    counterparty,
-    entryType: raw.entryType,
-    paymentStatus: raw.paymentStatus,
-    sourceKind: raw.sourceKind,
+    ...(categoryId ? { categoryId } : {}),
+    ...(costCenterId ? { costCenterId } : {}),
+    ...(counterparty ? { counterparty } : {}),
+    ...(raw.entryType ? { entryType: raw.entryType } : {}),
+    ...(raw.paymentStatus ? { paymentStatus: raw.paymentStatus } : {}),
+    ...(raw.sourceKind ? { sourceKind: raw.sourceKind } : {}),
   };
 }
