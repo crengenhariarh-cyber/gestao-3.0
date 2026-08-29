@@ -26,6 +26,8 @@ function currentMonthStart(): string {
 
 export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewState {
   const repositories = useMemo(() => getFinanceRepositories(), []);
+  const tenantId = scope?.tenantId ?? null;
+  const companyId = scope?.companyId ?? null;
   const [state, setState] = useState<FinanceOverviewState>({
     status: 'idle',
     data: null,
@@ -33,23 +35,24 @@ export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewS
   });
 
   useEffect(() => {
-    if (!scope) {
+    if (!tenantId || !companyId) {
       setState({ status: 'idle', data: null, errorMessage: null });
       return;
     }
 
+    const activeScope: CompanyScope = { tenantId, companyId };
     let cancelled = false;
     const month = currentMonthStart();
     setState({ status: 'loading', data: null, errorMessage: null });
 
     void Promise.all([
       repositories.monthly.summarize({
-        ...scope,
+        ...activeScope,
         competenceFrom: month,
         competenceTo: month,
       }),
-      repositories.accounts.listBalances(scope),
-      repositories.cards.listLimits(scope),
+      repositories.accounts.listBalances(activeScope),
+      repositories.cards.listLimits(activeScope),
     ])
       .then(([summary, accountBalances, cardLimits]) => {
         if (cancelled) return;
@@ -71,7 +74,7 @@ export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewS
     return () => {
       cancelled = true;
     };
-  }, [repositories, scope?.companyId, scope?.tenantId]);
+  }, [repositories, tenantId, companyId]);
 
   return state;
 }
