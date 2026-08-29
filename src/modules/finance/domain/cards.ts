@@ -48,3 +48,43 @@ export interface CardInstallment extends CompanyScope {
   statementMonth: string;
   amount: number;
 }
+
+export interface CardStatementBalance extends CompanyScope {
+  statementId: string;
+  cardId: string;
+  statementMonth: string;
+  dueDate: string;
+  statementAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentStatus: 'pending' | 'partial' | 'paid';
+}
+
+export interface CloseCardStatement extends CompanyScope {
+  cardId: string;
+  statementMonth: string;
+}
+
+export interface ClosedCardStatement {
+  statementId: string;
+  statementAmount: number;
+  dueDate: string;
+  paymentStatus: 'pending' | 'partial' | 'paid';
+}
+
+export interface RecordCardStatementPayment extends CompanyScope {
+  statementId: string;
+  accountId: string;
+  paidOn: string;
+  amount: number;
+  idempotencyKey: string;
+  notes?: string | null;
+}
+
+export interface RecordedCardStatementPayment {
+  paymentId: string;
+  paidTotal: number;
+  remainingAmount: number;
+  paymentStatus: 'partial' | 'paid';
+  availableLimit: number;
+}
