@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
+import { FinancePage } from '../modules/finance/ui/FinancePage';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
 import { Card } from '../shared/ui/Card';
@@ -112,10 +113,14 @@ export function AppShell({ session }: AppShellProps) {
           <Route
             path="/financeiro"
             element={
-              <ModulePlaceholder
-                title="Financeiro"
-                description="Entradas, saídas, bancos, cartões e contas com isolamento por empresa."
-              />
+              activeCompany ? (
+                <FinancePage company={activeCompany} />
+              ) : (
+                <EmptyState
+                  title="Selecione uma empresa"
+                  message="O Financeiro precisa de uma empresa ativa autorizada."
+                />
+              )
             }
           />
           <Route
