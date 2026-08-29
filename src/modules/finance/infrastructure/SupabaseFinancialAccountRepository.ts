@@ -1,0 +1,77 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { FinancialAccountRepository } from '../application/FinancialAccountRepository';
+import { normalizeFinancialTransfer } from '../application/transferValidation';
+import type {
+  CreateFinancialTransfer,
+  FinancialAccountBalance,
+  FinancialTransfer,
+  RecordedFinancialTransfer,
+} from '../domain/accounts';
+import type { CompanyScope } from '../domain/registries';
+
+type BalanceRow = {
+  account_id: string; tenant_id: string; company_id: string; name: string;
+  account_type: FinancialAccountBalance['accountType']; status: FinancialAccountBalance['status'];
+  opening_balance: number | string; movement_total: number | string; current_balance: number | string;
+};
+
+type TransferRow = {
+  id: string; tenant_id: string; company_id: string; from_account_id: string;
+  to_account_id: string; transfer_on: string; amount: number | string; notes: string | null;
+};
+
+type RecordedRow = { transfer_id: string; from_balance: number | string; to_balance: number | string };
+
+function isRecordedRow(value: unknown): value is RecordedRow {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.transfer_id === 'string'
+    && (typeof row.from_balance === 'number' || typeof row.from_balance === 'string')
+    && (typeof row.to_balance === 'number' || typeof row.to_balance === 'string');
+}
+
+export class SupabaseFinancialAccountRepository implements FinancialAccountRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listBalances(scope: CompanyScope): Promise<readonly FinancialAccountBalance[]> {
+    const { data, error } = await this.client.from('financial_account_balances')
+      .select('account_id,tenant_id,company_id,name,account_type,status,opening_balance,movement_total,current_balance')
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name')
+      .returns<BalanceRow[]>();
+    if (error) throw error;
+    return data.map((row) => ({
+      accountId: row.account_id, tenantId: row.tenant_id, companyId: row.company_id,
+      name: row.name, accountType: row.account_type, status: row.status,
+      openingBalance: Number(row.opening_balance), movementTotal: Number(row.movement_total),
+      currentBalance: Number(row.current_balance),
+    }));
+  }
+
+  async listTransfers(scope: CompanyScope): Promise<readonly FinancialTransfer[]> {
+    const { data, error } = await this.client.from('financial_transfers')
+      .select('id,tenant_id,company_id,from_account_id,to_account_id,transfer_on,amount,notes')
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId)
+      .order('transfer_on', { ascending: false }).returns<TransferRow[]>();
+    if (error) throw error;
+    return data.map((row) => ({
+      id: row.id, tenantId: row.tenant_id, companyId: row.company_id,
+      fromAccountId: row.from_account_id, toAccountId: row.to_account_id,
+      transferOn: row.transfer_on, amount: Number(row.amount), notes: row.notes,
+    }));
+  }
+
+  async recordTransfer(raw: CreateFinancialTransfer): Promise<RecordedFinancialTransfer> {
+    const input = normalizeFinancialTransfer(raw);
+    const result = await this.client.rpc('record_financial_transfer', {
+      p_tenant_id: input.tenantId, p_company_id: input.companyId,
+      p_from_account_id: input.fromAccountId, p_to_account_id: input.toAccountId,
+      p_transfer_on: input.transferOn, p_amount: input.amount,
+      p_idempotency_key: input.idempotencyKey, p_notes: input.notes ?? null,
+    });
+    if (result.error) throw result.error;
+    const data: unknown = result.data;
+    const row: unknown = Array.isArray(data) ? data[0] : data;
+    if (!isRecordedRow(row)) throw new Error('financial transfer returned an invalid result');
+    return { transferId: row.transfer_id, fromBalance: Number(row.from_balance), toBalance: Number(row.to_balance) };
+  }
+}
