@@ -36,6 +36,24 @@ select * from public.record_financial_transfer(
   '2026-09-15', 150.00, 'transfer-test-1', 'retry'
 );
 
+-- Same key with different financial payload must be rejected.
+do $$
+begin
+  begin
+    perform * from public.record_financial_transfer(
+      '24000000-0000-0000-0000-000000000001', '34000000-0000-0000-0000-000000000001',
+      '54000000-0000-0000-0000-000000000001', '54000000-0000-0000-0000-000000000002',
+      '2026-09-15', 151.00, 'transfer-test-1', 'conflicting retry'
+    );
+    raise exception 'expected conflicting idempotency payload to be rejected';
+  exception
+    when others then
+      if position('different transfer data' in sqlerrm) = 0 then
+        raise;
+      end if;
+  end;
+end $$;
+
 do $$
 declare
   v_transfers integer;
