@@ -19,6 +19,7 @@ export interface FinancialInstallment extends CompanyScope {
   installmentNumber: number;
   installmentCount: number;
   dueDate: string;
+  competenceMonth: string;
   amount: number;
 }
 
