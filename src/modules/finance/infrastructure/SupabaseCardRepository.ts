@@ -3,10 +3,15 @@ import type { CardRepository } from '../application/CardRepository';
 import { normalizeCardPurchase } from '../application/cardValidation';
 import type {
   CardInstallment,
+  CardStatementBalance,
+  CloseCardStatement,
+  ClosedCardStatement,
   CreateCardPurchase,
   CreatedCardPurchase,
   CreditCard,
   CreditCardLimit,
+  RecordCardStatementPayment,
+  RecordedCardStatementPayment,
 } from '../domain/cards';
 import type { CompanyScope } from '../domain/registries';
 
@@ -26,9 +31,26 @@ type InstallmentRow = {
   installment_number: number; installment_count: number; statement_month: string; amount: number | string;
 };
 
+type StatementRow = {
+  statement_id: string; tenant_id: string; company_id: string; card_id: string;
+  statement_month: string; due_date: string; statement_amount: number | string;
+  paid_amount: number | string; remaining_amount: number | string;
+  payment_status: CardStatementBalance['paymentStatus'];
+};
+
 type CreatedRow = {
   transaction_id: string; first_statement_month: string;
   committed_amount: number | string; available_limit: number | string;
+};
+
+type ClosedStatementRow = {
+  statement_id: string; statement_amount: number | string; due_date: string;
+  payment_status: ClosedCardStatement['paymentStatus'];
+};
+
+type StatementPaymentRow = {
+  payment_id: string; paid_total: number | string; remaining_amount: number | string;
+  payment_status: RecordedCardStatementPayment['paymentStatus']; available_limit: number | string;
 };
 
 function isCreatedRow(value: unknown): value is CreatedRow {
@@ -38,6 +60,36 @@ function isCreatedRow(value: unknown): value is CreatedRow {
     && typeof row.first_statement_month === 'string'
     && (typeof row.committed_amount === 'number' || typeof row.committed_amount === 'string')
     && (typeof row.available_limit === 'number' || typeof row.available_limit === 'string');
+}
+
+function isClosedStatementRow(value: unknown): value is ClosedStatementRow {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.statement_id === 'string'
+    && (typeof row.statement_amount === 'number' || typeof row.statement_amount === 'string')
+    && typeof row.due_date === 'string'
+    && (row.payment_status === 'pending' || row.payment_status === 'partial' || row.payment_status === 'paid');
+}
+
+function isStatementPaymentRow(value: unknown): value is StatementPaymentRow {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.payment_id === 'string'
+    && (typeof row.paid_total === 'number' || typeof row.paid_total === 'string')
+    && (typeof row.remaining_amount === 'number' || typeof row.remaining_amount === 'string')
+    && (row.payment_status === 'partial' || row.payment_status === 'paid')
+    && (typeof row.available_limit === 'number' || typeof row.available_limit === 'string');
+}
+
+function requireText(value: string, field: string): string {
+  const normalized = value.trim();
+  if (!normalized) throw new Error(`${field} is required`);
+  return normalized;
+}
+
+function requireIsoDate(value: string, field: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} must use YYYY-MM-DD`);
+  return value;
 }
 
 export class SupabaseCardRepository implements CardRepository {
@@ -84,6 +136,22 @@ export class SupabaseCardRepository implements CardRepository {
     }));
   }
 
+  async listStatements(scope: CompanyScope, cardId?: string): Promise<readonly CardStatementBalance[]> {
+    let query = this.client.from('credit_card_statement_balances')
+      .select('statement_id,tenant_id,company_id,card_id,statement_month,due_date,statement_amount,paid_amount,remaining_amount,payment_status')
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId)
+      .order('statement_month', { ascending: false });
+    if (cardId) query = query.eq('card_id', cardId);
+    const { data, error } = await query.returns<StatementRow[]>();
+    if (error) throw error;
+    return data.map((row) => ({
+      statementId: row.statement_id, tenantId: row.tenant_id, companyId: row.company_id,
+      cardId: row.card_id, statementMonth: row.statement_month, dueDate: row.due_date,
+      statementAmount: Number(row.statement_amount), paidAmount: Number(row.paid_amount),
+      remainingAmount: Number(row.remaining_amount), paymentStatus: row.payment_status,
+    }));
+  }
+
   async createPurchase(raw: CreateCardPurchase): Promise<CreatedCardPurchase> {
     const input = normalizeCardPurchase(raw);
     const result = await this.client.rpc('create_card_purchase', {
@@ -108,6 +176,64 @@ export class SupabaseCardRepository implements CardRepository {
       transactionId: row.transaction_id,
       firstStatementMonth: row.first_statement_month,
       committedAmount: Number(row.committed_amount),
+      availableLimit: Number(row.available_limit),
+    };
+  }
+
+  async closeStatement(raw: CloseCardStatement): Promise<ClosedCardStatement> {
+    const tenantId = requireText(raw.tenantId, 'tenantId');
+    const companyId = requireText(raw.companyId, 'companyId');
+    const cardId = requireText(raw.cardId, 'cardId');
+    const statementMonth = requireIsoDate(raw.statementMonth, 'statementMonth');
+    if (!statementMonth.endsWith('-01')) throw new Error('statementMonth must be the first day of a month');
+
+    const result = await this.client.rpc('close_card_statement', {
+      p_tenant_id: tenantId,
+      p_company_id: companyId,
+      p_card_id: cardId,
+      p_statement_month: statementMonth,
+    });
+    if (result.error) throw result.error;
+    const data: unknown = result.data;
+    const row: unknown = Array.isArray(data) ? data[0] : data;
+    if (!isClosedStatementRow(row)) throw new Error('card statement close returned an invalid result');
+    return {
+      statementId: row.statement_id,
+      statementAmount: Number(row.statement_amount),
+      dueDate: row.due_date,
+      paymentStatus: row.payment_status,
+    };
+  }
+
+  async recordStatementPayment(raw: RecordCardStatementPayment): Promise<RecordedCardStatementPayment> {
+    const tenantId = requireText(raw.tenantId, 'tenantId');
+    const companyId = requireText(raw.companyId, 'companyId');
+    const statementId = requireText(raw.statementId, 'statementId');
+    const accountId = requireText(raw.accountId, 'accountId');
+    const idempotencyKey = requireText(raw.idempotencyKey, 'idempotencyKey');
+    const paidOn = requireIsoDate(raw.paidOn, 'paidOn');
+    if (!Number.isFinite(raw.amount) || raw.amount <= 0) throw new Error('amount must be greater than zero');
+    if (Math.round(raw.amount * 100) !== raw.amount * 100) throw new Error('amount supports at most two decimal places');
+
+    const result = await this.client.rpc('record_card_statement_payment', {
+      p_tenant_id: tenantId,
+      p_company_id: companyId,
+      p_statement_id: statementId,
+      p_account_id: accountId,
+      p_paid_on: paidOn,
+      p_amount: raw.amount,
+      p_idempotency_key: idempotencyKey,
+      p_notes: raw.notes?.trim() || null,
+    });
+    if (result.error) throw result.error;
+    const data: unknown = result.data;
+    const row: unknown = Array.isArray(data) ? data[0] : data;
+    if (!isStatementPaymentRow(row)) throw new Error('card statement payment returned an invalid result');
+    return {
+      paymentId: row.payment_id,
+      paidTotal: Number(row.paid_total),
+      remainingAmount: Number(row.remaining_amount),
+      paymentStatus: row.payment_status,
       availableLimit: Number(row.available_limit),
     };
   }
