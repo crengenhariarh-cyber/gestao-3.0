@@ -28,6 +28,12 @@ type ListRow = {
   };
 };
 
+function isCreateRow(value: unknown): value is CreateRow {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.entry_id === 'string' && typeof row.installment_id === 'string';
+}
+
 function toListItem(row: ListRow): FinancialEntryListItem {
   return {
     tenantId: row.tenant_id,
@@ -52,25 +58,23 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
 
   async createSingle(raw: CreateSingleFinancialEntry): Promise<CreatedSingleFinancialEntry> {
     const input = normalizeSingleFinancialEntry(raw);
-    const { data, error } = await this.client
-      .rpc('create_single_financial_entry', {
-        p_tenant_id: input.tenantId,
-        p_company_id: input.companyId,
-        p_entry_type: input.entryType,
-        p_description: input.description,
-        p_counterparty_name: input.counterpartyName ?? null,
-        p_category_id: input.categoryId,
-        p_cost_center_id: input.costCenterId ?? null,
-        p_competence_month: input.competenceMonth,
-        p_due_date: input.dueDate,
-        p_amount: input.amount,
-        p_notes: input.notes ?? null,
-      })
-      .returns<CreateRow[]>();
+    const { data, error } = await this.client.rpc('create_single_financial_entry', {
+      p_tenant_id: input.tenantId,
+      p_company_id: input.companyId,
+      p_entry_type: input.entryType,
+      p_description: input.description,
+      p_counterparty_name: input.counterpartyName ?? null,
+      p_category_id: input.categoryId,
+      p_cost_center_id: input.costCenterId ?? null,
+      p_competence_month: input.competenceMonth,
+      p_due_date: input.dueDate,
+      p_amount: input.amount,
+      p_notes: input.notes ?? null,
+    });
 
     if (error) throw error;
-    const created = data[0];
-    if (!created) throw new Error('financial entry creation returned no result');
+    const created: unknown = Array.isArray(data) ? data[0] : data;
+    if (!isCreateRow(created)) throw new Error('financial entry creation returned an invalid result');
 
     return { entryId: created.entry_id, installmentId: created.installment_id };
   }
