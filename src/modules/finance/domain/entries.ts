@@ -22,6 +22,21 @@ export interface FinancialInstallment extends CompanyScope {
   amount: number;
 }
 
+export interface FinancialEntryListItem extends CompanyScope {
+  entryId: string;
+  installmentId: string;
+  entryType: FinancialEntryType;
+  description: string;
+  counterpartyName: string | null;
+  categoryId: string;
+  costCenterId: string | null;
+  competenceMonth: string;
+  installmentNumber: number;
+  installmentCount: number;
+  dueDate: string;
+  amount: number;
+}
+
 export interface CreateSingleFinancialEntry extends CompanyScope {
   entryType: FinancialEntryType;
   description: string;
@@ -32,4 +47,9 @@ export interface CreateSingleFinancialEntry extends CompanyScope {
   dueDate: string;
   amount: number;
   notes?: string | null;
+}
+
+export interface CreatedSingleFinancialEntry {
+  entryId: string;
+  installmentId: string;
 }
