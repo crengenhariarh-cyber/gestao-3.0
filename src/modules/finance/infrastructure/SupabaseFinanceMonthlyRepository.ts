@@ -4,6 +4,7 @@ import { normalizeFinanceMonthlyFilters } from '../application/monthlyValidation
 import type {
   FinanceMonthlyFilters,
   FinanceMonthlyItem,
+  FinanceMonthlySummary,
   MonthlyEntryType,
   MonthlyPaymentStatus,
   MonthlySourceKind,
@@ -28,6 +29,15 @@ type MonthlyRow = {
   realized_amount: number | string;
   pending_amount: number | string;
   payment_status: MonthlyPaymentStatus;
+};
+
+type SummaryRow = {
+  competence_month: string;
+  entry_type: MonthlyEntryType;
+  planned_amount: number | string;
+  realized_amount: number | string;
+  pending_amount: number | string;
+  item_count: number | string;
 };
 
 function toMonthlyItem(row: MonthlyRow): FinanceMonthlyItem {
@@ -79,5 +89,32 @@ export class SupabaseFinanceMonthlyRepository implements FinanceMonthlyRepositor
     const { data, error } = await query.returns<MonthlyRow[]>();
     if (error) throw error;
     return data.map(toMonthlyItem);
+  }
+
+  async summarize(raw: FinanceMonthlyFilters): Promise<readonly FinanceMonthlySummary[]> {
+    const filters = normalizeFinanceMonthlyFilters(raw);
+    const result = await this.client.rpc('get_finance_monthly_summary', {
+      p_tenant_id: filters.tenantId,
+      p_company_id: filters.companyId,
+      p_competence_from: filters.competenceFrom,
+      p_competence_to: filters.competenceTo,
+      p_category_id: filters.categoryId ?? null,
+      p_cost_center_id: filters.costCenterId ?? null,
+      p_counterparty: filters.counterparty ?? null,
+      p_entry_type: filters.entryType ?? null,
+      p_payment_status: filters.paymentStatus ?? null,
+      p_source_kind: filters.sourceKind ?? null,
+    });
+
+    if (result.error) throw result.error;
+    const rows = (result.data ?? []) as SummaryRow[];
+    return rows.map((row) => ({
+      competenceMonth: row.competence_month,
+      entryType: row.entry_type,
+      plannedAmount: Number(row.planned_amount),
+      realizedAmount: Number(row.realized_amount),
+      pendingAmount: Number(row.pending_amount),
+      itemCount: Number(row.item_count),
+    }));
   }
 }
