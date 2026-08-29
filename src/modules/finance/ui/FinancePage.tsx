@@ -2,6 +2,7 @@ import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Card } from '../../../shared/ui/Card';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
 import { useFinanceOverview } from './useFinanceOverview';
+import './finance.css';
 
 interface FinancePageProps {
   company: CompanySummary;
