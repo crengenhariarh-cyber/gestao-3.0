@@ -23,6 +23,21 @@ select * from public.create_card_purchase(
   '45000000-0000-0000-0000-000000000001',null,100.00,3,'card-purchase-1','retry'
 );
 
+-- Same key with different purchase payload must be rejected.
+do $$
+begin
+  begin
+    perform 1 from public.create_card_purchase(
+      '25000000-0000-0000-0000-000000000001','35000000-0000-0000-0000-000000000001',
+      '55000000-0000-0000-0000-000000000001','2026-09-11','Compra teste','Fornecedor',
+      '45000000-0000-0000-0000-000000000001',null,101.00,3,'card-purchase-1','conflicting retry'
+    );
+    raise exception 'expected conflicting card purchase idempotency rejection';
+  exception when others then
+    if position('different card purchase data' in sqlerrm)=0 then raise; end if;
+  end;
+end $$;
+
 do $$
 declare
   v_count integer;
@@ -63,6 +78,19 @@ begin
     if sqlerrm='expected limit rejection' then raise; end if;
     if position('exceeds available limit' in sqlerrm)=0 then raise; end if;
   end;
+end $$;
+
+reset role;
+
+do $$
+declare v_audit_count integer;
+begin
+  select count(*) into v_audit_count
+  from public.audit_log
+  where tenant_id='25000000-0000-0000-0000-000000000001'
+    and company_id='35000000-0000-0000-0000-000000000001'
+    and action='card_purchase.created';
+  if v_audit_count<>1 then raise exception 'expected one card purchase audit row, got %',v_audit_count; end if;
 end $$;
 
 rollback;
