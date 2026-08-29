@@ -37,14 +37,19 @@ export function FinancePage({ company }: FinancePageProps) {
     );
   }
 
-  const income = overview.data.summary.find((item) => item.entryType === 'income');
-  const expense = overview.data.summary.find((item) => item.entryType === 'expense');
+  if (overview.data === null) {
+    return <LoadingState label="Carregando financeiro…" />;
+  }
+
+  const data = overview.data;
+  const income = data.summary.find((item) => item.entryType === 'income');
+  const expense = data.summary.find((item) => item.entryType === 'expense');
 
   return (
     <section className="finance-overview" aria-labelledby="finance-title">
       <div className="finance-overview__heading">
         <div>
-          <span className="ui-muted">Competência {formatMonth(overview.data.month)}</span>
+          <span className="ui-muted">Competência {formatMonth(data.month)}</span>
           <h1 id="finance-title">Financeiro</h1>
         </div>
         <p className="ui-muted">
@@ -72,11 +77,11 @@ export function FinancePage({ company }: FinancePageProps) {
 
       <div className="finance-overview__cards">
         <Card title="Contas e bancos" description="Saldo atual derivado do razão financeiro">
-          {overview.data.accountBalances.length === 0 ? (
+          {data.accountBalances.length === 0 ? (
             <p className="ui-muted">Nenhuma conta financeira cadastrada.</p>
           ) : (
             <div className="finance-list">
-              {overview.data.accountBalances.map((account) => (
+              {data.accountBalances.map((account) => (
                 <div className="finance-list__row" key={account.accountId}>
                   <span>{account.name}</span>
                   <strong>{currency.format(account.currentBalance)}</strong>
@@ -87,11 +92,11 @@ export function FinancePage({ company }: FinancePageProps) {
         </Card>
 
         <Card title="Cartões" description="Limite total, comprometido e disponível">
-          {overview.data.cardLimits.length === 0 ? (
+          {data.cardLimits.length === 0 ? (
             <p className="ui-muted">Nenhum cartão cadastrado.</p>
           ) : (
             <div className="finance-list">
-              {overview.data.cardLimits.map((card) => (
+              {data.cardLimits.map((card) => (
                 <div className="finance-list__group" key={card.cardId}>
                   <strong>{card.name}</strong>
                   <div className="finance-list__row"><span>Limite</span><span>{currency.format(card.creditLimit)}</span></div>
