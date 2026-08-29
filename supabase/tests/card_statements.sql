@@ -41,6 +41,22 @@ select * from public.record_card_statement_payment(
   (select statement_id from statement_ctx),'56000000-0000-0000-0000-000000000001',
   '2026-09-20',20.00,'statement-pay-1','retry'
 );
+
+-- Same payment key with different payload must be rejected.
+do $$
+begin
+  begin
+    perform 1 from public.record_card_statement_payment(
+      '26000000-0000-0000-0000-000000000001','36000000-0000-0000-0000-000000000001',
+      (select statement_id from statement_ctx),'56000000-0000-0000-0000-000000000001',
+      '2026-09-20',21.00,'statement-pay-1','conflicting retry'
+    );
+    raise exception 'expected conflicting statement payment idempotency rejection';
+  exception when others then
+    if position('different statement payment data' in sqlerrm)=0 then raise; end if;
+  end;
+end $$;
+
 select * from public.record_card_statement_payment(
   '26000000-0000-0000-0000-000000000001','36000000-0000-0000-0000-000000000001',
   (select statement_id from statement_ctx),'56000000-0000-0000-0000-000000000001',
@@ -94,6 +110,24 @@ begin
     if sqlerrm='expected closed statement rejection' then raise; end if;
     if position('already closed' in sqlerrm)=0 then raise; end if;
   end;
+end $$;
+
+reset role;
+
+do $$
+declare v_close_audit integer; v_payment_audit integer;
+begin
+  select count(*) into v_close_audit from public.audit_log
+  where tenant_id='26000000-0000-0000-0000-000000000001'
+    and company_id='36000000-0000-0000-0000-000000000001'
+    and action='card_statement.closed';
+  if v_close_audit<>1 then raise exception 'expected one statement close audit row, got %',v_close_audit; end if;
+
+  select count(*) into v_payment_audit from public.audit_log
+  where tenant_id='26000000-0000-0000-0000-000000000001'
+    and company_id='36000000-0000-0000-0000-000000000001'
+    and action='card_statement_payment.recorded';
+  if v_payment_audit<>2 then raise exception 'expected two statement payment audit rows, got %',v_payment_audit; end if;
 end $$;
 
 rollback;
