@@ -33,3 +33,12 @@ export interface FinanceMonthlyFilters extends CompanyScope {
   paymentStatus?: MonthlyPaymentStatus;
   sourceKind?: MonthlySourceKind;
 }
+
+export interface FinanceMonthlySummary {
+  competenceMonth: string;
+  entryType: MonthlyEntryType;
+  plannedAmount: number;
+  realizedAmount: number;
+  pendingAmount: number;
+  itemCount: number;
+}
