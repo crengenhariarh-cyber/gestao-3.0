@@ -115,16 +115,12 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
   async materializeNext(ruleId: string): Promise<MaterializedFinancialRecurrence> {
     if (!ruleId.trim()) throw new Error('ruleId is required');
 
-    const response: unknown = await this.client.rpc('materialize_next_financial_recurrence', {
-      p_rule_id: ruleId,
-    });
-    if (!isRecord(response)) throw new Error('invalid recurrence materialization response');
+    const { data, error } = await this.client
+      .rpc('materialize_next_financial_recurrence', { p_rule_id: ruleId })
+      .returns<MaterializeRow[]>();
 
-    const error = response.error;
-    if (error) throw new Error(isRecord(error) && typeof error.message === 'string' ? error.message : 'recurrence materialization failed');
-
-    const rawData = response.data;
-    const row = Array.isArray(rawData) ? rawData[0] : rawData;
+    if (error) throw error;
+    const row: unknown = data[0];
     if (!isMaterializeRow(row)) throw new Error('recurrence materialization returned an invalid result');
 
     return {
