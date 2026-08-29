@@ -31,39 +31,39 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
   async listCategories(scope: CompanyScope): Promise<readonly FinancialCategory[]> {
     const { data, error } = await this.client.from('financial_categories').select('id,tenant_id,company_id,name,kind,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
-    return (data as CategoryRow[]).map(category);
+    return data.map(category);
   }
 
   async createCategory(raw: CreateFinancialCategory): Promise<FinancialCategory> {
     const input = normalizeCategory(raw);
     const { data, error } = await this.client.from('financial_categories').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, kind: input.kind }).select('id,tenant_id,company_id,name,kind,status').single();
     if (error) throw error;
-    return category(data as CategoryRow);
+    return category(data);
   }
 
   async listCostCenters(scope: CompanyScope): Promise<readonly CostCenter[]> {
     const { data, error } = await this.client.from('cost_centers').select('id,tenant_id,company_id,name,code,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
-    return (data as CostCenterRow[]).map(costCenter);
+    return data.map(costCenter);
   }
 
   async createCostCenter(raw: CreateCostCenter): Promise<CostCenter> {
     const input = normalizeCostCenter(raw);
     const { data, error } = await this.client.from('cost_centers').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, code: input.code ?? null }).select('id,tenant_id,company_id,name,code,status').single();
     if (error) throw error;
-    return costCenter(data as CostCenterRow);
+    return costCenter(data);
   }
 
   async listAccounts(scope: CompanyScope): Promise<readonly FinancialAccount[]> {
     const { data, error } = await this.client.from('financial_accounts').select('id,tenant_id,company_id,name,account_type,opening_balance,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
-    return (data as AccountRow[]).map(account);
+    return data.map(account);
   }
 
   async createAccount(raw: CreateFinancialAccount): Promise<FinancialAccount> {
     const input = normalizeAccount(raw);
     const { data, error } = await this.client.from('financial_accounts').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, account_type: input.accountType, opening_balance: input.openingBalance ?? 0 }).select('id,tenant_id,company_id,name,account_type,opening_balance,status').single();
     if (error) throw error;
-    return account(data as AccountRow);
+    return account(data);
   }
 }
