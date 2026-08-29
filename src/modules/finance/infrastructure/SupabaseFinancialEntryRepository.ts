@@ -58,7 +58,7 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
 
   async createSingle(raw: CreateSingleFinancialEntry): Promise<CreatedSingleFinancialEntry> {
     const input = normalizeSingleFinancialEntry(raw);
-    const { data, error } = await this.client.rpc('create_single_financial_entry', {
+    const rpcResult = await this.client.rpc('create_single_financial_entry', {
       p_tenant_id: input.tenantId,
       p_company_id: input.companyId,
       p_entry_type: input.entryType,
@@ -72,8 +72,9 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
       p_notes: input.notes ?? null,
     });
 
-    if (error) throw error;
-    const created: unknown = Array.isArray(data) ? data[0] : data;
+    if (rpcResult.error) throw rpcResult.error;
+    const rpcData: unknown = rpcResult.data;
+    const created: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (!isCreateRow(created)) throw new Error('financial entry creation returned an invalid result');
 
     return { entryId: created.entry_id, installmentId: created.installment_id };
