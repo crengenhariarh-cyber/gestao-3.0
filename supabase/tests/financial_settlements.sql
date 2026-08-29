@@ -65,6 +65,26 @@ select * from public.record_financial_settlement(
   'same idempotent request'
 );
 
+-- Same key with different financial payload must be rejected.
+do $$
+begin
+  begin
+    perform 1 from public.record_financial_settlement(
+      '23000000-0000-0000-0000-000000000001',
+      '33000000-0000-0000-0000-000000000001',
+      (select installment_id from settlement_test_context),
+      '53000000-0000-0000-0000-000000000001',
+      '2026-09-10',
+      41.00,
+      'settlement-test-partial',
+      'conflicting retry'
+    );
+    raise exception 'expected conflicting settlement idempotency rejection';
+  exception when others then
+    if position('different settlement data' in sqlerrm) = 0 then raise; end if;
+  end;
+end $$;
+
 select * from public.record_financial_settlement(
   '23000000-0000-0000-0000-000000000001',
   '33000000-0000-0000-0000-000000000001',
