@@ -1,7 +1,7 @@
 # Engenharia — Modelo oficial do domínio
 
 ## Status
-Fase 06 | Etapa 06.01/06.10 — concluída
+Fase 06 | Etapa 06.01/06.10 — concluída | Próxima: 06.02
 
 Este documento congela as fronteiras conceituais do módulo Engenharia antes da criação do schema. O Gestão 2.0 é apenas referência de regras de negócio; nenhum código, tabela, função, trigger ou policy legada é copiado.
 
