@@ -111,7 +111,7 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
             ) : (
               <div className="hr-list">
                 {monthlyByCostCenter.map((item) => (
-                  <div className="hr-list__row" key={item.costCenterId!}>
+                  <div className="hr-list__row" key={item.costCenterId ?? item.costCenterName ?? 'centro-de-custo'}>
                     <div><strong>{item.costCenterName ?? 'Centro de custo'}</strong></div>
                     <div className="hr-list__values">
                       <span>Prev. {currency.format(item.plannedTotal)}</span>
