@@ -1,0 +1,11 @@
+-- 07.01 Engineering -> Finance receivables integration.
+-- Applied to Supabase as engineering_measurement_receivables.
+-- Adds measurement_finance_links with a unique measurement link to prevent duplicate receivables.
+-- generate_measurement_receivable(measurement_id, due_date):
+--   * accepts approved measurements only;
+--   * uses the measurement NET amount after retentions;
+--   * creates an income financial_entry and its single receivable installment;
+--   * preserves tenant/company and competence;
+--   * records client, work and contract context;
+--   * returns the existing financial entry on repeated calls (idempotent behavior).
+-- RLS enabled on the link table and the RPC runs as security invoker.
