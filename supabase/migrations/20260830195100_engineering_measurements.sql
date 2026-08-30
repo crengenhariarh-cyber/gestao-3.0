@@ -1,0 +1,8 @@
+-- 06.06 Engineering measurements
+-- Applied to Supabase as migration engineering_measurements.
+-- Creates measurements, measurement_lines and measurement_reopen_log.
+-- Enforces monthly competence, draft-only editing, contractual quantity ceiling,
+-- contract-work structure validation, contractual unit-price snapshot,
+-- close/approve/reopen lifecycle with mandatory reopen reason and audit log.
+-- Adds security-invoker view contract_service_measurement_balance.
+-- RLS enabled on all measurement tables; company access enforced through app_private.can_access_company.
