@@ -17,7 +17,6 @@ export function EngineeringPage({company}:EngineeringPageProps) {
   const overview=useEngineeringOverview({tenantId:company.tenantId,companyId:company.id});
   if(overview.status==='idle'||overview.status==='loading') return <LoadingState label="Carregando Engenharia…"/>;
   if(overview.status==='error') return <EmptyState title="Engenharia indisponível" message={overview.errorMessage}/>;
-  if(overview.status!=='success'||!overview.data) return <EmptyState title="Engenharia indisponível" message="Não foi possível carregar os dados da Engenharia."/>;
   const data=overview.data;
 
   const empty=<p className="ui-muted">Nenhum registro nesta empresa.</p>;
