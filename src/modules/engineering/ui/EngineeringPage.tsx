@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../../../shared/ui/Card';
 import { Tabs } from '../../../shared/ui/Tabs';
-import './engineering.css';
 
 export function EngineeringPage() {
   const [activeTab, setActiveTab] = useState('contratos');
