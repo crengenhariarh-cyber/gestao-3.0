@@ -1,0 +1,8 @@
+-- 07.05 Future Engineering revenue projections.
+-- Applied to Supabase as engineering_future_revenue_projection.
+-- Adds engineering_revenue_projections by tenant/company/work/contract/month.
+-- Projection is independent from actual revenue and never creates a financial settlement.
+-- Validation guarantees contract belongs to the selected work/company and active future projections cannot exceed the current contract gross balance.
+-- One projection per contract/competence; supports active/inactive state and notes.
+-- Adds security-invoker engineering_revenue_forecast for annual/monthly forecast consumption.
+-- RLS preserves tenant/company isolation.
