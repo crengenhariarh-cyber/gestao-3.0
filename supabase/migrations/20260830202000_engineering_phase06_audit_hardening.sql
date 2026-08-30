@@ -1,0 +1,6 @@
+-- 06.10 final Engineering audit hardening.
+-- Applied to Supabase as engineering_phase06_audit_hardening.
+-- Replaces FOR ALL RLS write policies on measurement/production tables with explicit INSERT/UPDATE/DELETE policies, removing duplicate permissive SELECT evaluation.
+-- Adds covering indexes for Engineering foreign keys identified by the Supabase performance advisor (service and audit-user references).
+-- Final integrity audit returned zero issues for: contract/work scope, over-allocation, over-measurement, measurement structure/work mismatch, production structure/work mismatch, and production outside employment dates.
+-- Final Supabase security advisor: zero security lints.
