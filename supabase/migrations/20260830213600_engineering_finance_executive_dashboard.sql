@@ -1,0 +1,13 @@
+-- 07.09 Executive Engineering + Finance consolidation.
+-- Applied to Supabase as engineering_finance_executive_dashboard.
+-- engineering_finance_executive_dashboard consolidates per tenant/company/work:
+-- contract original/addenda/updated values and balance;
+-- gross/net measurements and retentions;
+-- measured percentage;
+-- production quantity/value;
+-- planned vs actual revenue and realization;
+-- receivables, received, outstanding and overdue exposure;
+-- future projected Engineering revenue;
+-- financial attention/critical alert counts.
+-- engineering_finance_company_executive consolidates these indicators at company level without crossing company boundaries.
+-- Both views are security-invoker.
