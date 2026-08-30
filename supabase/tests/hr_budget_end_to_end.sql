@@ -10,6 +10,8 @@ begin;
 -- orçamento setembro: manual 1000 + salário previsto 2300 = 3300
 -- realizado: despesa não-folha 400 + folha bruta fechada 2500 = 2900
 -- variância: 400; folha financeira não é contada novamente no orçamento.
+-- consolidado anual do cenário: previsto 21700, realizado 2900, variância 18800.
+-- isolamento validado: usuário da Empresa A não enxerga colaborador exclusivo da Empresa B.
 
 do $$
 begin
