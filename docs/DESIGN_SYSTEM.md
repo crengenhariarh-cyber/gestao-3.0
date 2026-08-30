@@ -3,37 +3,34 @@
 Este documento congela os padrões visuais obrigatórios do Gestão 3.0. Financeiro, RH, Engenharia e demais módulos devem reutilizar os componentes compartilhados em `src/shared/ui` e não criar variantes locais concorrentes.
 
 ## Botões
-
 Componente oficial: `Button`.
-
-Variantes permitidas: `primary`, `secondary`, `danger` e `ghost`.
-Tamanhos permitidos: `sm`, `md` e `lg`.
-Estados obrigatórios: padrão, hover, foco visível, loading e desabilitado.
-A ação principal da tela ou fluxo usa `primary`; ações alternativas usam `secondary`; exclusão/ação destrutiva usa `danger`; ações de baixa ênfase usam `ghost`.
+Variantes: `primary`, `secondary`, `danger`, `ghost`. Tamanhos: `sm`, `md`, `lg`. Estados: padrão, hover, foco visível, loading e desabilitado.
 
 ## Cards
-
 Componente oficial: `Card`.
-
-O card possui superfície branca, borda neutra, raio consistente, cabeçalho opcional com título/descrição/ações e área de conteúdo padronizada. Cards não devem inventar raio, espaçamento, borda ou hierarquia visual por módulo.
+Superfície branca, borda neutra, raio e espaçamento consistentes, cabeçalho opcional e área de conteúdo padronizada.
 
 ## Modais
-
 Componente oficial: `Dialog`.
+Todo modal é fullscreen em celular, tablet e computador. Cabeçalho fixo com `Voltar`, título e `Fechar (X)`; somente o conteúdo central rola; `Salvar`, quando necessário, fica fixo no rodapé. Os controles permanecem acessíveis em qualquer posição da rolagem.
 
-Regra definitiva: todo modal é fullscreen em celular, tablet e computador, ocupando toda a área disponível da aplicação.
+## Abas / Tabs
+Componente oficial: `Tabs`.
 
-Estrutura obrigatória:
-- cabeçalho fixo com botão `Voltar`, título/descrição e botão `Fechar (X)`;
-- conteúdo central é a única região principal com rolagem;
-- botão `Salvar` aparece quando existir ação de confirmação e permanece fixo no rodapé;
-- `Voltar`, `Fechar` e `Salvar`, quando aplicável, permanecem acessíveis independentemente da posição da rolagem;
-- `Voltar` pode executar uma navegação interna fornecida por `onBack`; quando não houver etapa anterior, fecha o modal;
-- o fechamento não depende de clicar fora do modal;
-- o mesmo comportamento vale para cadastro, edição, visualização e demais fluxos apresentados como modal.
+Padrão definitivo aprovado:
+- altura padrão 40px e variante compacta 32px;
+- raio 8px e espaçamento de 8px;
+- ativa: fundo azul `#2563EB`, texto branco;
+- inativa: fundo branco, texto `#1F2937`, borda neutra;
+- hover: fundo `#F1F5F9`;
+- foco: contorno azul visível;
+- desabilitada: fundo `#F8FAFC`, texto `#9CA3AF`, sem interação;
+- ícone opcional de 16px antes do texto;
+- contador opcional em badge azul-claro;
+- rótulos sempre em uma linha, sem quebra;
+- desktop, tablet e celular usam o mesmo componente;
+- quando não houver espaço, as abas mantêm tamanho legível e usam rolagem horizontal;
+- abas servem para trocar conteúdo/seção dentro da mesma tela; não abrem modal e não recarregam a aplicação inteira.
 
 ## Regra de governança
-
-Alterações futuras de botão, card ou modal devem ser feitas no componente compartilhado do Design System. Não criar cópia específica para Financeiro, RH, Engenharia ou outra área.
-
-Abas/Tabs serão definidas como componente separado e não alteram os estados padrão dos botões.
+Botões, Cards, Modais e Tabs são componentes compartilhados obrigatórios. Alterações futuras devem ocorrer no Design System, nunca por cópias ou variantes locais específicas de Financeiro, RH, Engenharia ou outro módulo.
