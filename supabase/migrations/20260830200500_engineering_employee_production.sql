@@ -1,0 +1,10 @@
+-- 06.08 Employee production control.
+-- Applied to Supabase as engineering_employee_production.
+-- Production is intentionally independent from commercial client measurements.
+-- Adds monthly work production periods, employee production entries and reopen audit log.
+-- Every entry references company employment contract, physical work structure and master engineering service.
+-- Validates work/structure consistency, employment dates and monthly competence.
+-- Closed periods lock entry changes; reopening requires a reason and is audited.
+-- Optional unit value calculates internal production value without changing commercial contract prices.
+-- Adds security-invoker engineering_employee_production_summary.
+-- RLS enabled with tenant/company isolation.
