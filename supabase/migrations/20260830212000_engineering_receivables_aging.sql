@@ -1,0 +1,6 @@
+-- 07.07 Engineering receivables delinquency/aging.
+-- Applied to Supabase as engineering_receivables_aging.
+-- security-invoker engineering_receivables_aging traces each measurement receivable with due date, total, received, outstanding, last receipt, status and days overdue.
+-- Statuses: pending, partial, overdue, partial_overdue, paid.
+-- Aging buckets: current, 01_07, 08_15, 16_30, 31_60, 61_90, 90_plus.
+-- engineering_receivables_risk_dashboard consolidates receivable total, received, outstanding, overdue value/count, maximum delay and overdue percentage by tenant/company/work.
