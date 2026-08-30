@@ -1,7 +1,7 @@
 # Engenharia — Modelo oficial do domínio
 
 ## Status
-Fase 06 | Etapa 06.01/06.10
+Fase 06 | Etapa 06.01/06.10 — concluída
 
 Este documento congela as fronteiras conceituais do módulo Engenharia antes da criação do schema. O Gestão 2.0 é apenas referência de regras de negócio; nenhum código, tabela, função, trigger ou policy legada é copiado.
 
@@ -50,9 +50,7 @@ O acesso a uma entidade filha nunca pode ampliar o acesso concedido à empresa p
 ## 7. Provisórios
 - `provisional_contracts` e linhas provisórias representam negociação ainda não efetivada.
 - Enquanto provisório, serviço, quantidade e valor unitário podem ser editados.
-- Conversão é operação controlada e idempotente para:
-  1. novo contrato; ou
-  2. aditivo de contrato existente.
+- Conversão é operação controlada e idempotente para novo contrato ou aditivo de contrato existente.
 - A conversão preserva origem e cria vínculo entre provisório e destino.
 - Um provisório convertido não pode ser convertido novamente.
 
@@ -71,24 +69,12 @@ O acesso a uma entidade filha nunca pode ampliar o acesso concedido à empresa p
 - Exclusão física de histórico financeiro/operacional fechado não é fluxo normal; usar cancelamento/reversão auditada.
 
 ## 10. Indicadores oficiais
-Por contrato/obra, o domínio deve conseguir derivar:
-- valor contratado base;
-- valor de aditivos efetivos;
-- valor contratado final;
-- valor medido bruto;
-- retenções;
-- valor líquido medido;
-- saldo a medir;
-- percentual medido;
-- evolução física/produção;
-- evolução de pagamento, quando integrado ao Financeiro.
-
-Percentuais são derivados dos valores oficiais e não digitados manualmente.
+Por contrato/obra, o domínio deriva valor contratado base, aditivos efetivos, contratado final, medido bruto, retenções, líquido medido, saldo a medir, percentual medido, evolução física/produção e evolução de pagamento quando integrado ao Financeiro. Percentuais são derivados dos valores oficiais e não digitados manualmente.
 
 ## 11. Integrações
-- Financeiro: recebe somente eventos financeiros validados, com chave de origem/idempotência para impedir duplicação.
-- RH: fornece colaboradores e vínculos autorizados; Engenharia não duplica cadastro de colaborador.
-- Orçamento: recebe realizado/comprometido segundo regra explícita, sem confundir medição do cliente, produção interna e fluxo de caixa.
+- Financeiro recebe somente eventos financeiros validados, com chave de origem/idempotência para impedir duplicação.
+- RH fornece colaboradores e vínculos autorizados; Engenharia não duplica cadastro de colaborador.
+- Orçamento recebe realizado/comprometido segundo regra explícita, sem confundir medição do cliente, produção interna e fluxo de caixa.
 - Nenhum módulo acessa tabela de outro domínio diretamente pela UI; integrações passam por contratos/repositories/RPCs definidos.
 
 ## 12. Segurança
@@ -105,7 +91,7 @@ Percentuais são derivados dos valores oficiais e não digitados manualmente.
 - Nenhum componente visual concorrente é criado dentro do módulo.
 
 ## 14. Limites da etapa 06.01
-Esta etapa define arquitetura e invariantes. Nenhuma tabela de Engenharia é criada aqui. O schema começa na 06.02 após este modelo estar congelado.
+Esta etapa define arquitetura e invariantes. Nenhuma tabela de Engenharia é criada aqui. O schema começa na 06.02.
 
 ## Decisões congeladas
 1. Obra é entidade própria e pertence a tenant + empresa.
