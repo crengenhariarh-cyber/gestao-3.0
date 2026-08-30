@@ -1,0 +1,8 @@
+-- 07.04 Engineering revenue -> Planned x Actual dashboards.
+-- Applied to Supabase as engineering_budget_actuals_dashboard.
+-- engineering_revenue_budget_actual groups by tenant/company/work/month:
+--   planned revenue = NET value of closed/approved Engineering measurements;
+--   actual revenue = financial settlements actually received from measurement-originated income entries;
+--   variance and realization percentage are calculated automatically.
+-- engineering_revenue_dashboard consolidates the same indicators per work.
+-- Both views are security-invoker and preserve strict tenant/company/work isolation.
