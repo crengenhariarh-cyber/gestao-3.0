@@ -4,15 +4,37 @@ Este documento congela os padrões visuais obrigatórios do Gestão 3.0. Finance
 
 ## Botões
 Componente oficial: `Button`.
-Variantes: `primary`, `secondary`, `danger`, `ghost`. Tamanhos: `sm`, `md`, `lg`. Estados: padrão, hover, foco visível, loading e desabilitado.
+
+Variantes oficiais:
+- `primary`: ação principal, azul `#2563EB`;
+- `secondary`: ação alternativa, superfície branca com borda neutra;
+- `tertiary`: ação de baixa ênfase, sem fundo permanente;
+- `success`: confirmação positiva, verde `#16A34A`;
+- `danger`: ação destrutiva, vermelho `#DC2626`.
+
+Tamanhos permitidos: `sm`, `md`, `lg`.
+Estados obrigatórios: padrão, hover, foco visível, loading e desabilitado.
+Não criar botões visuais locais fora do componente compartilhado, exceto elementos semânticos internos do próprio Design System.
 
 ## Cards
 Componente oficial: `Card`.
-Superfície branca, borda neutra, raio e espaçamento consistentes, cabeçalho opcional e área de conteúdo padronizada.
+Superfície branca, borda neutra, raio e espaçamento consistentes, cabeçalho opcional e área de conteúdo padronizada. Cards de módulos devem reutilizar esse componente em vez de reproduzir sua aparência localmente.
 
 ## Modais
 Componente oficial: `Dialog`.
-Todo modal é fullscreen em celular, tablet e computador. Cabeçalho fixo com `Voltar`, título e `Fechar (X)`; somente o conteúdo central rola; `Salvar`, quando necessário, fica fixo no rodapé. Os controles permanecem acessíveis em qualquer posição da rolagem.
+Todo modal é fullscreen em celular, tablet e computador, ocupando toda a área disponível.
+
+Estrutura obrigatória:
+- `Voltar` fixo no cabeçalho;
+- título/descrição no cabeçalho;
+- `Fechar (X)` fixo no cabeçalho;
+- somente o conteúdo central possui rolagem principal;
+- `Salvar`, quando necessário, permanece fixo no rodapé;
+- clicar fora não fecha o modal;
+- Escape fecha quando não há operação de salvamento em andamento;
+- foco permanece contido no modal enquanto aberto;
+- ao fechar, o foco retorna ao elemento anterior;
+- a rolagem da página de fundo fica bloqueada.
 
 ## Abas / Tabs
 Componente oficial: `Tabs`.
@@ -31,6 +53,9 @@ Padrão definitivo aprovado:
 - desktop, tablet e celular usam o mesmo componente;
 - quando não houver espaço, as abas mantêm tamanho legível e usam rolagem horizontal;
 - abas servem para trocar conteúdo/seção dentro da mesma tela; não abrem modal e não recarregam a aplicação inteira.
+
+## UI Lab
+`src/app/UiLab.tsx` é a referência executável dos componentes. Qualquer novo padrão global aprovado deve aparecer nele antes de ser considerado congelado.
 
 ## Regra de governança
 Botões, Cards, Modais e Tabs são componentes compartilhados obrigatórios. Alterações futuras devem ocorrer no Design System, nunca por cópias ou variantes locais específicas de Financeiro, RH, Engenharia ou outro módulo.
