@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../../../shared/ui/Card';
 import { Tabs } from '../../../shared/ui/Tabs';
+import './engineering.css';
 
 export function EngineeringPage() {
   const [activeTab, setActiveTab] = useState('contratos');
@@ -23,12 +24,18 @@ export function EngineeringPage() {
 
   return (
     <section className="engineering-overview" aria-labelledby="engineering-title">
-      <div className="finance-overview__heading">
+      <div className="engineering-overview__heading">
         <div><span className="ui-muted">Módulo operacional</span><h1 id="engineering-title">Engenharia</h1></div>
         <p className="ui-muted">Contratos, medições, produção, provisórios e aditivos no mesmo padrão de navegação.</p>
       </div>
       <Tabs items={tabs} activeId={activeTab} onChange={setActiveTab} ariaLabel="Seções da engenharia" />
-      <div role="tabpanel"><Card title={title} description={description}><p className="ui-muted">A camada visual está preparada para consumir os casos de uso e relatórios já consolidados no domínio da Engenharia.</p></Card></div>
+      <div className="engineering-workspace" role="tabpanel" tabIndex={0} aria-label={`${title} — área de trabalho rolável`}>
+        <div className="engineering-workspace__canvas">
+          <Card title={title} description={description}>
+            <p className="ui-muted">A camada visual está preparada para consumir os casos de uso e relatórios já consolidados no domínio da Engenharia.</p>
+          </Card>
+        </div>
+      </div>
     </section>
   );
 }
