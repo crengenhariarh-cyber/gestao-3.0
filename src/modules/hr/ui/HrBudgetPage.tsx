@@ -36,10 +36,13 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   const { salaryProjection, monthlyBudget, annualBudget, competenceMonth } = overview.data;
   const plannedSalary = sum(salaryProjection.map((item) => item.plannedSalary));
   const realizedSalary = sum(salaryProjection.map((item) => item.realizedSalary));
-  const monthlyPlanned = sum(monthlyBudget.map((item) => item.plannedTotal));
-  const monthlyRealized = sum(monthlyBudget.map((item) => item.realizedTotal));
-  const annualPlanned = sum(annualBudget.map((item) => item.plannedTotal));
-  const annualRealized = sum(annualBudget.map((item) => item.realizedTotal));
+  const monthlyCompany = monthlyBudget.find((item) => item.costCenterId === null);
+  const annualCompany = annualBudget.find((item) => item.costCenterId === null);
+  const monthlyPlanned = monthlyCompany?.plannedTotal ?? sum(monthlyBudget.map((item) => item.plannedTotal));
+  const monthlyRealized = monthlyCompany?.realizedTotal ?? sum(monthlyBudget.map((item) => item.realizedTotal));
+  const annualPlanned = annualCompany?.plannedTotal ?? sum(annualBudget.map((item) => item.plannedTotal));
+  const annualRealized = annualCompany?.realizedTotal ?? sum(annualBudget.map((item) => item.realizedTotal));
+  const monthlyByCostCenter = monthlyBudget.filter((item) => item.costCenterId !== null);
 
   return (
     <section className="hr-overview" aria-labelledby="hr-title">
@@ -63,7 +66,7 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
               <strong className="hr-kpi">{currency.format(realizedSalary)}</strong>
             </Card>
             <Card title="Vínculos projetados" description="Contratos presentes na competência">
-              <strong className="hr-kpi">{salaryProjection.length}</strong>
+              <strong className="hr-kpi">{new Set(salaryProjection.map((item) => item.employmentContractId)).size}</strong>
             </Card>
           </div>
 
@@ -103,13 +106,13 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
           </div>
 
           <Card title="Orçamento por obra / centro de custo" description="Resumo da competência atual">
-            {monthlyBudget.length === 0 ? (
-              <p className="ui-muted">Nenhum orçamento encontrado para esta competência.</p>
+            {monthlyByCostCenter.length === 0 ? (
+              <p className="ui-muted">Nenhum orçamento por obra/centro de custo encontrado nesta competência.</p>
             ) : (
               <div className="hr-list">
-                {monthlyBudget.map((item, index) => (
-                  <div className="hr-list__row" key={item.costCenterId ?? `geral-${index}`}>
-                    <div><strong>{item.costCenterName ?? 'Geral da empresa'}</strong></div>
+                {monthlyByCostCenter.map((item) => (
+                  <div className="hr-list__row" key={item.costCenterId!}>
+                    <div><strong>{item.costCenterName ?? 'Centro de custo'}</strong></div>
                     <div className="hr-list__values">
                       <span>Prev. {currency.format(item.plannedTotal)}</span>
                       <span>Real. {currency.format(item.realizedTotal)}</span>
