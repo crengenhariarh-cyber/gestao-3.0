@@ -51,7 +51,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/" element={<ModulePlaceholder title="Visão geral" description="Painel principal do Gestão 3.0 no contexto da empresa selecionada."/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
-          <Route path="/engenharia" element={activeCompany ? <EngineeringPage/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
+          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/ui-lab" element={<UiLab/>}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
