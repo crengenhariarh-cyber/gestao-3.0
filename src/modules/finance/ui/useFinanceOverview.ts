@@ -3,6 +3,7 @@ import type { CompanyScope } from '../domain/registries';
 import type { FinanceMonthlySummary } from '../domain/monthly';
 import type { FinancialAccountBalance } from '../domain/accounts';
 import type { CreditCardLimit } from '../domain/cards';
+import type { FinancialEntryListItem } from '../domain/entries';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 
 interface FinanceOverviewData {
@@ -10,6 +11,7 @@ interface FinanceOverviewData {
   summary: readonly FinanceMonthlySummary[];
   accountBalances: readonly FinancialAccountBalance[];
   cardLimits: readonly CreditCardLimit[];
+  entries: readonly FinancialEntryListItem[];
 }
 
 type FinanceOverviewState =
@@ -28,52 +30,31 @@ export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewS
   const repositories = useMemo(() => getFinanceRepositories(), []);
   const tenantId = scope?.tenantId ?? null;
   const companyId = scope?.companyId ?? null;
-  const [state, setState] = useState<FinanceOverviewState>({
-    status: 'idle',
-    data: null,
-    errorMessage: null,
-  });
+  const [state, setState] = useState<FinanceOverviewState>({ status: 'idle', data: null, errorMessage: null });
 
   useEffect(() => {
-    if (!tenantId || !companyId) {
-      setState({ status: 'idle', data: null, errorMessage: null });
-      return;
-    }
-
+    if (!tenantId || !companyId) { setState({ status: 'idle', data: null, errorMessage: null }); return; }
     const activeScope: CompanyScope = { tenantId, companyId };
     let cancelled = false;
     const month = currentMonthStart();
     setState({ status: 'loading', data: null, errorMessage: null });
 
     void Promise.all([
-      repositories.monthly.summarize({
-        ...activeScope,
-        competenceFrom: month,
-        competenceTo: month,
-      }),
+      repositories.monthly.summarize({ ...activeScope, competenceFrom: month, competenceTo: month }),
       repositories.accounts.listBalances(activeScope),
       repositories.cards.listLimits(activeScope),
+      repositories.entries.list(activeScope),
     ])
-      .then(([summary, accountBalances, cardLimits]) => {
+      .then(([summary, accountBalances, cardLimits, entries]) => {
         if (cancelled) return;
-        setState({
-          status: 'ready',
-          data: { month, summary, accountBalances, cardLimits },
-          errorMessage: null,
-        });
+        setState({ status: 'ready', data: { month, summary, accountBalances, cardLimits, entries }, errorMessage: null });
       })
       .catch(() => {
         if (cancelled) return;
-        setState({
-          status: 'error',
-          data: null,
-          errorMessage: 'Não foi possível carregar a visão financeira desta empresa.',
-        });
+        setState({ status: 'error', data: null, errorMessage: 'Não foi possível carregar a visão financeira desta empresa.' });
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [repositories, tenantId, companyId]);
 
   return state;
