@@ -1,7 +1,7 @@
 # Engenharia — Modelo oficial do domínio
 
 ## Status
-Fase 06 | Etapa 06.01/06.10 — concluída | Próxima: 06.02
+Fase 06 | Etapas 06.01 a 06.04 — concluídas | Próxima: 06.05
 
 Este documento congela as fronteiras conceituais do módulo Engenharia antes da criação do schema. O Gestão 2.0 é apenas referência de regras de negócio; nenhum código, tabela, função, trigger ou policy legada é copiado.
 
@@ -24,7 +24,8 @@ O acesso a uma entidade filha nunca pode ampliar o acesso concedido à empresa p
 - Possui número, cliente, datas, status, valor-base e metadados comerciais essenciais.
 - Um contrato possui itens/serviços em `contract_services`.
 - Cada serviço registra descrição, unidade de medida, quantidade contratada, valor unitário e valor contratado calculável com precisão decimal.
-- O saldo contratado é derivado do contratado menos medições válidas; não é um campo livre editável.
+- O valor-base do contrato é derivado automaticamente da soma dos serviços ativos.
+- O saldo contratado será derivado do contratado menos medições válidas; não é um campo livre editável.
 - Alterações que mudem histórico financeiro depois de medição exigem fluxo explícito, nunca sobrescrita silenciosa.
 
 ## 4. Medições
@@ -43,14 +44,16 @@ O acesso a uma entidade filha nunca pode ampliar o acesso concedido à empresa p
 
 ## 6. Aditivos
 - `contract_addenda`: aditivo vinculado a contrato existente.
+- `contract_addendum_lines`: linhas de alteração de quantidade/valor, podendo apontar para serviço já contratado ou representar inclusão.
 - Pode alterar/adicionar serviços, quantidades e valores de forma rastreável.
 - O contrato original não é reescrito para apagar o histórico anterior.
 - Totais consolidados consideram contrato-base + aditivos efetivos.
 
 ## 7. Provisórios
-- `provisional_contracts` e linhas provisórias representam negociação ainda não efetivada.
+- `provisional_contracts` e `provisional_contract_lines` representam negociação ainda não efetivada.
 - Enquanto provisório, serviço, quantidade e valor unitário podem ser editados.
-- Conversão é operação controlada e idempotente para novo contrato ou aditivo de contrato existente.
+- Conversão é operação controlada e atômica para novo contrato ou aditivo de contrato existente.
+- Apenas provisório aprovado pode ser convertido.
 - A conversão preserva origem e cria vínculo entre provisório e destino.
 - Um provisório convertido não pode ser convertido novamente.
 
@@ -90,8 +93,12 @@ Por contrato/obra, o domínio deriva valor contratado base, aditivos efetivos, c
 - Modais são fullscreen em celular e computador, com Voltar e Fechar sempre disponíveis e Salvar fixo quando aplicável.
 - Nenhum componente visual concorrente é criado dentro do módulo.
 
-## 14. Limites da etapa 06.01
-Esta etapa define arquitetura e invariantes. Nenhuma tabela de Engenharia é criada aqui. O schema começa na 06.02.
+## 14. Implementação concluída até 06.04
+- 06.01: modelo conceitual congelado.
+- 06.02/06.03: `works` e `work_structures` implantadas com RLS e hierarquia física flexível.
+- 06.04: contratos, serviços contratuais, provisórios, linhas provisórias, aditivos e linhas de aditivo implantados.
+- `convert_provisional_contract(...)` executa conversão atômica de provisório aprovado para contrato ou aditivo.
+- `sync_engineering_contract_base_value()` mantém o valor-base do contrato derivado dos serviços ativos.
 
 ## Decisões congeladas
 1. Obra é entidade própria e pertence a tenant + empresa.
