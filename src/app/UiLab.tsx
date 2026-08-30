@@ -5,23 +5,44 @@ import { Card } from '../shared/ui/Card';
 import { Dialog } from '../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../shared/ui/Feedback';
 import { Input } from '../shared/ui/Input';
+import { Tabs } from '../shared/ui/Tabs';
+
+const tabItems = [
+  { id: 'overview', label: 'Visão Geral' },
+  { id: 'employees', label: 'Colaboradores', count: 128 },
+  { id: 'closings', label: 'Fechamentos', count: 8 },
+  { id: 'benefits', label: 'Benefícios' },
+  { id: 'reports', label: 'Relatórios', disabled: true },
+];
 
 export function UiLab() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   return (
     <main className="ui-lab">
       <header className="ui-lab__hero">
-        <Badge tone="info">Design System · Fase 3</Badge>
+        <Badge tone="info">Design System · Oficial</Badge>
         <h1>Gestão 3.0 UI Lab</h1>
-        <p>Referência visual e comportamental oficial do sistema.</p>
+        <p>Referência visual e comportamental obrigatória do sistema.</p>
       </header>
 
       <section className="ui-lab__grid">
-        <Card title="Botões" description="Hierarquia única de ações.">
+        <Card title="Botões" description="Variantes e hierarquia únicas de ações.">
           <div className="ui-row">
-            <Button>Salvar</Button><Button variant="secondary">Cancelar</Button><Button variant="danger">Excluir</Button><Button variant="ghost">Mais opções</Button><Button loading>Salvando</Button>
+            <Button>Principal</Button>
+            <Button variant="secondary">Secundário</Button>
+            <Button variant="tertiary">Terciário</Button>
+            <Button variant="success">Sucesso</Button>
+            <Button variant="danger">Excluir</Button>
+            <Button disabled>Desabilitado</Button>
+            <Button loading>Salvando</Button>
           </div>
+        </Card>
+
+        <Card title="Abas" description="Ativa, inativa, contador, desabilitada e rolagem horizontal.">
+          <Tabs items={tabItems} activeId={activeTab} onChange={setActiveTab} ariaLabel="Exemplo de abas" />
+          <p className="ui-muted" style={{ marginTop: 14 }}>Conteúdo ativo: {tabItems.find((item) => item.id === activeTab)?.label}</p>
         </Card>
 
         <Card title="Campos" description="Label, ajuda, erro e estado desabilitado padronizados.">
@@ -44,12 +65,12 @@ export function UiLab() {
           <div className="ui-stack"><LoadingState /><EmptyState title="Nenhum registro encontrado" message="Ajuste os filtros ou cadastre um novo item." /></div>
         </Card>
 
-        <Card title="Modal" description="Cabeçalho, conteúdo e ações padronizados." actions={<Button size="sm" onClick={() => setDialogOpen(true)}>Abrir modal</Button>}>
-          <p className="ui-muted">O mesmo contrato será usado em desktop e mobile.</p>
+        <Card title="Modal fullscreen" description="Voltar e Fechar fixos no topo; Salvar fixo quando necessário." actions={<Button size="sm" onClick={() => setDialogOpen(true)}>Abrir modal</Button>}>
+          <p className="ui-muted">O mesmo contrato é obrigatório em celular, tablet e computador.</p>
         </Card>
       </section>
 
-      <Dialog open={dialogOpen} title="Novo lançamento" description="Exemplo do modal oficial." onClose={() => setDialogOpen(false)} onConfirm={() => setDialogOpen(false)}>
+      <Dialog open={dialogOpen} title="Novo lançamento" description="Exemplo do modal fullscreen oficial." onClose={() => setDialogOpen(false)} onConfirm={() => setDialogOpen(false)}>
         <div className="ui-stack"><Input label="Descrição do lançamento" placeholder="Digite a descrição" /><Input label="Valor do lançamento" placeholder="R$ 0,00" /></div>
       </Dialog>
     </main>
