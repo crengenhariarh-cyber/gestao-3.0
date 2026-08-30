@@ -1,0 +1,18 @@
+begin;
+create index if not exists payroll_closing_snapshots_cost_center_fk_idx on public.payroll_closing_event_snapshots(tenant_id,company_id,cost_center_id) where cost_center_id is not null;
+create index if not exists payroll_closing_snapshots_event_fk_idx on public.payroll_closing_event_snapshots(payroll_event_id);
+create index if not exists payroll_closings_closed_by_idx on public.payroll_closings(closed_by) where closed_by is not null;
+create index if not exists payroll_closings_reopened_by_idx on public.payroll_closings(reopened_by) where reopened_by is not null;
+create index if not exists payroll_events_created_by_idx on public.payroll_events(created_by) where created_by is not null;
+create index if not exists payroll_events_voided_by_idx on public.payroll_events(voided_by) where voided_by is not null;
+create index if not exists payroll_finance_links_closing_idx on public.payroll_finance_links(tenant_id,company_id,payroll_closing_id) where payroll_closing_id is not null;
+create index if not exists payroll_finance_links_entry_idx on public.payroll_finance_links(tenant_id,company_id,financial_entry_id);
+create index if not exists payroll_finance_links_installment_idx on public.payroll_finance_links(tenant_id,company_id,financial_installment_id);
+create index if not exists payroll_finance_links_synced_by_idx on public.payroll_finance_links(synced_by) where synced_by is not null;
+create index if not exists payroll_statutory_calculated_by_idx on public.payroll_statutory_calculations(calculated_by) where calculated_by is not null;
+create index if not exists payroll_finance_salary_category_idx on public.payroll_finance_settings(tenant_id,company_id,salary_category_id) where salary_category_id is not null;
+create index if not exists payroll_finance_fgts_category_idx on public.payroll_finance_settings(tenant_id,company_id,fgts_category_id) where fgts_category_id is not null;
+create index if not exists payroll_finance_inss_category_idx on public.payroll_finance_settings(tenant_id,company_id,inss_category_id) where inss_category_id is not null;
+create index if not exists payroll_finance_irrf_category_idx on public.payroll_finance_settings(tenant_id,company_id,irrf_category_id) where irrf_category_id is not null;
+create index if not exists payroll_finance_settings_updated_by_idx on public.payroll_finance_settings(updated_by) where updated_by is not null;
+commit;
