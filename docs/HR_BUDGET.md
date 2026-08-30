@@ -67,7 +67,7 @@ Arquitetura frontend:
 
 A tela reutiliza `Card`, `Tabs`, `LoadingState` e `EmptyState` compartilhados. As abas `RH` e `Orçamento` trocam conteúdo na mesma tela e seguem o padrão oficial já congelado. O resumo de RH mostra salário previsto, realizado e vínculos projetados; o orçamento mostra planejado, realizado, disponível, detalhamento por obra/centro de custo e consolidado anual.
 
-Os KPIs de orçamento usam a linha consolidada da empresa quando disponível e não somam novamente linhas por centro de custo, evitando dupla contagem visual. O contador de vínculos também considera contratos únicos mesmo quando há rateio por mais de um centro de custo.
+Os KPIs de orçamento usam a linha consolidada da empresa quando disponível e não somam novamente linhas por centro de custo, evitando dupla contagem visual. O contador de vínculos considera contratos únicos mesmo quando há rateio por mais de um centro de custo.
 
 CI funcional final da integração: #199 aprovado em Typecheck + Lint + Test + Build.
 
