@@ -9,155 +9,56 @@ import { Select } from '../shared/ui/Select';
 import { UiLab } from './UiLab';
 
 const navigation = [
-  { to: '/', label: 'Início', end: true },
-  { to: '/financeiro', label: 'Financeiro' },
-  { to: '/rh', label: 'RH' },
-  { to: '/engenharia', label: 'Engenharia' },
-  { to: '/ui-lab', label: 'UI Lab' },
+  { to: '/', label: 'Início', shortLabel: 'Início', icon: '⌂', end: true },
+  { to: '/financeiro', label: 'Financeiro', shortLabel: 'Financeiro', icon: 'R$' },
+  { to: '/rh', label: 'RH', shortLabel: 'RH', icon: 'RH' },
+  { to: '/engenharia', label: 'Engenharia', shortLabel: 'Engenharia', icon: 'E' },
 ] as const;
 
-interface ModulePlaceholderProps {
-  title: string;
-  description: string;
-}
-
+interface ModulePlaceholderProps { title: string; description: string; }
 function ModulePlaceholder({ title, description }: ModulePlaceholderProps) {
-  return (
-    <Card title={title} description={description}>
-      <p className="ui-muted">
-        Fundação pronta. As regras deste módulo serão conectadas por casos de uso e repositórios próprios.
-      </p>
-    </Card>
-  );
+  return <Card title={title} description={description}><p className="ui-muted">Fundação pronta. As regras deste módulo serão conectadas por casos de uso e repositórios próprios.</p></Card>;
 }
 
-export interface AppShellProps {
-  session: PlatformSession;
-}
+export interface AppShellProps { session: PlatformSession; }
 
 export function AppShell({ session }: AppShellProps) {
-  const activeCompany = session.companies.find(
-    (company) => company.id === session.activeCompanyId,
-  );
+  const activeCompany = session.companies.find((company) => company.id === session.activeCompanyId);
 
   if (session.companies.length === 0) {
-    return (
-      <main className="app-page app-page--centered">
-        <EmptyState
-          title="Nenhuma empresa liberada"
-          message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."
-        />
-        <Button variant="secondary" onClick={() => void session.signOut()}>
-          Sair
-        </Button>
-      </main>
-    );
+    return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
   }
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header__top">
-          <div className="app-brand">
-            <strong>Gestão 3.0</strong>
-            <span>{session.user?.email ?? 'Usuário autenticado'}</span>
-          </div>
-
+          <div className="app-brand"><strong>Gestão 3.0</strong><span>{session.user?.email ?? 'Usuário autenticado'}</span></div>
           <div className="app-header__actions">
-            <Select
-              label="Empresa"
-              value={session.activeCompanyId ?? ''}
-              options={session.companies.map((company) => ({
-                value: company.id,
-                label: company.tradeName ?? company.legalName,
-              }))}
-              onChange={(event) => session.selectCompany(event.target.value)}
-            />
-            <Button variant="tertiary" onClick={() => void session.signOut()}>
-              Sair
-            </Button>
+            <Select label="Empresa" value={session.activeCompanyId ?? ''} options={session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }))} onChange={(event) => session.selectCompany(event.target.value)}/>
+            <Button variant="tertiary" onClick={() => void session.signOut()}>Sair</Button>
           </div>
         </div>
-
         <nav className="app-nav" aria-label="Navegação principal">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={'end' in item ? item.end : false}
-              className={({ isActive }) =>
-                `app-nav__link ${isActive ? 'app-nav__link--active' : ''}`.trim()
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navigation.map((item) => <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `app-nav__link ${isActive ? 'app-nav__link--active' : ''}`.trim()}><span className="app-nav__icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span></NavLink>)}
         </nav>
       </header>
 
       <main className="app-page">
-        <div className="app-page__context">
-          <span>Empresa ativa</span>
-          <strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong>
-        </div>
-
+        <div className="app-page__context"><span>Empresa ativa</span><strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <ModulePlaceholder
-                title="Visão geral"
-                description="Shell oficial do Gestão 3.0 conectado ao contexto autorizado."
-              />
-            }
-          />
-          <Route
-            path="/financeiro"
-            element={
-              activeCompany ? (
-                <FinancePage company={activeCompany} />
-              ) : (
-                <EmptyState
-                  title="Selecione uma empresa"
-                  message="O Financeiro precisa de uma empresa ativa autorizada."
-                />
-              )
-            }
-          />
-          <Route
-            path="/rh"
-            element={
-              activeCompany ? (
-                <HrBudgetPage company={activeCompany} />
-              ) : (
-                <EmptyState
-                  title="Selecione uma empresa"
-                  message="RH e Orçamento precisam de uma empresa ativa autorizada."
-                />
-              )
-            }
-          />
-          <Route
-            path="/engenharia"
-            element={
-              <ModulePlaceholder
-                title="Engenharia"
-                description="Contratos, medições, produção, provisórios e aditivos."
-              />
-            }
-          />
-          <Route path="/ui-lab" element={<UiLab />} />
-          <Route
-            path="*"
-            element={
-              <EmptyState
-                title="Página não encontrada"
-                message="A rota informada não existe neste ambiente."
-              />
-            }
-          />
+          <Route path="/" element={<ModulePlaceholder title="Visão geral" description="Painel principal do Gestão 3.0 no contexto da empresa selecionada."/>}/>
+          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
+          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
+          <Route path="/engenharia" element={<ModulePlaceholder title="Engenharia" description="Contratos, medições, produção, provisórios e aditivos."/>}/>
+          <Route path="/ui-lab" element={<UiLab/>}/>
+          <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
       </main>
+
+      <nav className="app-mobile-nav" aria-label="Navegação móvel">
+        {navigation.map((item) => <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `app-mobile-nav__link ${isActive ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon" aria-hidden="true">{item.icon}</span><span>{item.shortLabel}</span></NavLink>)}
+      </nav>
     </div>
   );
 }
