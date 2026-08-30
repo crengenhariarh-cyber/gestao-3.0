@@ -38,18 +38,18 @@ export function Tabs({ items, activeId, onChange, compact = false, ariaLabel = '
     if (enabledIndexes.length === 0) return;
 
     if (event.key === 'Home') {
-      activateByIndex(enabledIndexes[0]);
+      activateByIndex(enabledIndexes[0]!);
       return;
     }
     if (event.key === 'End') {
-      activateByIndex(enabledIndexes[enabledIndexes.length - 1]);
+      activateByIndex(enabledIndexes[enabledIndexes.length - 1]!);
       return;
     }
 
     const position = enabledIndexes.indexOf(currentIndex);
     const offset = event.key === 'ArrowRight' ? 1 : -1;
     const nextPosition = (position + offset + enabledIndexes.length) % enabledIndexes.length;
-    activateByIndex(enabledIndexes[nextPosition]);
+    activateByIndex(enabledIndexes[nextPosition]!);
   }
 
   return (
