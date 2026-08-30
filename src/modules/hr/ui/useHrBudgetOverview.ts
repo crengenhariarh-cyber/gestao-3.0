@@ -7,11 +7,13 @@ type HrBudgetOverviewState =
   | { status: 'ready'; data: HrBudgetOverview; errorMessage: null }
   | { status: 'error'; data: null; errorMessage: string };
 
+const BUDGET_PROJECTION_START = '2026-09-01';
+
 function currentCompetence(): { month: string; year: number } {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return { month: `${year}-${month}-01`, year };
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const month = currentMonth < BUDGET_PROJECTION_START ? BUDGET_PROJECTION_START : currentMonth;
+  return { month, year: Number(month.slice(0, 4)) };
 }
 
 export function useHrBudgetOverview(scope: { tenantId: string; companyId: string } | null): HrBudgetOverviewState {

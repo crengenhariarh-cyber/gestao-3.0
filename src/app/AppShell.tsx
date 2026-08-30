@@ -1,10 +1,10 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
+import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
-import { Card } from '../shared/ui/Card';
 import { EmptyState } from '../shared/ui/Feedback';
 import { Select } from '../shared/ui/Select';
 import { UiLab } from './UiLab';
@@ -15,11 +15,6 @@ const navigation = [
   { to: '/rh', label: 'RH', shortLabel: 'RH', icon: 'RH' },
   { to: '/engenharia', label: 'Engenharia', shortLabel: 'Engenharia', icon: 'E' },
 ] as const;
-
-interface ModulePlaceholderProps { title: string; description: string; }
-function ModulePlaceholder({ title, description }: ModulePlaceholderProps) {
-  return <Card title={title} description={description}><p className="ui-muted">Fundação pronta. As regras deste módulo serão conectadas por casos de uso e repositórios próprios.</p></Card>;
-}
 
 export interface AppShellProps { session: PlatformSession; }
 
@@ -48,7 +43,7 @@ export function AppShell({ session }: AppShellProps) {
       <main className="app-page">
         <div className="app-page__context"><span>Empresa ativa</span><strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
-          <Route path="/" element={<ModulePlaceholder title="Visão geral" description="Painel principal do Gestão 3.0 no contexto da empresa selecionada."/>}/>
+          <Route path="/" element={activeCompany ? <HomePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A visão geral precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
