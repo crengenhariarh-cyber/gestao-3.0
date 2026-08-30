@@ -1,0 +1,9 @@
+-- 07.06 Projected cash flow consolidation.
+-- Applied to Supabase as projected_cash_flow.
+-- security-invoker projected_cash_flow consolidates by tenant/company/month:
+--   actual bank inflows/outflows from settlements;
+--   remaining open receivables/payables;
+--   future Engineering projections only when no measurement-originated financial entry exists for the same contract/month;
+--   budget expense projections only when no matching expense financial entry exists for the same scope/month.
+-- This prevents projected values from being counted again after they become real financial titles.
+-- projected_net_flow combines all six components while preserving company isolation.
