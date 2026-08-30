@@ -10,6 +10,10 @@
 - UI nunca acessa Supabase diretamente; usa repositórios/casos de uso.
 - Componentes visuais reutilizam exclusivamente o Design System compartilhado.
 
+## Status da Fase 5
+
+Fase 5 — RH + Orçamento concluída em 5.1–5.11. A próxima fase funcional é a Fase 6 — Engenharia.
+
 ## Modelo
 
 O domínio RH/orçamento é composto por `employees`, `employment_contracts`, `employee_allocations`, `compensation_terms`, `payroll_events`, `payroll_closings`, snapshots de fechamento, cálculos estatutários, vínculos financeiros e planejamento orçamentário.
@@ -65,6 +69,6 @@ A tela reutiliza `Card`, `Tabs`, `LoadingState` e `EmptyState` compartilhados. A
 
 Os KPIs de orçamento usam a linha consolidada da empresa quando disponível e não somam novamente linhas por centro de custo, evitando dupla contagem visual. O contador de vínculos também considera contratos únicos mesmo quando há rateio por mais de um centro de custo.
 
-CI final da etapa: #199 aprovado em Typecheck + Lint + Test + Build.
+CI funcional final da integração: #199 aprovado em Typecheck + Lint + Test + Build.
 
-Nenhum deploy, preview público ou ambiente de homologação foi criado nesta etapa.
+Nenhum deploy, preview público ou ambiente de homologação foi criado nesta fase.
