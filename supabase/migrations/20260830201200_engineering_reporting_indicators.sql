@@ -1,0 +1,7 @@
+-- 06.09 Engineering reports and indicators.
+-- Applied to Supabase as engineering_reporting_indicators.
+-- Adds security-invoker reporting views:
+-- engineering_contract_financial_summary: original contract, effective addenda, updated contract, measured gross/net, retentions, balance and measured percentage.
+-- engineering_work_dashboard: consolidated financial indicators per work plus employee production quantity/value.
+-- engineering_measurement_monthly_report: measurement competence/status with gross, retained and net amounts.
+-- Production remains an independent operational indicator and is not treated as client measurement.
