@@ -72,7 +72,7 @@ export function AppShell({ session }: AppShellProps) {
               }))}
               onChange={(event) => session.selectCompany(event.target.value)}
             />
-            <Button variant="ghost" onClick={() => void session.signOut()}>
+            <Button variant="tertiary" onClick={() => void session.signOut()}>
               Sair
             </Button>
           </div>
