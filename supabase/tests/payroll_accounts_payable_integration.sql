@@ -35,7 +35,6 @@ insert into public.payroll_statutory_calculations(
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','19000000-0000-0000-0000-000000000001',true);
-
 select public.configure_payroll_finance(
   '29000000-0000-0000-0000-000000000001','39000000-0000-0000-0000-000000000001',
   '49000000-0000-0000-0000-000000000001','49000000-0000-0000-0000-000000000002',
@@ -74,31 +73,22 @@ select * from public.sync_payroll_accounts_payable(
   '29000000-0000-0000-0000-000000000001','39000000-0000-0000-0000-000000000001','2026-09-01',
   '2026-10-05','2026-10-20','2026-10-20','2026-10-20'
 );
-
 reset role;
 
 do $$
-declare
-  e integer; l integer; s numeric; f numeric; i numeric; r numeric;
+declare e integer; l integer; s numeric; f numeric; i numeric; r numeric;
 begin
   select count(*) into e from public.financial_entries where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   select count(*) into l from public.payroll_finance_links where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   if e<>5 or l<>5 then raise exception 'expected 5 idempotent payables/links, entries %, links %',e,l; end if;
-
-  select sum(generated_amount) filter(where source_kind='net_salary'),
-         sum(generated_amount) filter(where source_kind='fgts'),
-         sum(generated_amount) filter(where source_kind='inss_employee'),
-         sum(generated_amount) filter(where source_kind='irrf')
-    into s,f,i,r
-  from public.payroll_finance_links
-  where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
-
+  select sum(generated_amount) filter(where source_kind='net_salary'),sum(generated_amount) filter(where source_kind='fgts'),sum(generated_amount) filter(where source_kind='inss_employee'),sum(generated_amount) filter(where source_kind='irrf') into s,f,i,r
+  from public.payroll_finance_links where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   if s<>3550.00 then raise exception 'salary total expected 3550, got %',s; end if;
   if f<>312.00 then raise exception 'FGTS consolidated expected 312, got %',f; end if;
   if i<>190.00 then raise exception 'INSS employee consolidated expected 190, got %',i; end if;
   if r<>60.00 then raise exception 'IRRF consolidated expected 60, got %',r; end if;
-
   if (select count(*) from public.payroll_finance_links where source_kind='fgts')<>1 then raise exception 'FGTS must be one company/competence payable'; end if;
+  if exists(select 1 from public.financial_installments where tenant_id='29000000-0000-0000-0000-000000000001' and competence_month<>'2026-09-01') then raise exception 'payroll installment competence mismatch'; end if;
 end $$;
 
 rollback;
