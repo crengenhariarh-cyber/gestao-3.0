@@ -1,0 +1,8 @@
+-- 06.07 Engineering measurement retentions and financial totals.
+-- Applied to Supabase as engineering_measurement_retentions.
+-- Adds measurement_retentions supporting INSS, ISS, RT and other retentions.
+-- Supports percentage and fixed-value retention calculations.
+-- Percentage retentions are recalculated automatically when measurement lines change.
+-- Retentions are editable only while the measurement is draft and become locked after closing.
+-- Adds security-invoker view measurement_financial_summary with gross, retained and net values.
+-- RLS is enabled and company access is enforced through app_private.can_access_company.
