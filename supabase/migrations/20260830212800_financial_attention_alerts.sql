@@ -1,0 +1,8 @@
+-- 07.08 Automatic financial attention alerts.
+-- Applied to Supabase as financial_attention_alerts.
+-- security-invoker financial_attention_alerts surfaces actionable conditions without duplicating transactional data:
+--   overdue/partially overdue Engineering receivables with severity based on days late;
+--   negative monthly projected cash flow;
+--   high receivables delinquency by work (>=20%, critical >=50%).
+-- financial_attention_summary consolidates alert counts, severity, overdue receivables and projected cash deficit by tenant/company.
+-- Alert values are derived live from financial/engineering state and disappear automatically when the underlying condition is resolved.
