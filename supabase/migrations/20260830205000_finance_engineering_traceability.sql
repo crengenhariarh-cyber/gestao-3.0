@@ -1,0 +1,7 @@
+-- 07.03 Full Engineering <-> Finance traceability.
+-- Applied to Supabase as finance_engineering_traceability.
+-- Adds work_id, engineering_contract_id and measurement_id to financial_entries with company-scoped FKs.
+-- Existing measurement-generated financial entries are backfilled from measurement_finance_links.
+-- A partial unique index on measurement_id prevents a measurement from originating multiple financial entries.
+-- generate_measurement_receivable now persists work, contract and measurement IDs directly in the financial entry.
+-- Adds security-invoker finance_engineering_traceability view linking financial entry -> installment -> settlements -> measurement -> contract -> work.
