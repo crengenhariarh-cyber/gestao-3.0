@@ -1,0 +1,4 @@
+-- Phase 11 - Dashboard, Reports and Master - 25% foundation
+-- Full executable definitions are applied in Supabase migration phase11_dashboard_master_foundation.
+-- Consolidates Finance, HR, Engineering and Budget into master_company_dashboard,
+-- master_company_monthly_dashboard and master_attention_queue using security_invoker views.
