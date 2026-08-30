@@ -1,0 +1,10 @@
+-- 07.02 Measurement receivable -> bank settlement integration.
+-- Applied to Supabase as engineering_measurement_bank_receipt.
+-- receive_measurement(measurement_id, account_id, received_on, amount):
+--   * requires the measurement receivable generated in 07.01;
+--   * validates the selected active account belongs to the same tenant/company;
+--   * writes directly to the existing financial_settlements ledger (no duplicate income entry);
+--   * supports full and partial receipts;
+--   * blocks amounts above the outstanding receivable;
+--   * creates an idempotency key for each settlement.
+-- Adds security-invoker measurement_receipt_status with pending/partial/paid and remaining balance.
