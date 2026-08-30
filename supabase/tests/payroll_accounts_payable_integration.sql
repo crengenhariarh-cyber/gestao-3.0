@@ -55,8 +55,7 @@ begin
   select count(*) into e from public.financial_entries where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   select count(*) into l from public.payroll_finance_links where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   if e<>5 or l<>5 then raise exception 'expected 5 idempotent payables/links, entries %, links %',e,l; end if;
-  select sum(generated_amount) filter(where source_kind='net_salary'),sum(generated_amount) filter(where source_kind='fgts'),sum(generated_amount) filter(where source_kind='inss_employee'),sum(generated_amount) filter(where source_kind='irrf') into s,f,i,r
-  from public.payroll_finance_links where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
+  select sum(generated_amount) filter(where source_kind='net_salary'),sum(generated_amount) filter(where source_kind='fgts'),sum(generated_amount) filter(where source_kind='inss_employee'),sum(generated_amount) filter(where source_kind='irrf') into s,f,i,r from public.payroll_finance_links where tenant_id='29000000-0000-0000-0000-000000000001' and company_id='39000000-0000-0000-0000-000000000001';
   if s<>3550.00 then raise exception 'salary total expected 3550, got %',s; end if;
   if f<>312.00 then raise exception 'FGTS consolidated expected 312, got %',f; end if;
   if i<>190.00 then raise exception 'INSS employee consolidated expected 190, got %',i; end if;
