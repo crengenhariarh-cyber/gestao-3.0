@@ -71,4 +71,4 @@ Os KPIs de orçamento usam a linha consolidada da empresa quando disponível e n
 
 CI funcional final da integração: #199 aprovado em Typecheck + Lint + Test + Build.
 
-Nenhum deploy, preview público ou ambiente de homologação foi criado nesta fase.
+Nenhum deploy, preview público ou ambiente de homologação foi criado nesta fase. A Fase 3.8 continua bloqueada até autorização explícita para publicação.
