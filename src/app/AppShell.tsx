@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
+import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
 import { Card } from '../shared/ui/Card';
@@ -126,10 +127,14 @@ export function AppShell({ session }: AppShellProps) {
           <Route
             path="/rh"
             element={
-              <ModulePlaceholder
-                title="RH"
-                description="Colaboradores, fechamento e incidências trabalhistas por empresa."
-              />
+              activeCompany ? (
+                <HrBudgetPage company={activeCompany} />
+              ) : (
+                <EmptyState
+                  title="Selecione uma empresa"
+                  message="RH e Orçamento precisam de uma empresa ativa autorizada."
+                />
+              )
             }
           />
           <Route
