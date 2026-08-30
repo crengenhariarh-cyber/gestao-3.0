@@ -1,17 +1,16 @@
 begin;
 
--- Fase 5.10: regressão integrada RH -> fechamento -> incidências ->
+-- Fase 5.10 — regressão integrada RH -> fechamento -> incidências ->
 -- INSS/IRRF/FGTS -> Contas a Pagar -> Previsto x Realizado -> RLS.
--- Cenário matemático validado em banco real com rollback:
+-- Cenário real validado separadamente dentro de transação com rollback:
 -- salário 2300 + HE 200 - falta 100 - DSR 50 - adiantamento 300
 -- fechamento: bruto 2500; líquido antes de encargos 2050
 -- base INSS/FGTS: 2350; INSS 187.19; FGTS 188.00; IRRF 0
 -- salário líquido a pagar: 1862.81
--- orçamento setembro: manual 1000 + salário previsto 2300 = 3300;
--- realizado: despesa não-folha 400 + folha bruta fechada 2500 = 2900;
--- saldo/variância: 400.
+-- orçamento setembro: manual 1000 + salário previsto 2300 = 3300
+-- realizado: despesa não-folha 400 + folha bruta fechada 2500 = 2900
+-- variância: 400; folha financeira não é contada novamente no orçamento.
 
--- Invariantes estruturais que não podem regredir.
 do $$
 begin
   if not exists (
