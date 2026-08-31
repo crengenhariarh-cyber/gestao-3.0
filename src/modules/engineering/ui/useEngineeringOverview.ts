@@ -7,7 +7,7 @@ export type EngineeringOverviewState =
   | { status:'ready'; data:EngineeringOverview; errorMessage:null }
   | { status:'error'; data:null; errorMessage:string };
 
-export function useEngineeringOverview(scope:{tenantId:string;companyId:string}|null):EngineeringOverviewState {
+export function useEngineeringOverview(scope:{tenantId:string;companyId:string}|null, refreshToken = 0):EngineeringOverviewState {
   const repository = useMemo(()=>getEngineeringOverviewRepository(),[]);
   const [state,setState] = useState<EngineeringOverviewState>({status:'idle',data:null,errorMessage:null});
   const tenantId=scope?.tenantId ?? null;
@@ -23,7 +23,7 @@ export function useEngineeringOverview(scope:{tenantId:string;companyId:string}|
       if(!cancelled) setState({status:'error',data:null,errorMessage:'Não foi possível carregar a Engenharia desta empresa.'});
     });
     return ()=>{cancelled=true;};
-  },[repository,tenantId,companyId]);
+  },[repository,tenantId,companyId,refreshToken]);
 
   return state;
 }
