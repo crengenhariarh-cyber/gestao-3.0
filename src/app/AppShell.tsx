@@ -43,7 +43,7 @@ export function AppShell({ session }: AppShellProps) {
   ];
   const selectedCompanies = allCompaniesSelected ? session.companies : activeCompany ? [activeCompany] : [];
 
-  const requiresSpecificCompany = <EmptyState title="Selecione uma empresa" message="O Financeiro operacional exige uma empresa específica. A opção Todas as empresas permanece disponível nas visões consolidadas."/>;
+  const allCompaniesFinance = <div>{session.companies.map((company) => <section key={company.id} aria-label={`Financeiro ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesRh = <div>{session.companies.map((company) => <section key={company.id} aria-label={`RH ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
   const allCompaniesEngineering = <div>{session.companies.map((company) => <section key={company.id} aria-label={`Engenharia ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
@@ -71,7 +71,7 @@ export function AppShell({ session }: AppShellProps) {
         <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
           <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
-          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : requiresSpecificCompany}/>
+          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : allCompaniesFinance}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
