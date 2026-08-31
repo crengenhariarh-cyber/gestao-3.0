@@ -110,7 +110,7 @@ export function useHomeOverview(companies: readonly CompanySummary[], refreshTok
           bankBalance += balances.filter((item) => item.status === 'active').reduce((total, item) => total + item.currentBalance, 0);
           movements
             .filter((item) => activeAccountIds.has(item.accountId))
-            .forEach((item) => balanceMovements.push({ movementOn: item.movementOn, signedAmount: item.direction === 'credit' ? item.amount : -item.amount }));
+            .forEach((item) => balanceMovements.push({ movementOn: item.movementOn, signedAmount: item.direction === 'inflow' ? item.amount : -item.amount }));
           summary.forEach((item) => {
             if (item.entryType === 'income') { incomePlanned += item.plannedAmount; incomeRealized += item.realizedAmount; }
             else { expensePlanned += item.plannedAmount; expenseRealized += item.realizedAmount; }
