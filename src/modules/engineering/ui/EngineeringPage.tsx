@@ -4,6 +4,7 @@ import type { EngineeringOverview } from '../domain/overview';
 import { Card } from '../../../shared/ui/Card';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
 import { Tabs } from '../../../shared/ui/Tabs';
+import { EngineeringAddendumMaintenance } from './EngineeringAddendumMaintenance';
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
 import { EngineeringProvisionalMaintenance } from './EngineeringProvisionalMaintenance';
 import { useEngineeringOverview } from './useEngineeringOverview';
@@ -26,12 +27,13 @@ export function EngineeringPage({company}:EngineeringPageProps){
   if(overview.status!=='ready')return <EmptyState title="Engenharia indisponível" message="Não foi possível carregar os dados da Engenharia."/>;
   const data:EngineeringOverview=overview.data;
   const empty=<p className="ui-muted">Nenhum registro nesta empresa.</p>;
-  const changed=()=>setRefreshToken(value=>value+1);
+  const refresh=()=>setRefreshToken(value=>value+1);
   return <section className="engineering-overview" aria-labelledby="engineering-title">
     <div className="engineering-overview__heading"><div><span className="ui-muted">Módulo operacional</span><h1 id="engineering-title">Engenharia</h1></div><p className="ui-muted">Contratos, medições, produção, provisórios e aditivos integrados à empresa selecionada.</p></div>
     <Tabs items={tabs} activeId={activeTab} onChange={id=>setActiveTab(id as TabId)} ariaLabel="Seções da engenharia"/>
-    <EngineeringOperationsPanel activeTab={activeTab} scope={scope} onChanged={changed}/>
-    {activeTab==='provisorios'&&<EngineeringProvisionalMaintenance scope={scope} onChanged={changed}/>} 
+    <EngineeringOperationsPanel activeTab={activeTab} scope={scope} onChanged={refresh}/>
+    {activeTab==='aditivos'&&<EngineeringAddendumMaintenance addenda={data.addenda} onChanged={refresh}/>} 
+    {activeTab==='provisorios'&&<EngineeringProvisionalMaintenance scope={scope} onChanged={refresh}/>} 
     <div className="engineering-workspace" role="tabpanel" tabIndex={0}><div className="engineering-workspace__canvas">
       {activeTab==='contratos'&&<Card title="Contratos" description="Valor atualizado, medido e saldo">{data.contracts.length===0?empty:<div className="engineering-data-list">{data.contracts.map(item=><div className="engineering-data-row" key={item.contractId}><div><strong>{item.contractNumber}</strong><span>{item.status}</span></div><div><span>{currency.format(item.updatedContractValue)}</span><span>Medido {currency.format(item.measuredNet)} · {item.measuredPercent.toFixed(2)}%</span><span>Saldo {currency.format(item.grossBalance)}</span></div></div>)}</div>}</Card>}
       {activeTab==='medicoes'&&<Card title="Medições" description="Competência, retenções e valor líquido">{data.measurements.length===0?empty:<div className="engineering-data-list">{data.measurements.map(item=><div className="engineering-data-row" key={item.measurementId}><div><strong>{item.competence}</strong><span>{item.status}</span></div><div><span>Bruto {currency.format(item.grossAmount)}</span><span>Retido {currency.format(item.retainedAmount)}</span><span>Líquido {currency.format(item.netAmount)}</span></div></div>)}</div>}</Card>}
