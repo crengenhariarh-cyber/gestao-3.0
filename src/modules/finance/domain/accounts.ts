@@ -10,6 +10,17 @@ export interface FinancialAccountBalance extends CompanyScope {
   currentBalance: number;
 }
 
+export interface FinancialAccountMovement extends CompanyScope {
+  id: string;
+  accountId: string;
+  movementOn: string;
+  direction: 'credit' | 'debit';
+  amount: number;
+  sourceType: string;
+  sourceId: string;
+  description: string | null;
+}
+
 export interface FinancialTransfer extends CompanyScope {
   id: string;
   fromAccountId: string;
