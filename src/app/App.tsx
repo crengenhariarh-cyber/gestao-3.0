@@ -23,7 +23,9 @@ export function App() {
       <LoginPage
         loading={false}
         errorMessage={session.errorMessage}
+        noticeMessage={session.noticeMessage}
         onSignIn={session.signIn}
+        onBootstrapFirstOwner={session.bootstrapFirstOwner}
       />
     );
   }
