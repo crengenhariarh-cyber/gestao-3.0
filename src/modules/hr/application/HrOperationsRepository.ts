@@ -1,5 +1,7 @@
 export interface CompanyScope { tenantId: string; companyId: string; }
 
+export interface HrReferenceItem { id: string; name: string; status: 'active' | 'inactive'; }
+
 export interface HrEmployeeRow {
   employeeId: string;
   employmentContractId: string;
@@ -55,6 +57,8 @@ export interface HrOperationalSnapshot {
   payrollEvents: readonly PayrollEventRow[];
   payrollClosings: readonly PayrollClosingRow[];
   budgetLimits: readonly BudgetLimitRow[];
+  costCenters: readonly HrReferenceItem[];
+  categories: readonly HrReferenceItem[];
 }
 
 export interface CreateEmployeeBundleInput extends CompanyScope {
