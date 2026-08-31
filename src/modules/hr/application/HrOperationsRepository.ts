@@ -98,9 +98,12 @@ export interface UpsertBudgetLimitInput extends UpsertBudgetInput {
 export interface HrOperationsRepository {
   getSnapshot(scope: CompanyScope, competenceMonth: string): Promise<HrOperationalSnapshot>;
   createEmployeeBundle(input: CreateEmployeeBundleInput): Promise<void>;
+  updateEmployeeProfile(scope: CompanyScope, employmentContractId: string, fullName: string, jobTitle: string): Promise<void>;
   changeSalary(scope: CompanyScope, employmentContractId: string, effectiveFrom: string, baseSalary: number): Promise<void>;
+  changeAllocation(scope: CompanyScope, employmentContractId: string, effectiveFrom: string, costCenterId: string, allocationPercent: number): Promise<void>;
   terminateContract(scope: CompanyScope, employmentContractId: string, terminatedOn: string): Promise<void>;
   recordPayrollEvent(input: RecordPayrollEventInput): Promise<void>;
+  voidPayrollEvent(scope: CompanyScope, payrollEventId: string, reason: string): Promise<void>;
   closePayroll(scope: CompanyScope, employmentContractId: string, competenceMonth: string, idempotencyKey: string): Promise<void>;
   calculateStatutory(scope: CompanyScope, payrollClosingId: string, dependents: number, otherLegalDeductions: number): Promise<void>;
   reopenPayroll(scope: CompanyScope, payrollClosingId: string, reason: string): Promise<void>;
