@@ -87,7 +87,7 @@ export function AppShell({ session }: AppShellProps) {
         open={centralMenuOpen}
         onClose={() => setCentralMenuOpen(false)}
         onNavigate={(to) => navigate(to)}
-        onSignOut={() => void session.signOut()}
+        onSignOut={() => { void session.signOut(); }}
       />
     </div>
   );
