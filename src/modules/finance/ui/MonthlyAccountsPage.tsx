@@ -49,10 +49,11 @@ export function MonthlyAccountsPage({ company }: MonthlyAccountsPageProps) {
   if (overview.status === 'error') return <EmptyState title="Contas do mês indisponíveis" message={overview.errorMessage} />;
   if (!overview.data) return <LoadingState label="Carregando contas do mês…" />;
 
+  const data = overview.data;
   const balanceByInstallment = new Map((references?.installmentBalances ?? []).map((item) => [item.installmentId, item]));
   const rangeStart = startDate <= endDate ? startDate : endDate;
   const rangeEnd = startDate <= endDate ? endDate : startDate;
-  const periodEntries = overview.data.entries.filter((item) => item.dueDate >= rangeStart && item.dueDate <= rangeEnd);
+  const periodEntries = data.entries.filter((item) => item.dueDate >= rangeStart && item.dueDate <= rangeEnd);
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR');
   const visibleEntries = periodEntries.filter((item) => {
     const balance = balanceByInstallment.get(item.installmentId);
@@ -98,7 +99,7 @@ export function MonthlyAccountsPage({ company }: MonthlyAccountsPageProps) {
   }
 
   function openEdit(entryId: string) {
-    const installments = overview.data.entries.filter((item) => item.entryId === entryId).sort((a, b) => a.installmentNumber - b.installmentNumber);
+    const installments = data.entries.filter((item) => item.entryId === entryId).sort((a, b) => a.installmentNumber - b.installmentNumber);
     const first = installments[0];
     if (!first) return;
     setEditForm({
