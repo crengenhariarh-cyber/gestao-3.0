@@ -44,7 +44,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     const [contractsResult, compensationResult, allocationResult, eventResult, closingResult, statutoryResult, limitsResult, costCentersResult, categoriesResult] = await Promise.all([
       this.client.from('employment_contracts').select('id,employee_id,hired_on,terminated_on,job_title,status,employees!inner(id,full_name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('hired_on', { ascending: false }).returns<ContractRow[]>(),
       this.client.from('compensation_terms').select('employment_contract_id,valid_from,valid_to,base_salary').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).lte('valid_from', competence).or(`valid_to.is.null,valid_to.gte.${competence}`).order('valid_from', { ascending: false }).returns<CompensationRow[]>(),
-      this.client.from('employee_allocations').select('employment_contract_id,cost_center_id,valid_from,valid_to,allocation_percent,cost_centers!inner(id,name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).lte('valid_from', competence).or(`valid_to.is.null,valid_to.gte.${competence}`).returns<AllocationRow[]>(),
+      this.client.from('employee_allocations').select('employment_contract_id,cost_center_id,valid_from,valid_to,allocation_percent,cost_centers!inner(id,name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).lte('valid_from', competence).or(`valid_to.is.null,valid_to.gte.${competence}`).order('valid_from', { ascending: false }).returns<AllocationRow[]>(),
       this.client.from('payroll_events').select('id,employment_contract_id,competence_month,event_kind,amount,description,status,employment_contracts!inner(employees!inner(full_name))').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence).order('created_at', { ascending: false }).returns<EventRow[]>(),
       this.client.from('payroll_closings').select('id,employment_contract_id,competence_month,gross_snapshot,net_before_statutory_snapshot,status,employment_contracts!inner(employees!inner(full_name))').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence).order('closed_at', { ascending: false }).returns<ClosingRow[]>(),
       this.client.from('payroll_statutory_calculations').select('payroll_closing_id,inss_amount,irrf_amount,fgts_amount').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence).returns<StatutoryRow[]>(),
@@ -103,13 +103,22 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     const result = await this.client.rpc('create_hr_employee_bundle', { p_tenant_id: input.tenantId, p_company_id: input.companyId, p_full_name: required(input.fullName, 'fullName'), p_hired_on: required(input.hiredOn, 'hiredOn'), p_job_title: required(input.jobTitle, 'jobTitle'), p_base_salary: input.baseSalary, p_cost_center_id: input.costCenterId ?? null, p_allocation_percent: input.allocationPercent ?? 100 });
     if (result.error) throw result.error;
   }
+  async updateEmployeeProfile(scope: CompanyScope, employmentContractId: string, fullName: string, jobTitle: string): Promise<void> {
+    const result = await this.client.rpc('update_hr_employee_profile', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: required(employmentContractId, 'employmentContractId'), p_full_name: required(fullName, 'fullName'), p_job_title: required(jobTitle, 'jobTitle') });
+    if (result.error) throw result.error;
+  }
   async changeSalary(scope: CompanyScope, employmentContractId: string, effectiveFrom: string, baseSalary: number): Promise<void> {
     amount(baseSalary, 'baseSalary', true);
-    const result = await this.client.rpc('change_employee_salary', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: employmentContractId, p_effective_from: effectiveFrom, p_base_salary: baseSalary });
+    const result = await this.client.rpc('change_employee_salary', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: required(employmentContractId, 'employmentContractId'), p_effective_from: required(effectiveFrom, 'effectiveFrom'), p_base_salary: baseSalary });
+    if (result.error) throw result.error;
+  }
+  async changeAllocation(scope: CompanyScope, employmentContractId: string, effectiveFrom: string, costCenterId: string, allocationPercent: number): Promise<void> {
+    if (!Number.isFinite(allocationPercent) || allocationPercent <= 0 || allocationPercent > 100) throw new Error('allocationPercent has an invalid value');
+    const result = await this.client.rpc('change_employee_allocation', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: required(employmentContractId, 'employmentContractId'), p_effective_from: required(effectiveFrom, 'effectiveFrom'), p_cost_center_id: required(costCenterId, 'costCenterId'), p_allocation_percent: allocationPercent });
     if (result.error) throw result.error;
   }
   async terminateContract(scope: CompanyScope, employmentContractId: string, terminatedOn: string): Promise<void> {
-    const result = await this.client.rpc('terminate_employment_contract', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: employmentContractId, p_terminated_on: terminatedOn });
+    const result = await this.client.rpc('terminate_employment_contract', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: required(employmentContractId, 'employmentContractId'), p_terminated_on: required(terminatedOn, 'terminatedOn') });
     if (result.error) throw result.error;
   }
   async recordPayrollEvent(input: RecordPayrollEventInput): Promise<void> {
@@ -117,16 +126,20 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     const result = await this.client.rpc('record_payroll_event', { p_tenant_id: input.tenantId, p_company_id: input.companyId, p_employment_contract_id: input.employmentContractId, p_cost_center_id: input.costCenterId ?? null, p_competence_month: month(input.competenceMonth), p_occurred_on: input.occurredOn ?? null, p_event_kind: input.eventKind, p_quantity: input.quantity ?? null, p_unit_value: input.unitValue ?? null, p_amount: input.amount, p_description: input.description ?? null, p_idempotency_key: required(input.idempotencyKey, 'idempotencyKey') });
     if (result.error) throw result.error;
   }
+  async voidPayrollEvent(scope: CompanyScope, payrollEventId: string, reason: string): Promise<void> {
+    const result = await this.client.rpc('void_payroll_event', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_event_id: required(payrollEventId, 'payrollEventId'), p_reason: required(reason, 'reason') });
+    if (result.error) throw result.error;
+  }
   async closePayroll(scope: CompanyScope, employmentContractId: string, competenceMonth: string, idempotencyKey: string): Promise<void> {
-    const result = await this.client.rpc('close_payroll', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: employmentContractId, p_competence_month: month(competenceMonth), p_idempotency_key: idempotencyKey });
+    const result = await this.client.rpc('close_payroll', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_employment_contract_id: required(employmentContractId, 'employmentContractId'), p_competence_month: month(competenceMonth), p_idempotency_key: required(idempotencyKey, 'idempotencyKey') });
     if (result.error) throw result.error;
   }
   async calculateStatutory(scope: CompanyScope, payrollClosingId: string, dependents: number, otherLegalDeductions: number): Promise<void> {
-    const result = await this.client.rpc('calculate_payroll_statutory', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_closing_id: payrollClosingId, p_dependents: dependents, p_other_legal_deductions: otherLegalDeductions });
+    const result = await this.client.rpc('calculate_payroll_statutory', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_closing_id: required(payrollClosingId, 'payrollClosingId'), p_dependents: dependents, p_other_legal_deductions: otherLegalDeductions });
     if (result.error) throw result.error;
   }
   async reopenPayroll(scope: CompanyScope, payrollClosingId: string, reason: string): Promise<void> {
-    const result = await this.client.rpc('reopen_payroll', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_closing_id: payrollClosingId, p_reason: required(reason, 'reason') });
+    const result = await this.client.rpc('reopen_payroll', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_closing_id: required(payrollClosingId, 'payrollClosingId'), p_reason: required(reason, 'reason') });
     if (result.error) throw result.error;
   }
   async configurePayrollFinance(scope: CompanyScope, salaryCategoryId: string, fgtsCategoryId: string, inssCategoryId: string, irrfCategoryId: string): Promise<void> {
@@ -134,7 +147,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     if (result.error) throw result.error;
   }
   async syncPayrollPayables(scope: CompanyScope, competenceMonth: string, salaryDueDate: string, fgtsDueDate: string, inssDueDate: string, irrfDueDate: string): Promise<void> {
-    const result = await this.client.rpc('sync_payroll_accounts_payable', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_competence_month: month(competenceMonth), p_salary_due_date: salaryDueDate, p_fgts_due_date: fgtsDueDate, p_inss_due_date: inssDueDate, p_irrf_due_date: irrfDueDate });
+    const result = await this.client.rpc('sync_payroll_accounts_payable', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_competence_month: month(competenceMonth), p_salary_due_date: required(salaryDueDate, 'salaryDueDate'), p_fgts_due_date: required(fgtsDueDate, 'fgtsDueDate'), p_inss_due_date: required(inssDueDate, 'inssDueDate'), p_irrf_due_date: required(irrfDueDate, 'irrfDueDate') });
     if (result.error) throw result.error;
   }
   async upsertBudgetPlan(input: UpsertBudgetInput): Promise<void> {
