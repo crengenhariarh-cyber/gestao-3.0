@@ -22,13 +22,21 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
   const [setupMode, setSetupMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [bootstrapCode, setBootstrapCode] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setValidationMessage(null);
+
     if (setupMode) {
+      if (password !== confirmPassword) {
+        setValidationMessage('As senhas informadas não são iguais.');
+        return;
+      }
       void onBootstrapFirstOwner({
         email: email.trim(),
         password,
@@ -41,13 +49,17 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
     void onSignIn(email.trim(), password);
   }
 
+  function toggleSetupMode() {
+    setValidationMessage(null);
+    setConfirmPassword('');
+    setSetupMode((current) => !current);
+  }
+
   return (
     <main className="auth-page">
       <div className="auth-page__panel">
-        <div className="auth-page__brand">
-          <span className="auth-page__eyebrow">Gestão 3.0</span>
-          <h1>{setupMode ? 'Primeiro acesso' : 'Entrar'}</h1>
-          <p>{setupMode ? 'Crie o proprietário inicial e a primeira empresa do ambiente.' : 'Acesso seguro por empresa e permissões autorizadas.'}</p>
+        <div className="auth-page__brand" aria-label="Gestão">
+          <img className="auth-page__logo" src="/gestao-icon.svg" alt="Gestão" />
         </div>
 
         <Card>
@@ -75,7 +87,18 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
               onChange={(event) => setPassword(event.target.value)}
               required
             />
+            {setupMode && (
+              <Input
+                label="Confirmar senha"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+              />
+            )}
             {noticeMessage && <Feedback tone="success" title="Primeiro acesso" message={noticeMessage} />}
+            {validationMessage && <Feedback tone="danger" title="Confira os dados" message={validationMessage} />}
             {errorMessage && (
               <Feedback
                 tone="danger"
@@ -86,8 +109,8 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
             <Button type="submit" size="lg" disabled={loading} loading={loading}>
               {setupMode ? 'Criar primeiro acesso' : 'Entrar'}
             </Button>
-            <Button type="button" variant="tertiary" disabled={loading} onClick={() => setSetupMode((current) => !current)}>
-              {setupMode ? 'Já tenho acesso' : 'Configurar primeiro acesso'}
+            <Button type="button" variant="tertiary" disabled={loading} onClick={toggleSetupMode}>
+              {setupMode ? 'Voltar para entrar' : 'Configurar primeiro acesso'}
             </Button>
           </form>
         </Card>
