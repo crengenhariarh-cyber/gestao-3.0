@@ -14,7 +14,7 @@ export interface FinancialAccountMovement extends CompanyScope {
   id: string;
   accountId: string;
   movementOn: string;
-  direction: 'credit' | 'debit';
+  direction: 'inflow' | 'outflow';
   amount: number;
   sourceType: string;
   sourceId: string;
