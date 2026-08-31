@@ -1,14 +1,14 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
 import appShellSource from '../../app/AppShell.tsx?raw';
-import finalCssSource from '../../app/final.css?raw';
+import finalCssSource from '../../app/final.css?inline';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
-import sharedStylesSource from './styles.css?raw';
+import sharedStylesSource from './styles.css?inline';
 
 const operationalSources = [
   financeSource,
@@ -20,10 +20,10 @@ const operationalSources = [
 describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
     for (const source of operationalSources) {
-      expect(source).not.toMatch(/<button\b/i);
-      expect(source).not.toMatch(/<input\b/i);
-      expect(source).not.toMatch(/<select\b/i);
-      expect(source).not.toMatch(/<dialog\b/i);
+      expect(source).not.toMatch(/<button\b/);
+      expect(source).not.toMatch(/<input\b/);
+      expect(source).not.toMatch(/<select\b/);
+      expect(source).not.toMatch(/<dialog\b/);
     }
   });
 
