@@ -27,6 +27,9 @@ import type { CreateFinancialRecurrenceRule, FinancialRecurrenceRule } from '../
 import type { InstallmentBalance, RecordFinancialSettlement } from '../domain/settlements';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 
+type EntryOperationInput = Omit<CreateSingleFinancialEntry, keyof CompanyScope | 'entryType'> & { entryType: string };
+type EntryUpdateOperationInput = Omit<UpdateFinancialEntry, keyof CompanyScope | 'entryType'> & { entryType: string };
+
 export interface FinanceReferenceData {
   categories: readonly FinancialCategory[];
   costCenters: readonly CostCenter[];
@@ -48,6 +51,9 @@ export type FinanceOperationState = {
 
 function messageFrom(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Não foi possível concluir a operação financeira.';
+}
+function normalizedEntryType(value: string): 'income' | 'expense' {
+  return value === 'income' ? 'income' : 'expense';
 }
 
 export function useFinanceOperations(scope: CompanyScope) {
@@ -95,8 +101,8 @@ export function useFinanceOperations(scope: CompanyScope) {
     state,
     clearFeedback: () => setState((current) => ({ ...current, errorMessage: null, successMessage: null })),
     loadReferences,
-    createEntry: (input: Omit<CreateSingleFinancialEntry, keyof CompanyScope>) => execute(() => repositories.entries.createSingle({ ...scope, ...input }), 'Lançamento criado com sucesso.'),
-    updateEntry: (input: Omit<UpdateFinancialEntry, keyof CompanyScope>) => execute(() => repositories.entries.update({ ...scope, ...input }), 'Lançamento atualizado com sucesso.'),
+    createEntry: (input: EntryOperationInput) => execute(() => repositories.entries.createSingle({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento criado com sucesso.'),
+    updateEntry: (input: EntryUpdateOperationInput) => execute(() => repositories.entries.update({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento atualizado com sucesso.'),
     deleteEntry: (entryId: string) => execute(() => repositories.entries.deleteUnsettled(scope, entryId), 'Lançamento excluído com sucesso.'),
     settleInstallment: (input: Omit<RecordFinancialSettlement, keyof CompanyScope>) => execute(() => repositories.settlements.record({ ...scope, ...input }), 'Pagamento/recebimento registrado com sucesso.'),
     transfer: (input: Omit<CreateFinancialTransfer, keyof CompanyScope>) => execute(() => repositories.accounts.recordTransfer({ ...scope, ...input }), 'Transferência registrada com sucesso.'),
