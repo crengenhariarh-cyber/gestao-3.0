@@ -4,6 +4,7 @@ import { normalizeFinancialTransfer } from '../application/transferValidation';
 import type {
   CreateFinancialTransfer,
   FinancialAccountBalance,
+  FinancialAccountMovement,
   FinancialTransfer,
   RecordedFinancialTransfer,
 } from '../domain/accounts';
@@ -13,6 +14,12 @@ type BalanceRow = {
   account_id: string; tenant_id: string; company_id: string; name: string;
   account_type: FinancialAccountBalance['accountType']; status: FinancialAccountBalance['status'];
   opening_balance: number | string; movement_total: number | string; current_balance: number | string;
+};
+
+type MovementRow = {
+  id: string; tenant_id: string; company_id: string; account_id: string; movement_on: string;
+  direction: FinancialAccountMovement['direction']; amount: number | string; source_type: string;
+  source_id: string; description: string | null;
 };
 
 type TransferRow = {
@@ -44,6 +51,21 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
       name: row.name, accountType: row.account_type, status: row.status,
       openingBalance: Number(row.opening_balance), movementTotal: Number(row.movement_total),
       currentBalance: Number(row.current_balance),
+    }));
+  }
+
+  async listMovements(scope: CompanyScope, from: string, to: string): Promise<readonly FinancialAccountMovement[]> {
+    const { data, error } = await this.client.from('financial_account_movements')
+      .select('id,tenant_id,company_id,account_id,movement_on,direction,amount,source_type,source_id,description')
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId)
+      .gte('movement_on', from).lte('movement_on', to)
+      .order('movement_on', { ascending: true }).order('created_at', { ascending: true })
+      .returns<MovementRow[]>();
+    if (error) throw error;
+    return data.map((row) => ({
+      id: row.id, tenantId: row.tenant_id, companyId: row.company_id, accountId: row.account_id,
+      movementOn: row.movement_on, direction: row.direction, amount: Number(row.amount),
+      sourceType: row.source_type, sourceId: row.source_id, description: row.description,
     }));
   }
 
