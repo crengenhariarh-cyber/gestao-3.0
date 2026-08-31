@@ -21,6 +21,7 @@
   margin: 0;
   max-width: 560px;
   text-align: right;
+  color: var(--muted);
 }
 
 .engineering-actions {
@@ -50,7 +51,7 @@
 }
 
 .engineering-workspace:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, .22);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -75,13 +76,13 @@
   justify-content: space-between;
   gap: 24px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .engineering-data-row:last-child { border-bottom: 0; }
 .engineering-data-row > div { display: grid; gap: 4px; }
 .engineering-data-row > div:last-child { text-align: right; }
-.engineering-data-row span { color: var(--color-text-muted); }
+.engineering-data-row span { color: var(--muted); }
 
 @media (max-width: 760px) {
   .engineering-overview__heading {
