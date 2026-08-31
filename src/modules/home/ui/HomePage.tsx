@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
@@ -29,6 +28,12 @@ function makePolyline(values: readonly number[], width = 620, height = 190): str
   }).join(' ');
 }
 
+function accumulate(values: number[]): void {
+  for (let index = 1; index < values.length; index += 1) {
+    values[index] = (values[index] ?? 0) + (values[index - 1] ?? 0);
+  }
+}
+
 export function HomePage({ company }: HomePageProps) {
   const navigate = useNavigate();
   const scope = { tenantId: company.tenantId, companyId: company.id };
@@ -55,17 +60,16 @@ export function HomePage({ company }: HomePageProps) {
 
   const currentMonth = data.month.slice(0, 7);
   const monthEntries = data.entries.filter((item) => item.competenceMonth.slice(0, 7) === currentMonth);
-  const series = useMemo(() => {
-    const incoming = Array.from({ length: 31 }, () => 0);
-    const outgoing = Array.from({ length: 31 }, () => 0);
-    monthEntries.forEach((item) => {
-      const day = Math.max(1, Math.min(31, dayOf(item.dueDate)));
-      if (item.entryType === 'income') incoming[day - 1] += item.amount;
-      else outgoing[day - 1] += item.amount;
-    });
-    for (let i = 1; i < 31; i += 1) { incoming[i] += incoming[i - 1]; outgoing[i] += outgoing[i - 1]; }
-    return { incoming, outgoing, result: incoming.map((value, index) => value - outgoing[index]) };
-  }, [monthEntries]);
+  const incoming = Array.from({ length: 31 }, () => 0);
+  const outgoing = Array.from({ length: 31 }, () => 0);
+  monthEntries.forEach((item) => {
+    const dayIndex = Math.max(0, Math.min(30, dayOf(item.dueDate) - 1));
+    if (item.entryType === 'income') incoming[dayIndex] = (incoming[dayIndex] ?? 0) + item.amount;
+    else outgoing[dayIndex] = (outgoing[dayIndex] ?? 0) + item.amount;
+  });
+  accumulate(incoming);
+  accumulate(outgoing);
+  const series = { incoming, outgoing, result: incoming.map((value, index) => value - (outgoing[index] ?? 0)) };
 
   const monthlyCompany = hr.data.monthlyBudget.find((item) => item.costCenterId === null);
   const budgetPlanned = monthlyCompany?.plannedTotal ?? sum(hr.data.monthlyBudget.map((item) => item.plannedTotal));
