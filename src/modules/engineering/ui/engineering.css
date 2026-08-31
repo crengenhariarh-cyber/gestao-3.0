@@ -23,6 +23,20 @@
   text-align: right;
 }
 
+.engineering-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.engineering-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
 .engineering-workspace {
   width: 100%;
   max-width: 100%;
@@ -76,6 +90,7 @@
   }
 
   .engineering-overview__heading p { text-align: left; }
+  .engineering-form-grid { grid-template-columns: 1fr; }
   .engineering-workspace { min-height: 58dvh; max-height: calc(100dvh - 260px); }
   .engineering-data-row { flex-direction: column; gap: 8px; }
   .engineering-data-row > div:last-child { text-align: left; }

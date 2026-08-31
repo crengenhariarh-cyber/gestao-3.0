@@ -9,6 +9,9 @@ import type {
   CreateFinancialCategory,
   FinancialAccount,
   FinancialCategory,
+  UpdateCostCenter,
+  UpdateFinancialAccount,
+  UpdateFinancialCategory,
 } from '../domain/registries';
 
 type CategoryRow = { id: string; tenant_id: string; company_id: string; name: string; kind: FinancialCategory['kind']; status: FinancialCategory['status'] };
@@ -41,6 +44,16 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     return category(data);
   }
 
+  async updateCategory(raw: UpdateFinancialCategory): Promise<FinancialCategory> {
+    const input = normalizeCategory(raw);
+    const { data, error } = await this.client.from('financial_categories')
+      .update({ name: input.name, kind: input.kind, status: raw.status })
+      .eq('tenant_id', input.tenantId).eq('company_id', input.companyId).eq('id', raw.id)
+      .select('id,tenant_id,company_id,name,kind,status').single();
+    if (error) throw error;
+    return category(data);
+  }
+
   async listCostCenters(scope: CompanyScope): Promise<readonly CostCenter[]> {
     const { data, error } = await this.client.from('cost_centers').select('id,tenant_id,company_id,name,code,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
@@ -54,6 +67,16 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     return costCenter(data);
   }
 
+  async updateCostCenter(raw: UpdateCostCenter): Promise<CostCenter> {
+    const input = normalizeCostCenter(raw);
+    const { data, error } = await this.client.from('cost_centers')
+      .update({ name: input.name, code: input.code ?? null, status: raw.status })
+      .eq('tenant_id', input.tenantId).eq('company_id', input.companyId).eq('id', raw.id)
+      .select('id,tenant_id,company_id,name,code,status').single();
+    if (error) throw error;
+    return costCenter(data);
+  }
+
   async listAccounts(scope: CompanyScope): Promise<readonly FinancialAccount[]> {
     const { data, error } = await this.client.from('financial_accounts').select('id,tenant_id,company_id,name,account_type,opening_balance,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
@@ -63,6 +86,17 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
   async createAccount(raw: CreateFinancialAccount): Promise<FinancialAccount> {
     const input = normalizeAccount(raw);
     const { data, error } = await this.client.from('financial_accounts').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, account_type: input.accountType, opening_balance: input.openingBalance ?? 0 }).select('id,tenant_id,company_id,name,account_type,opening_balance,status').single();
+    if (error) throw error;
+    return account(data);
+  }
+
+  async updateAccount(raw: UpdateFinancialAccount): Promise<FinancialAccount> {
+    const name = raw.name.trim();
+    if (!name) throw new Error('name is required');
+    const { data, error } = await this.client.from('financial_accounts')
+      .update({ name, account_type: raw.accountType, status: raw.status })
+      .eq('tenant_id', raw.tenantId).eq('company_id', raw.companyId).eq('id', raw.id)
+      .select('id,tenant_id,company_id,name,account_type,opening_balance,status').single();
     if (error) throw error;
     return account(data);
   }

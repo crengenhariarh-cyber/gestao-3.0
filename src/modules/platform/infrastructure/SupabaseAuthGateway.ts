@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../shared/infrastructure/supabase/client';
-import type { AuthGateway, AuthUser } from '../application/AuthGateway';
+import type { AuthGateway, AuthUser, BootstrapSignUpResult } from '../application/AuthGateway';
 
 function toAuthUser(user: User): AuthUser {
   return {
@@ -31,6 +31,40 @@ export class SupabaseAuthGateway implements AuthGateway {
     }
 
     return toAuthUser(data.user);
+  }
+
+  async signUpFirstOwner(input: {
+    email: string;
+    password: string;
+    bootstrapCode: string;
+    tenantName: string;
+    companyName: string;
+  }): Promise<BootstrapSignUpResult> {
+    const { data, error } = await getSupabaseClient().auth.signUp({
+      email: input.email,
+      password: input.password,
+      options: {
+        data: {
+          gestao_bootstrap: 'true',
+          gestao_bootstrap_code: input.bootstrapCode,
+          gestao_tenant_name: input.tenantName,
+          gestao_company_name: input.companyName,
+        },
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data.user) {
+      throw new Error('Supabase não retornou o usuário criado.');
+    }
+
+    return {
+      user: toAuthUser(data.user),
+      sessionCreated: data.session !== null,
+    };
   }
 
   async signOut(): Promise<void> {

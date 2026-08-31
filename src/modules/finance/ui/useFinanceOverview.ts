@@ -26,7 +26,7 @@ function currentMonthStart(): string {
   return `${year}-${month}-01`;
 }
 
-export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewState {
+export function useFinanceOverview(scope: CompanyScope | null, refreshToken = 0): FinanceOverviewState {
   const repositories = useMemo(() => getFinanceRepositories(), []);
   const tenantId = scope?.tenantId ?? null;
   const companyId = scope?.companyId ?? null;
@@ -55,7 +55,7 @@ export function useFinanceOverview(scope: CompanyScope | null): FinanceOverviewS
       });
 
     return () => { cancelled = true; };
-  }, [repositories, tenantId, companyId]);
+  }, [repositories, tenantId, companyId, refreshToken]);
 
   return state;
 }

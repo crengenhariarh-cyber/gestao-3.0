@@ -1,4 +1,4 @@
-import type { CompanyScope } from './registries';
+import type { CompanyScope, RegistryStatus } from './registries';
 
 export interface CreditCard extends CompanyScope {
   id: string;
@@ -8,7 +8,21 @@ export interface CreditCard extends CompanyScope {
   closingDay: number;
   dueDay: number;
   defaultPaymentAccountId: string | null;
-  status: 'active' | 'inactive';
+  status: RegistryStatus;
+}
+
+export interface CreateCreditCard extends CompanyScope {
+  name: string;
+  lastFour?: string | null;
+  creditLimit: number;
+  closingDay: number;
+  dueDay: number;
+  defaultPaymentAccountId?: string | null;
+}
+
+export interface UpdateCreditCard extends CreateCreditCard {
+  id: string;
+  status: RegistryStatus;
 }
 
 export interface CreditCardLimit extends CompanyScope {
