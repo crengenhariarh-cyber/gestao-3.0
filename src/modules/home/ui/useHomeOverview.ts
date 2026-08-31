@@ -106,10 +106,11 @@ export function useHomeOverview(companies: readonly CompanySummary[], refreshTok
 
         results.forEach(({ company, summary, balances, movements, entries: companyEntries, budget }) => {
           const label = companyName(company);
-          const activeAccountIds = new Set(balances.filter((item) => item.status === 'active').map((item) => item.accountId));
-          bankBalance += balances.filter((item) => item.status === 'active').reduce((total, item) => total + item.currentBalance, 0);
+          const dashboardAccounts = balances.filter((item) => item.status === 'active' && item.includeInDashboard);
+          const dashboardAccountIds = new Set(dashboardAccounts.map((item) => item.accountId));
+          bankBalance += dashboardAccounts.reduce((total, item) => total + item.currentBalance, 0);
           movements
-            .filter((item) => activeAccountIds.has(item.accountId))
+            .filter((item) => dashboardAccountIds.has(item.accountId))
             .forEach((item) => balanceMovements.push({ movementOn: item.movementOn, signedAmount: item.direction === 'inflow' ? item.amount : -item.amount }));
           summary.forEach((item) => {
             if (item.entryType === 'income') { incomePlanned += item.plannedAmount; incomeRealized += item.realizedAmount; }
