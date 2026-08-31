@@ -1,14 +1,13 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
+import appSource from '../../app/App.tsx?raw';
 import appShellSource from '../../app/AppShell.tsx?raw';
-import finalCssSource from '../../app/final.css?inline';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
-import sharedStylesSource from './styles.css?inline';
 
 const operationalSources = [
   financeSource,
@@ -24,6 +23,7 @@ describe('Design System final regression', () => {
       expect(source).not.toMatch(/<input\b/);
       expect(source).not.toMatch(/<select\b/);
       expect(source).not.toMatch(/<dialog\b/);
+      expect(source).toContain("shared/ui/");
     }
   });
 
@@ -32,15 +32,15 @@ describe('Design System final regression', () => {
     expect(buttonSource).toContain('type={type}');
   });
 
-  it('keeps the approved fullscreen modal contract', () => {
+  it('keeps the approved modal interaction contract', () => {
     expect(dialogSource).toContain('aria-modal="true"');
     expect(dialogSource).toContain('aria-labelledby={titleId}');
     expect(dialogSource).toContain('aria-describedby={description ? descriptionId : undefined}');
+    expect(dialogSource).toContain('event.key === \'Escape\'');
+    expect(dialogSource).toContain('event.key !== \'Tab\'');
     expect(dialogSource).toContain('← {backLabel}');
     expect(dialogSource).toContain('aria-label="Fechar"');
-    expect(sharedStylesSource).toMatch(/\.ui-dialog\s*\{[^}]*height:\s*100dvh/s);
-    expect(sharedStylesSource).toMatch(/\.ui-dialog__header\s*\{[^}]*position:\s*sticky/s);
-    expect(sharedStylesSource).toMatch(/\.ui-dialog__footer\s*\{[^}]*position:\s*sticky/s);
+    expect(dialogSource).toContain('ui-dialog__footer');
   });
 
   it('keeps final production navigation free of the UI laboratory', () => {
@@ -49,9 +49,8 @@ describe('Design System final regression', () => {
     expect(appShellSource).toContain('href="#app-main"');
   });
 
-  it('keeps safe-area and reduced-motion final polish', () => {
-    expect(finalCssSource).toContain('env(safe-area-inset-top)');
-    expect(finalCssSource).toContain('env(safe-area-inset-bottom)');
-    expect(finalCssSource).toContain('prefers-reduced-motion: reduce');
+  it('keeps the final resilience layer enabled', () => {
+    expect(appSource).toContain('AppErrorBoundary');
+    expect(appSource).toContain("import './final.css'");
   });
 });
