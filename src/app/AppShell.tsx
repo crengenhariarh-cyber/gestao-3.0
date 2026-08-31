@@ -51,7 +51,9 @@ export function AppShell({ session }: AppShellProps) {
     </section>
   );
 
-  const requiresSpecificCompany = <EmptyState title="Selecione uma empresa" message="Este módulo operacional exige uma empresa específica. A opção Todas as empresas é exclusiva para visões consolidadas."/>;
+  const requiresSpecificCompany = <EmptyState title="Selecione uma empresa" message="O Financeiro operacional exige uma empresa específica. A opção Todas as empresas permanece disponível nas visões consolidadas."/>;
+  const allCompaniesRh = <div>{session.companies.map((company) => <section key={company.id} aria-label={`RH ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
+  const allCompaniesEngineering = <div>{session.companies.map((company) => <section key={company.id} aria-label={`Engenharia ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
   return (
     <div className="app-shell">
@@ -77,8 +79,8 @@ export function AppShell({ session }: AppShellProps) {
         <Routes>
           <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : requiresSpecificCompany}/>
-          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : requiresSpecificCompany}/>
-          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : requiresSpecificCompany}/>
+          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
+          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="/mais" element={morePage}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
