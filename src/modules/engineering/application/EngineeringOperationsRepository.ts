@@ -7,7 +7,8 @@ export interface EngineeringContractServiceOption { id: string; contractId: stri
 export interface EngineeringMeasurementOption { id: string; contractId: string; competence: string; status: string; }
 export interface EngineeringProductionPeriodOption { id: string; workId: string; competence: string; status: string; }
 export interface EngineeringEmployeeOption { id: string; name: string; }
-export interface EngineeringProvisionalOption { id: string; number: string; status: string; workId: string; }
+export interface EngineeringProvisionalOption { id: string; number: string; status: string; workId: string; title: string|null; clientName:string|null; }
+export interface EngineeringProvisionalLineOption { id:string; provisionalId:string; serviceId:string|null; description:string; unit:string; quantity:number; unitPrice:number; }
 export interface EngineeringAddendumOption { id: string; contractId: string; number: string; status: string; }
 
 export interface EngineeringOperationalSnapshot {
@@ -20,6 +21,7 @@ export interface EngineeringOperationalSnapshot {
   productionPeriods: readonly EngineeringProductionPeriodOption[];
   employees: readonly EngineeringEmployeeOption[];
   provisionals: readonly EngineeringProvisionalOption[];
+  provisionalLines: readonly EngineeringProvisionalLineOption[];
   addenda: readonly EngineeringAddendumOption[];
   accounts: readonly EngineeringReferenceItem[];
 }
@@ -34,7 +36,9 @@ export interface EngineeringOperationsRepository {
   addContractService(scope: EngineeringScope, input: { contractId: string; serviceId?: string | null; description: string; unit: string; quantity: number; unitPrice: number; notes?: string | null }): Promise<void>;
   allocateContractService(scope: EngineeringScope, input: { workId: string; contractServiceId: string; structureId: string; quantity: number; notes?: string | null }): Promise<void>;
   createProvisional(scope: EngineeringScope, input: { workId: string; number: string; title?: string | null; clientName?: string | null; notes?: string | null }): Promise<void>;
+  updateProvisional(scope: EngineeringScope, input:{ provisionalId:string; title?:string|null; clientName?:string|null; status:'draft'|'negotiation'|'approved'|'cancelled'; notes?:string|null }):Promise<void>;
   addProvisionalLine(scope: EngineeringScope, input: { provisionalId: string; serviceId?: string | null; description: string; unit: string; quantity: number; unitPrice: number; notes?: string | null }): Promise<void>;
+  updateProvisionalLine(scope: EngineeringScope, input:{ lineId:string; provisionalId:string; serviceId?:string|null; description:string; unit:string; quantity:number; unitPrice:number; notes?:string|null }):Promise<void>;
   convertProvisional(input: { provisionalId: string; destination: 'contract' | 'addendum'; number: string; contractId?: string | null; addendumType?: 'increase' | 'reduction' | 'adjustment' | null }): Promise<void>;
   createAddendum(scope: EngineeringScope, input: { contractId: string; number: string; type: 'increase' | 'reduction' | 'adjustment'; effectiveDate?: string | null; statedValue?: number | null; notes?: string | null }): Promise<void>;
   addAddendumLine(scope: EngineeringScope, input: { addendumId: string; contractServiceId?: string | null; serviceId?: string | null; description: string; unit: string; quantityDelta: number; unitPrice: number; notes?: string | null }): Promise<void>;
