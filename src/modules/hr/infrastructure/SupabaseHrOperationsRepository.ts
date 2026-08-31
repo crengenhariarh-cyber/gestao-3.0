@@ -18,9 +18,7 @@ function required(value: string, field: string): string {
   return normalized;
 }
 function amount(value: number, field: string, allowZero = false): number {
-  if (!Number.isFinite(value) || (allowZero ? value < 0 : value <= 0) || Math.round(value * 100) !== value * 100) {
-    throw new Error(`${field} has an invalid value`);
-  }
+  if (!Number.isFinite(value) || (allowZero ? value < 0 : value <= 0) || Math.round(value * 100) !== value * 100) throw new Error(`${field} has an invalid value`);
   return value;
 }
 function month(value: string): string {
@@ -34,7 +32,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
 
   async getSnapshot(scope: CompanyScope, competenceMonth: string): Promise<HrOperationalSnapshot> {
     const competence = month(competenceMonth);
-    const [contractsResult, compensationResult, allocationResult, eventResult, closingResult, statutoryResult, limitsResult] = await Promise.all([
+    const [contractsResult, compensationResult, allocationResult, eventResult, closingResult, statutoryResult, limitsResult, costCentersResult, categoriesResult] = await Promise.all([
       this.client.from('employment_contracts').select('id,employee_id,hired_on,terminated_on,job_title,status,employees!inner(id,full_name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('hired_on', { ascending: false }),
       this.client.from('compensation_terms').select('employment_contract_id,valid_from,valid_to,base_salary').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).lte('valid_from', competence).or(`valid_to.is.null,valid_to.gte.${competence}`).order('valid_from', { ascending: false }),
       this.client.from('employee_allocations').select('employment_contract_id,cost_center_id,valid_from,valid_to,allocation_percent,cost_centers!inner(id,name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).lte('valid_from', competence).or(`valid_to.is.null,valid_to.gte.${competence}`),
@@ -42,8 +40,10 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
       this.client.from('payroll_closings').select('id,employment_contract_id,competence_month,gross_snapshot,net_before_statutory_snapshot,status,employment_contracts!inner(employees!inner(full_name))').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence).order('closed_at', { ascending: false }),
       this.client.from('payroll_statutory_calculations').select('payroll_closing_id,inss_amount,irrf_amount,fgts_amount').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence),
       this.client.from('budget_limits').select('id,competence_month,cost_center_id,category_id,limit_amount,warning_percent,status,cost_centers(name),financial_categories(name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('competence_month', competence).order('created_at'),
+      this.client.from('cost_centers').select('id,name,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name'),
+      this.client.from('financial_categories').select('id,name,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name'),
     ]);
-    const errors = [contractsResult.error, compensationResult.error, allocationResult.error, eventResult.error, closingResult.error, statutoryResult.error, limitsResult.error].filter(Boolean);
+    const errors = [contractsResult.error, compensationResult.error, allocationResult.error, eventResult.error, closingResult.error, statutoryResult.error, limitsResult.error, costCentersResult.error, categoriesResult.error].filter(Boolean);
     if (errors[0]) throw errors[0];
 
     const compensations = new Map<string, number>();
@@ -52,7 +52,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     for (const row of allocationResult.data ?? []) {
       if (!allocations.has(row.employment_contract_id)) allocations.set(row.employment_contract_id, {
         costCenterId: row.cost_center_id,
-        costCenterName: (row.cost_centers as { name: string }).name,
+        costCenterName: (row.cost_centers as unknown as { name: string }).name,
         allocationPercent: Number(row.allocation_percent),
       });
     }
@@ -61,7 +61,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
       return {
         employeeId: row.employee_id,
         employmentContractId: row.id,
-        fullName: (row.employees as { id: string; full_name: string }).full_name,
+        fullName: (row.employees as unknown as { id: string; full_name: string }).full_name,
         jobTitle: row.job_title,
         hiredOn: row.hired_on,
         terminatedOn: row.terminated_on,
@@ -72,11 +72,10 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
         allocationPercent: allocation?.allocationPercent ?? null,
       };
     });
-
     const payrollEvents: PayrollEventRow[] = (eventResult.data ?? []).map((row) => ({
       id: row.id,
       employmentContractId: row.employment_contract_id,
-      employeeName: ((row.employment_contracts as { employees: { full_name: string } }).employees).full_name,
+      employeeName: ((row.employment_contracts as unknown as { employees: { full_name: string } }).employees).full_name,
       competenceMonth: row.competence_month,
       eventKind: row.event_kind as PayrollEventRow['eventKind'],
       amount: Number(row.amount),
@@ -89,7 +88,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
       return {
         id: row.id,
         employmentContractId: row.employment_contract_id,
-        employeeName: ((row.employment_contracts as { employees: { full_name: string } }).employees).full_name,
+        employeeName: ((row.employment_contracts as unknown as { employees: { full_name: string } }).employees).full_name,
         competenceMonth: row.competence_month,
         grossAmount: Number(row.gross_snapshot),
         netBeforeStatutory: Number(row.net_before_statutory_snapshot),
@@ -103,22 +102,22 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
       id: row.id,
       competenceMonth: row.competence_month,
       costCenterId: row.cost_center_id,
-      costCenterName: row.cost_centers ? (row.cost_centers as { name: string }).name : null,
+      costCenterName: row.cost_centers ? (row.cost_centers as unknown as { name: string }).name : null,
       categoryId: row.category_id,
-      categoryName: row.financial_categories ? (row.financial_categories as { name: string }).name : null,
+      categoryName: row.financial_categories ? (row.financial_categories as unknown as { name: string }).name : null,
       limitAmount: Number(row.limit_amount),
       warningPercent: Number(row.warning_percent),
       status: row.status as BudgetLimitRow['status'],
     }));
-    return { employees, payrollEvents, payrollClosings, budgetLimits };
+    const costCenters = (costCentersResult.data ?? []).map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
+    const categories = (categoriesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
+    return { employees, payrollEvents, payrollClosings, budgetLimits, costCenters, categories };
   }
 
   async createEmployeeBundle(input: CreateEmployeeBundleInput): Promise<void> {
     amount(input.baseSalary, 'baseSalary', true);
     const result = await this.client.rpc('create_hr_employee_bundle', {
-      p_tenant_id: input.tenantId, p_company_id: input.companyId, p_full_name: required(input.fullName, 'fullName'),
-      p_hired_on: required(input.hiredOn, 'hiredOn'), p_job_title: required(input.jobTitle, 'jobTitle'), p_base_salary: input.baseSalary,
-      p_cost_center_id: input.costCenterId ?? null, p_allocation_percent: input.allocationPercent ?? 100,
+      p_tenant_id: input.tenantId, p_company_id: input.companyId, p_full_name: required(input.fullName, 'fullName'), p_hired_on: required(input.hiredOn, 'hiredOn'), p_job_title: required(input.jobTitle, 'jobTitle'), p_base_salary: input.baseSalary, p_cost_center_id: input.costCenterId ?? null, p_allocation_percent: input.allocationPercent ?? 100,
     });
     if (result.error) throw result.error;
   }
@@ -133,12 +132,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
   }
   async recordPayrollEvent(input: RecordPayrollEventInput): Promise<void> {
     amount(input.amount, 'amount', true);
-    const result = await this.client.rpc('record_payroll_event', {
-      p_tenant_id: input.tenantId, p_company_id: input.companyId, p_employment_contract_id: input.employmentContractId,
-      p_cost_center_id: input.costCenterId ?? null, p_competence_month: month(input.competenceMonth), p_occurred_on: input.occurredOn ?? null,
-      p_event_kind: input.eventKind, p_quantity: input.quantity ?? null, p_unit_value: input.unitValue ?? null, p_amount: input.amount,
-      p_description: input.description ?? null, p_idempotency_key: required(input.idempotencyKey, 'idempotencyKey'),
-    });
+    const result = await this.client.rpc('record_payroll_event', { p_tenant_id: input.tenantId, p_company_id: input.companyId, p_employment_contract_id: input.employmentContractId, p_cost_center_id: input.costCenterId ?? null, p_competence_month: month(input.competenceMonth), p_occurred_on: input.occurredOn ?? null, p_event_kind: input.eventKind, p_quantity: input.quantity ?? null, p_unit_value: input.unitValue ?? null, p_amount: input.amount, p_description: input.description ?? null, p_idempotency_key: required(input.idempotencyKey, 'idempotencyKey') });
     if (result.error) throw result.error;
   }
   async closePayroll(scope: CompanyScope, employmentContractId: string, competenceMonth: string, idempotencyKey: string): Promise<void> {
