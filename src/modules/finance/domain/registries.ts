@@ -34,13 +34,34 @@ export interface CreateFinancialCategory extends CompanyScope {
   kind: FinancialCategoryKind;
 }
 
+export interface UpdateFinancialCategory extends CompanyScope {
+  id: string;
+  name: string;
+  kind: FinancialCategoryKind;
+  status: RegistryStatus;
+}
+
 export interface CreateCostCenter extends CompanyScope {
   name: string;
   code?: string | null;
+}
+
+export interface UpdateCostCenter extends CompanyScope {
+  id: string;
+  name: string;
+  code?: string | null;
+  status: RegistryStatus;
 }
 
 export interface CreateFinancialAccount extends CompanyScope {
   name: string;
   accountType: FinancialAccountType;
   openingBalance?: number;
+}
+
+export interface UpdateFinancialAccount extends CompanyScope {
+  id: string;
+  name: string;
+  accountType: FinancialAccountType;
+  status: RegistryStatus;
 }
