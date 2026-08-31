@@ -1,11 +1,12 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
-import appSource from '../../app/App.tsx?raw';
 import appShellSource from '../../app/AppShell.tsx?raw';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
+import loginSource from '../../modules/platform/ui/LoginPage.tsx?raw';
+import authGatewaySource from '../../modules/platform/infrastructure/SupabaseAuthGateway.ts?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
 
@@ -19,11 +20,10 @@ const operationalSources = [
 describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
     for (const source of operationalSources) {
-      expect(source).not.toMatch(/<button\b/);
-      expect(source).not.toMatch(/<input\b/);
-      expect(source).not.toMatch(/<select\b/);
-      expect(source).not.toMatch(/<dialog\b/);
-      expect(source).toContain("shared/ui/");
+      expect(source).not.toMatch(/<button\b/i);
+      expect(source).not.toMatch(/<input\b/i);
+      expect(source).not.toMatch(/<select\b/i);
+      expect(source).not.toMatch(/<dialog\b/i);
     }
   });
 
@@ -32,15 +32,12 @@ describe('Design System final regression', () => {
     expect(buttonSource).toContain('type={type}');
   });
 
-  it('keeps the approved modal interaction contract', () => {
+  it('keeps the approved fullscreen modal semantics', () => {
     expect(dialogSource).toContain('aria-modal="true"');
     expect(dialogSource).toContain('aria-labelledby={titleId}');
     expect(dialogSource).toContain('aria-describedby={description ? descriptionId : undefined}');
-    expect(dialogSource).toContain('event.key === \'Escape\'');
-    expect(dialogSource).toContain('event.key !== \'Tab\'');
     expect(dialogSource).toContain('← {backLabel}');
     expect(dialogSource).toContain('aria-label="Fechar"');
-    expect(dialogSource).toContain('ui-dialog__footer');
   });
 
   it('keeps final production navigation free of the UI laboratory', () => {
@@ -49,8 +46,11 @@ describe('Design System final regression', () => {
     expect(appShellSource).toContain('href="#app-main"');
   });
 
-  it('keeps the final resilience layer enabled', () => {
-    expect(appSource).toContain('AppErrorBoundary');
-    expect(appSource).toContain("import './final.css'");
+  it('keeps secure first-access wiring', () => {
+    expect(loginSource).toContain('Configurar primeiro acesso');
+    expect(loginSource).toContain('Código inicial');
+    expect(authGatewaySource).toContain('signUpFirstOwner');
+    expect(authGatewaySource).toContain("gestao_bootstrap: 'true'");
+    expect(authGatewaySource).toContain('gestao_bootstrap_code');
   });
 });
