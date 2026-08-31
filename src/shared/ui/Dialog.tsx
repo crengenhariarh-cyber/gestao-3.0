@@ -9,8 +9,8 @@ interface DialogProps {
   confirmLabel?: string;
   backLabel?: string;
   loading?: boolean;
-  onConfirm?: () => void;
-  onBack?: () => void;
+  onConfirm?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
   onClose: () => void;
 }
 
