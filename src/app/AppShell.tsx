@@ -71,7 +71,7 @@ export function AppShell({ session }: AppShellProps) {
         <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
           <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
-          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : allCompaniesFinance}/>
+          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction/> : allCompaniesFinance}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>

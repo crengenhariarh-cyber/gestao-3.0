@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
@@ -11,9 +12,11 @@ import { useFinanceOperations } from './useFinanceOperations';
 import { useFinanceOverview } from './useFinanceOverview';
 import './finance.css';
 
-interface FinancePageProps { company: CompanySummary; }
+interface FinancePageProps { company: CompanySummary; allowDirectAction?: boolean; }
 type ModalKind = 'entry' | 'entryDelete' | 'settlement' | 'recurrence' | 'category' | 'costCenter' | 'account' | 'card' | 'transfer' | 'cardPurchase' | 'cardClose' | 'cardPayment' | null;
 
+type FinanceTab = 'resumo' | 'lancamentos' | 'contas' | 'cartoes';
+const FINANCE_TABS: readonly FinanceTab[] = ['resumo', 'lancamentos', 'contas', 'cartoes'];
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function formatMonth(value: string): string { const [year, month] = value.split('-'); return `${month}/${year}`; }
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
@@ -22,9 +25,13 @@ function monthInput(): string { return today().slice(0, 7); }
 function monthStart(value: string): string { return `${value}-01`; }
 function money(value: string): number { return Number(value.replace(',', '.')); }
 function key(prefix: string): string { return `${prefix}:${crypto.randomUUID()}`; }
+function financeTab(value: string | null): FinanceTab { return FINANCE_TABS.includes(value as FinanceTab) ? value as FinanceTab : 'resumo'; }
 
-export function FinancePage({ company }: FinancePageProps) {
-  const [activeTab, setActiveTab] = useState('resumo');
+export function FinancePage({ company, allowDirectAction = false }: FinancePageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const requestedAction = searchParams.get('action');
+  const [activeTab, setActiveTab] = useState<FinanceTab>(() => financeTab(requestedTab));
   const [refreshToken, setRefreshToken] = useState(0);
   const [modal, setModal] = useState<ModalKind>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -38,6 +45,19 @@ export function FinancePage({ company }: FinancePageProps) {
   const overview = useFinanceOverview(scope, refreshToken);
   const operations = useFinanceOperations(scope);
   const references = operations.state.references;
+
+  useEffect(() => {
+    const nextTab = requestedAction === 'new-entry' ? 'lancamentos' : financeTab(requestedTab);
+    setActiveTab(nextTab);
+    if (requestedAction !== 'new-entry') return;
+    if (allowDirectAction) {
+      setForm({ entryId: '', entryType: 'expense', description: '', counterparty: '', categoryId: '', costCenterId: '', competenceMonth: monthInput(), dueDate: today(), amount: '', installmentCount: '1', notes: '' });
+      setModal('entry');
+    }
+    const next = new URLSearchParams();
+    next.set('tab', 'lancamentos');
+    setSearchParams(next, { replace: true });
+  }, [allowDirectAction, requestedAction, requestedTab, setSearchParams]);
 
   if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando financeiro…" />;
   if (overview.status === 'error') return <EmptyState title="Financeiro indisponível" message={overview.errorMessage} />;
@@ -171,7 +191,7 @@ export function FinancePage({ company }: FinancePageProps) {
   if (modal === 'category') modalContent = <div className="finance-form-grid"><Input label="Nome" value={form.name ?? ''} onChange={(event) => field('name', event.target.value)} required /><Select label="Tipo" value={form.kind ?? 'expense'} onChange={(event) => field('kind', event.target.value)} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }, { value: 'both', label: 'Ambos' }]} /></div>;
   if (modal === 'costCenter') modalContent = <div className="finance-form-grid"><Input label="Nome" value={form.name ?? ''} onChange={(event) => field('name', event.target.value)} required /><Input label="Código" value={form.code ?? ''} onChange={(event) => field('code', event.target.value)} /></div>;
   if (modal === 'account') modalContent = <div className="finance-form-grid"><Input label="Nome da conta" value={form.name ?? ''} onChange={(event) => field('name', event.target.value)} required /><Select label="Tipo" value={form.accountType ?? 'bank'} onChange={(event) => field('accountType', event.target.value)} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra' }]} />{!form.id && <Input label="Saldo inicial" type="number" step="0.01" value={form.openingBalance ?? '0'} onChange={(event) => field('openingBalance', event.target.value)} />}</div>;
-  if (modal === 'card') modalContent = <div className="finance-form-grid"><Input label="Nome do cartão" value={form.name ?? ''} onChange={(event) => field('name', event.target.value)} required /><Input label="Últimos 4 dígitos" inputMode="numeric" maxLength={4} value={form.lastFour ?? ''} onChange={(event) => field('lastFour', event.target.value)} /><Input label="Limite" type="number" min="0" step="0.01" value={form.creditLimit ?? ''} onChange={(event) => field('creditLimit', event.target.value)} required /><Input label="Dia de fechamento" type="number" min="1" max="28" value={form.closingDay ?? '10'} onChange={(event) => field('closingDay', event.target.value)} required /><Input label="Dia de vencimento" type="number" min="1" max="28" value={form.dueDay ?? '20'} onChange={(event) => field('dueDay', event.target.value)} required /><Select label="Conta padrão de pagamento" value={form.defaultPaymentAccountId ?? ''} onChange={(event) => field('defaultPaymentAccountId', event.target.value)} options={[{ value: '', label: 'Sem conta padrão' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))]} /></div>;
+  if (modal === 'card') modalContent = <div className="finance-form-grid"><Input label="Nome do cartão" value={form.name ?? ''} onChange={(event) => field('name', event.target.value)} required /><Input label="Últimos 4 dígitos" inputMode="numeric" maxLength={4} value={form.lastFour ?? ''} onChange={(event) => field('lastFour', event.target.value)} /><Input label="Limite" type="number" min="0" step="0.01" value={form.creditLimit ?? ''} onChange={(event) => field('creditLimit', event.target.value)} required /><Input label="Dia de fechamento" type="number" min="1" max="31" value={form.closingDay ?? '10'} onChange={(event) => field('closingDay', event.target.value)} required /><Input label="Dia de vencimento" type="number" min="1" max="31" value={form.dueDay ?? '20'} onChange={(event) => field('dueDay', event.target.value)} required /><Select label="Conta padrão de pagamento" value={form.defaultPaymentAccountId ?? ''} onChange={(event) => field('defaultPaymentAccountId', event.target.value)} options={[{ value: '', label: 'Sem conta padrão' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))]} /></div>;
   if (modal === 'transfer') modalContent = <div className="finance-form-grid"><Select label="Conta de origem" value={form.fromAccountId ?? ''} onChange={(event) => field('fromAccountId', event.target.value)} options={accountOptions} required /><Select label="Conta de destino" value={form.toAccountId ?? ''} onChange={(event) => field('toAccountId', event.target.value)} options={accountOptions} required /><Input label="Data" type="date" value={form.transferOn ?? today()} onChange={(event) => field('transferOn', event.target.value)} required /><Input label="Valor" type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={(event) => field('amount', event.target.value)} required /><Input label="Observação" value={form.notes ?? ''} onChange={(event) => field('notes', event.target.value)} /></div>;
   if (modal === 'cardPurchase') modalContent = <div className="finance-form-grid"><Select label="Cartão" value={form.cardId ?? ''} onChange={(event) => field('cardId', event.target.value)} options={cardOptions} required /><Input label="Data da compra" type="date" value={form.purchaseDate ?? today()} onChange={(event) => field('purchaseDate', event.target.value)} required /><Input label="Descrição" value={form.description ?? ''} onChange={(event) => field('description', event.target.value)} required /><Input label="Fornecedor" value={form.counterparty ?? ''} onChange={(event) => field('counterparty', event.target.value)} /><Select label="Categoria" value={form.categoryId ?? ''} onChange={(event) => field('categoryId', event.target.value)} options={expenseCategoryOptions} required /><Select label="Centro de custo" value={form.costCenterId ?? ''} onChange={(event) => field('costCenterId', event.target.value)} options={costCenterOptions} /><Input label="Valor total" type="number" min="0.01" step="0.01" value={form.totalAmount ?? ''} onChange={(event) => field('totalAmount', event.target.value)} required /><Input label="Parcelas" type="number" min="1" max="120" step="1" value={form.installmentCount ?? '1'} onChange={(event) => field('installmentCount', event.target.value)} required /><Input label="Observação" value={form.notes ?? ''} onChange={(event) => field('notes', event.target.value)} /></div>;
   if (modal === 'cardClose') modalContent = <div className="finance-form-grid"><Select label="Cartão" value={form.cardId ?? ''} onChange={(event) => field('cardId', event.target.value)} options={cardOptions} required /><Input label="Competência da fatura" type="month" value={form.statementMonth ?? monthInput()} onChange={(event) => field('statementMonth', event.target.value)} required /></div>;
@@ -179,7 +199,7 @@ export function FinancePage({ company }: FinancePageProps) {
 
   return <section className="finance-overview" aria-labelledby="finance-title">
     <div className="finance-overview__heading"><div><span className="ui-muted">Competência {formatMonth(data.month)}</span><h1 id="finance-title">Financeiro</h1></div><p className="ui-muted">Resumo operacional, lançamentos, contas, cartões e recorrências da empresa selecionada.</p></div>
-    <Tabs items={tabs} activeId={activeTab} onChange={setActiveTab} ariaLabel="Seções do financeiro" />
+    <Tabs items={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as FinanceTab)} ariaLabel="Seções do financeiro" />
     {operations.state.errorMessage && modal === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && modal === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
