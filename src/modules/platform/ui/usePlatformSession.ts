@@ -26,6 +26,14 @@ export interface PlatformSession {
   selectCompany: (companyId: string) => void;
 }
 
+function companyStorageKey(userId: string): string { return `gestao.activeCompanyId:${userId}`; }
+function readStoredCompany(userId: string): string | null {
+  try { return window.localStorage.getItem(companyStorageKey(userId)); } catch { return null; }
+}
+function storeCompany(userId: string, companyId: string): void {
+  try { window.localStorage.setItem(companyStorageKey(userId), companyId); } catch { /* armazenamento indisponível */ }
+}
+
 export function usePlatformSession(): PlatformSession {
   const authGateway = useMemo(() => new SupabaseAuthGateway(), []);
   const accessRepository = useMemo(() => new SupabaseAccessRepository(), []);
@@ -45,8 +53,10 @@ export function usePlatformSession(): PlatformSession {
       await authGateway.signOut(); setUser(null); setContexts([]); setActiveCompanyId(null);
       setErrorMessage('Usuário autenticado, mas sem empresa autorizada.'); setStatus('anonymous'); return;
     }
-    setUser(currentUser); setContexts(nextContexts);
-    setActiveCompanyId((current) => resolveActiveCompanyId(nextCompanies, current));
+    const storedCompanyId = readStoredCompany(currentUser.id);
+    const resolvedCompanyId = resolveActiveCompanyId(nextCompanies, storedCompanyId);
+    setUser(currentUser); setContexts(nextContexts); setActiveCompanyId(resolvedCompanyId);
+    if (resolvedCompanyId) storeCompany(currentUser.id, resolvedCompanyId);
     setErrorMessage(null); setNoticeMessage(null); setStatus('ready');
   }, [accessRepository, authGateway]);
 
@@ -73,9 +83,16 @@ export function usePlatformSession(): PlatformSession {
 
   const companies = flattenAuthorizedCompanies(contexts);
   const selectCompany = useCallback((companyId: string) => {
-    if (companyId === ALL_COMPANIES_ID && companies.length > 1) { setActiveCompanyId(ALL_COMPANIES_ID); return; }
-    if (isCompanyAuthorized(companies, companyId)) setActiveCompanyId(companyId);
-  }, [companies]);
+    if (companyId === ALL_COMPANIES_ID && companies.length > 1) {
+      setActiveCompanyId(ALL_COMPANIES_ID);
+      if (user) storeCompany(user.id, ALL_COMPANIES_ID);
+      return;
+    }
+    if (isCompanyAuthorized(companies, companyId)) {
+      setActiveCompanyId(companyId);
+      if (user) storeCompany(user.id, companyId);
+    }
+  }, [companies, user]);
 
   return { status, user, contexts, companies, activeCompanyId, errorMessage, noticeMessage, signIn, bootstrapFirstOwner, signOut, selectCompany };
 }
