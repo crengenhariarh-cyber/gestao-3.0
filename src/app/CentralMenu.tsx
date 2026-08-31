@@ -18,12 +18,12 @@ const sections: readonly MenuSection[] = [
     id: 'financeiro',
     label: 'Financeiro',
     items: [
-      { label: 'Lançamentos', to: '/financeiro' },
-      { label: 'Contas do mês', disabled: true },
-      { label: 'Bancos', disabled: true },
-      { label: 'Cartões', disabled: true },
+      { label: 'Lançamentos', to: '/financeiro?tab=lancamentos' },
+      { label: 'Contas do mês', to: '/financeiro?tab=contas' },
+      { label: 'Bancos', to: '/financeiro?tab=contas' },
+      { label: 'Cartões', to: '/financeiro?tab=cartoes' },
       { label: 'Limites', disabled: true },
-      { label: 'Dashboard financeiro', to: '/financeiro' },
+      { label: 'Dashboard financeiro', to: '/financeiro?tab=resumo' },
     ],
   },
   {
