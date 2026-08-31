@@ -47,10 +47,11 @@ export interface CreateSingleFinancialEntry extends CompanyScope {
   competenceMonth: string;
   dueDate: string;
   amount: number;
+  installmentCount?: number;
   notes?: string | null;
 }
 
 export interface CreatedSingleFinancialEntry {
   entryId: string;
-  installmentId: string;
+  installmentId: string | null;
 }

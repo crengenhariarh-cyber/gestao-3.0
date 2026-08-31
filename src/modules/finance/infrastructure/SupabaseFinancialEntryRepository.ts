@@ -9,6 +9,7 @@ import type {
 import type { CompanyScope } from '../domain/registries';
 
 type CreateRow = { entry_id: string; installment_id: string };
+type CreateInstallmentRow = { entry_id: string; installment_count: number };
 type ListRow = {
   id: string;
   tenant_id: string;
@@ -32,6 +33,12 @@ function isCreateRow(value: unknown): value is CreateRow {
   if (typeof value !== 'object' || value === null) return false;
   const row = value as Record<string, unknown>;
   return typeof row.entry_id === 'string' && typeof row.installment_id === 'string';
+}
+
+function isCreateInstallmentRow(value: unknown): value is CreateInstallmentRow {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.entry_id === 'string' && typeof row.installment_count === 'number';
 }
 
 function toListItem(row: ListRow): FinancialEntryListItem {
@@ -58,6 +65,35 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
 
   async createSingle(raw: CreateSingleFinancialEntry): Promise<CreatedSingleFinancialEntry> {
     const input = normalizeSingleFinancialEntry(raw);
+    const installmentCount = input.installmentCount ?? 1;
+    if (!Number.isInteger(installmentCount) || installmentCount < 1 || installmentCount > 120) {
+      throw new Error('installmentCount must be an integer between 1 and 120');
+    }
+
+    if (installmentCount > 1) {
+      const rpcResult = await this.client.rpc('create_installment_financial_entry', {
+        p_tenant_id: input.tenantId,
+        p_company_id: input.companyId,
+        p_entry_type: input.entryType,
+        p_description: input.description,
+        p_counterparty_name: input.counterpartyName ?? null,
+        p_category_id: input.categoryId,
+        p_cost_center_id: input.costCenterId ?? null,
+        p_initial_competence_month: input.competenceMonth,
+        p_first_due_date: input.dueDate,
+        p_total_amount: input.amount,
+        p_installment_count: installmentCount,
+        p_notes: input.notes ?? null,
+      });
+
+      if (rpcResult.error) throw rpcResult.error;
+      const rpcData: unknown = rpcResult.data;
+      const created: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (!isCreateInstallmentRow(created)) throw new Error('installment financial entry creation returned an invalid result');
+
+      return { entryId: created.entry_id, installmentId: null };
+    }
+
     const rpcResult = await this.client.rpc('create_single_financial_entry', {
       p_tenant_id: input.tenantId,
       p_company_id: input.companyId,
