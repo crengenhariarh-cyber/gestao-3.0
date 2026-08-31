@@ -50,7 +50,7 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
       contractServices: (contractServices.data ?? []).map((row) => ({ id: row.id, contractId: row.contract_id, description: row.description, unit: row.unit, unitPrice: Number(row.unit_price) })),
       measurements: (measurements.data ?? []).map((row) => ({ id: row.id, contractId: row.contract_id, competence: row.competence, status: row.status })),
       productionPeriods: (periods.data ?? []).map((row) => ({ id: row.id, workId: row.work_id, competence: row.competence, status: row.status })),
-      employees: (employees.data ?? []).map((row) => ({ id: row.id, name: row.employees.full_name })),
+      employees: (employees.data ?? []).map((row) => ({ id: row.id, name: row.employees[0]?.full_name ?? '' })),
       provisionals: (provisionals.data ?? []).map((row) => ({ id: row.id, number: row.provisional_number, status: row.status, workId: row.work_id })),
       addenda: (addenda.data ?? []).map((row) => ({ id: row.id, contractId: row.contract_id, number: row.addendum_number, status: row.status })),
       accounts: (accounts.data ?? []).map((row) => ({ id: row.account_id, name: row.name })),
