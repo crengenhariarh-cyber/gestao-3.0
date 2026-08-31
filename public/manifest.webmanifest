@@ -10,10 +10,16 @@
   "theme_color": "#071426",
   "icons": [
     {
-      "src": "/gestao-icon.jpg?v=2",
-      "sizes": "256x256",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "src": "/gestao-icon.svg?v=3",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/gestao-icon.svg?v=3-maskable",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }
