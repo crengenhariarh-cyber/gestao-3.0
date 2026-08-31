@@ -23,7 +23,8 @@ export function resolveActiveCompanyId(
   companies: readonly CompanySummary[],
   currentCompanyId: string | null,
 ): string | null {
+  if (companies.length === 0) return null;
   if (isAllCompanies(currentCompanyId) && companies.length > 1) return ALL_COMPANIES_ID;
   if (isCompanyAuthorized(companies, currentCompanyId)) return currentCompanyId;
-  return companies.length > 1 ? ALL_COMPANIES_ID : companies[0]?.id ?? null;
+  return companies[0]?.id ?? null;
 }
