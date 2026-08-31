@@ -29,7 +29,7 @@ export function AppShell({ session }: AppShellProps) {
       <a className="app-skip-link" href="#app-main">Ir para o conteúdo</a>
       <header className="app-header">
         <div className="app-header__top">
-          <div className="app-brand"><strong>Gestão 3.0</strong><span>{session.user?.email ?? 'Usuário autenticado'}</span></div>
+          <div className="app-brand"><strong>Gestão</strong><span>{session.user?.email ?? 'Usuário autenticado'}</span></div>
           <div className="app-header__actions">
             <Select label="Empresa" value={session.activeCompanyId ?? ''} options={session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }))} onChange={(event) => session.selectCompany(event.target.value)}/>
             <Button variant="tertiary" onClick={() => void session.signOut()}>Sair</Button>
