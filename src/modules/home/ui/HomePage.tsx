@@ -26,6 +26,8 @@ export function HomePage({ companies }: HomePageProps) {
 
   if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando painel…" />;
   if (overview.status === 'error') return <EmptyState title="Painel indisponível" message={overview.errorMessage} />;
+  if (!overview.data) return <EmptyState title="Painel indisponível" message="Os dados da visão consolidada ainda não estão disponíveis." />;
+
   const data = overview.data;
   const today = new Date().toISOString().slice(0, 10);
   const balanceSeries = Array.from({ length: 31 }, () => 0);
