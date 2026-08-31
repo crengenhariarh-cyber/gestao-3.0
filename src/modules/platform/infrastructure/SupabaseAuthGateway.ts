@@ -11,7 +11,18 @@ function toAuthUser(user: User): AuthUser {
 
 export class SupabaseAuthGateway implements AuthGateway {
   async getCurrentUser(): Promise<AuthUser | null> {
-    const { data, error } = await getSupabaseClient().auth.getUser();
+    const client = getSupabaseClient();
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    if (!sessionData.session) {
+      return null;
+    }
+
+    const { data, error } = await client.auth.getUser();
 
     if (error) {
       throw error;
