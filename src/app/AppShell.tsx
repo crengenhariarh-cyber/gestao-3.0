@@ -3,6 +3,7 @@ import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
+import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
 import { Card } from '../shared/ui/Card';
@@ -20,13 +21,18 @@ const navigation = [
 export interface AppShellProps { session: PlatformSession; }
 
 export function AppShell({ session }: AppShellProps) {
-  const activeCompany = session.companies.find((company) => company.id === session.activeCompanyId);
+  const allCompaniesSelected = isAllCompanies(session.activeCompanyId);
+  const activeCompany = allCompaniesSelected ? undefined : session.companies.find((company) => company.id === session.activeCompanyId);
 
   if (session.companies.length === 0) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
   }
 
-  const companyOptions = session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }));
+  const companyOptions = [
+    ...(session.companies.length > 1 ? [{ value: ALL_COMPANIES_ID, label: 'Todas as empresas' }] : []),
+    ...session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName })),
+  ];
+  const selectedCompanies = allCompaniesSelected ? session.companies : activeCompany ? [activeCompany] : [];
 
   const morePage = (
     <section className="app-more" aria-labelledby="more-title">
@@ -35,7 +41,7 @@ export function AppShell({ session }: AppShellProps) {
         <p className="ui-muted">Configurações e informações do ambiente.</p>
       </div>
       <div className="app-more__grid">
-        <Card title="Empresa ativa" description="Altere o contexto sem misturar dados entre empresas.">
+        <Card title="Empresa ativa" description="Altere o contexto sem misturar os dados de origem.">
           <Select label="Empresa" value={session.activeCompanyId ?? ''} options={companyOptions} onChange={(event) => session.selectCompany(event.target.value)}/>
         </Card>
         <Card title="Sua conta" description={session.user?.email ?? 'Usuário autenticado'}>
@@ -44,6 +50,8 @@ export function AppShell({ session }: AppShellProps) {
       </div>
     </section>
   );
+
+  const requiresSpecificCompany = <EmptyState title="Selecione uma empresa" message="Este módulo operacional exige uma empresa específica. A opção Todas as empresas é exclusiva para visões consolidadas."/>;
 
   return (
     <div className="app-shell">
@@ -65,12 +73,12 @@ export function AppShell({ session }: AppShellProps) {
       </header>
 
       <main className="app-page" id="app-main" tabIndex={-1}>
-        <div className="app-page__context" aria-live="polite"><span>Empresa ativa</span><strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
+        <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
-          <Route path="/" element={activeCompany ? <HomePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A visão geral precisa de uma empresa ativa autorizada."/>}/>
-          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
-          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
-          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
+          <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
+          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : requiresSpecificCompany}/>
+          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : requiresSpecificCompany}/>
+          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : requiresSpecificCompany}/>
           <Route path="/mais" element={morePage}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
