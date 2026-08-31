@@ -2,8 +2,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { LoginPage } from '../modules/platform/ui/LoginPage';
 import { usePlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { LoadingState } from '../shared/ui/Feedback';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import { AppShell } from './AppShell';
 import './shell.css';
+import './final.css';
 
 export function App() {
   const session = usePlatformSession();
@@ -27,8 +29,10 @@ export function App() {
   }
 
   return (
-    <BrowserRouter>
-      <AppShell session={session} />
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <AppShell session={session} />
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 }
