@@ -55,12 +55,22 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     const errors = [contractsResult.error, compensationResult.error, allocationResult.error, eventResult.error, closingResult.error, statutoryResult.error, limitsResult.error, costCentersResult.error, categoriesResult.error].filter(Boolean);
     if (errors[0]) throw errors[0];
 
-    const compensations = new Map<string, number>();
-    for (const row of compensationResult.data) if (!compensations.has(row.employment_contract_id)) compensations.set(row.employment_contract_id, Number(row.base_salary));
-    const allocations = new Map<string, { costCenterId: string; costCenterName: string; allocationPercent: number }>();
-    for (const row of allocationResult.data) if (!allocations.has(row.employment_contract_id)) allocations.set(row.employment_contract_id, { costCenterId: row.cost_center_id, costCenterName: row.cost_centers.name, allocationPercent: Number(row.allocation_percent) });
+    const contracts = contractsResult.data ?? [];
+    const compensationsData = compensationResult.data ?? [];
+    const allocationsData = allocationResult.data ?? [];
+    const eventsData = eventResult.data ?? [];
+    const closingsData = closingResult.data ?? [];
+    const statutoryData = statutoryResult.data ?? [];
+    const limitsData = limitsResult.data ?? [];
+    const costCentersData = costCentersResult.data ?? [];
+    const categoriesData = categoriesResult.data ?? [];
 
-    const employees = contractsResult.data.map((row) => {
+    const compensations = new Map<string, number>();
+    for (const row of compensationsData) if (!compensations.has(row.employment_contract_id)) compensations.set(row.employment_contract_id, Number(row.base_salary));
+    const allocations = new Map<string, { costCenterId: string; costCenterName: string; allocationPercent: number }>();
+    for (const row of allocationsData) if (!allocations.has(row.employment_contract_id)) allocations.set(row.employment_contract_id, { costCenterId: row.cost_center_id, costCenterName: row.cost_centers.name, allocationPercent: Number(row.allocation_percent) });
+
+    const employees = contracts.map((row) => {
       const allocation = allocations.get(row.id);
       return {
         employeeId: row.employee_id,
@@ -76,15 +86,15 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
         allocationPercent: allocation?.allocationPercent ?? null,
       };
     });
-    const payrollEvents: PayrollEventRow[] = eventResult.data.map((row) => ({ id: row.id, employmentContractId: row.employment_contract_id, employeeName: row.employment_contracts.employees.full_name, competenceMonth: row.competence_month, eventKind: row.event_kind as PayrollEventRow['eventKind'], amount: Number(row.amount), description: row.description, status: row.status as PayrollEventRow['status'] }));
-    const statutory = new Map(statutoryResult.data.map((row) => [row.payroll_closing_id, row]));
-    const payrollClosings: PayrollClosingRow[] = closingResult.data.map((row) => {
+    const payrollEvents: PayrollEventRow[] = eventsData.map((row) => ({ id: row.id, employmentContractId: row.employment_contract_id, employeeName: row.employment_contracts.employees.full_name, competenceMonth: row.competence_month, eventKind: row.event_kind as PayrollEventRow['eventKind'], amount: Number(row.amount), description: row.description, status: row.status as PayrollEventRow['status'] }));
+    const statutory = new Map(statutoryData.map((row) => [row.payroll_closing_id, row]));
+    const payrollClosings: PayrollClosingRow[] = closingsData.map((row) => {
       const taxes = statutory.get(row.id);
       return { id: row.id, employmentContractId: row.employment_contract_id, employeeName: row.employment_contracts.employees.full_name, competenceMonth: row.competence_month, grossAmount: Number(row.gross_snapshot), netBeforeStatutory: Number(row.net_before_statutory_snapshot), inssAmount: Number(taxes?.inss_amount ?? 0), irrfAmount: Number(taxes?.irrf_amount ?? 0), fgtsAmount: Number(taxes?.fgts_amount ?? 0), status: row.status as PayrollClosingRow['status'] };
     });
-    const budgetLimits: BudgetLimitRow[] = limitsResult.data.map((row) => ({ id: row.id, competenceMonth: row.competence_month, costCenterId: row.cost_center_id, costCenterName: row.cost_centers?.name ?? null, categoryId: row.category_id, categoryName: row.financial_categories?.name ?? null, limitAmount: Number(row.limit_amount), warningPercent: Number(row.warning_percent), status: row.status as BudgetLimitRow['status'] }));
-    const costCenters = costCentersResult.data.map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
-    const categories = categoriesResult.data.map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
+    const budgetLimits: BudgetLimitRow[] = limitsData.map((row) => ({ id: row.id, competenceMonth: row.competence_month, costCenterId: row.cost_center_id, costCenterName: row.cost_centers?.name ?? null, categoryId: row.category_id, categoryName: row.financial_categories?.name ?? null, limitAmount: Number(row.limit_amount), warningPercent: Number(row.warning_percent), status: row.status as BudgetLimitRow['status'] }));
+    const costCenters = costCentersData.map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
+    const categories = categoriesData.map((row) => ({ id: row.id, name: row.name, status: row.status as 'active' | 'inactive' }));
     return { employees, payrollEvents, payrollClosings, budgetLimits, costCenters, categories };
   }
 
