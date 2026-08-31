@@ -62,7 +62,7 @@ export function useFinanceOperations(scope: CompanyScope) {
       setState((current) => ({ ...current, busy: false, errorMessage: messageFrom(error) }));
       throw error;
     }
-  }, [repositories, scope.companyId, scope.tenantId]);
+  }, [repositories, scope]);
 
   useEffect(() => { void loadReferences().catch(() => undefined); }, [loadReferences]);
 
