@@ -37,9 +37,10 @@ describe('Design System final regression', () => {
     expect(dialogSource).toContain('aria-describedby={description ? descriptionId : undefined}');
     expect(dialogSource).toContain('← {backLabel}');
     expect(dialogSource).toContain('aria-label="Fechar"');
-    expect(dialogSource).toContain('ui-dialog');
-    expect(dialogSource).toContain('ui-dialog__body');
-    expect(dialogSource).toContain('ui-dialog__footer');
+    expect(dialogSource).toContain('className="ui-dialog"');
+    expect(dialogSource).toContain('className="ui-dialog__header"');
+    expect(dialogSource).toContain('className="ui-dialog__content"');
+    expect(dialogSource).toContain('className="ui-dialog__footer"');
   });
 
   it('keeps final production navigation free of the UI laboratory', () => {
