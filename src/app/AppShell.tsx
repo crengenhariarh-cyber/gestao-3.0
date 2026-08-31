@@ -7,7 +7,6 @@ import type { PlatformSession } from '../modules/platform/ui/usePlatformSession'
 import { Button } from '../shared/ui/Button';
 import { EmptyState } from '../shared/ui/Feedback';
 import { Select } from '../shared/ui/Select';
-import { UiLab } from './UiLab';
 
 const navigation = [
   { to: '/', label: 'Início', shortLabel: 'Início', icon: '⌂', end: true },
@@ -27,6 +26,7 @@ export function AppShell({ session }: AppShellProps) {
 
   return (
     <div className="app-shell">
+      <a className="app-skip-link" href="#app-main">Ir para o conteúdo</a>
       <header className="app-header">
         <div className="app-header__top">
           <div className="app-brand"><strong>Gestão 3.0</strong><span>{session.user?.email ?? 'Usuário autenticado'}</span></div>
@@ -40,14 +40,13 @@ export function AppShell({ session }: AppShellProps) {
         </nav>
       </header>
 
-      <main className="app-page">
-        <div className="app-page__context"><span>Empresa ativa</span><strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
+      <main className="app-page" id="app-main" tabIndex={-1}>
+        <div className="app-page__context" aria-live="polite"><span>Empresa ativa</span><strong>{activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
           <Route path="/" element={activeCompany ? <HomePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A visão geral precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
-          <Route path="/ui-lab" element={<UiLab/>}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
       </main>
