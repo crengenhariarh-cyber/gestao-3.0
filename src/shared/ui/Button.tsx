@@ -18,13 +18,15 @@ export function Button({
   disabled,
   children,
   className = '',
+  type = 'button',
   ...props
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={`ui-button ui-button--${variant} ui-button--${size} ${className}`.trim()}
       disabled={disabled || loading}
-      aria-busy={loading}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading ? loadingLabel : children}
