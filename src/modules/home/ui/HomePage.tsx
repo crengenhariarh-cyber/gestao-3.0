@@ -36,6 +36,7 @@ function accumulate(values: number[]): void {
 
 export function HomePage({ company }: HomePageProps) {
   const navigate = useNavigate();
+  const go = (path: string): void => { void navigate(path); };
   const scope = { tenantId: company.tenantId, companyId: company.id };
   const finance = useFinanceOverview(scope);
   const hr = useHrBudgetOverview(scope);
@@ -88,7 +89,7 @@ export function HomePage({ company }: HomePageProps) {
       <div className="dashboard-toolbar">
         <div className="dashboard-period"><span aria-hidden="true">▣</span><strong>{monthLabel.format(new Date(`${data.month}T12:00:00`))}</strong></div>
         <div className="dashboard-updated">↻ Atualizado agora</div>
-        <Button size="sm" onClick={() => navigate('/financeiro')}>Filtros</Button>
+        <Button size="sm" onClick={() => go('/financeiro')}>Filtros</Button>
       </div>
 
       <Card>
@@ -117,16 +118,16 @@ export function HomePage({ company }: HomePageProps) {
 
       <div className="dashboard-two-col">
         <Card title="Planejamento financeiro" description={monthLabel.format(new Date(`${data.month}T12:00:00`))}>
-          <div className="planning"><div><span>Orçamento</span><strong>{shortMoney(budgetRealized)} / {shortMoney(budgetPlanned)}</strong><b>{budgetPercent}%</b></div><div className="planning-track"><i style={{ width: `${budgetPercent}%` }} /></div><Button onClick={() => navigate('/rh')} size="sm">Ver planejamento completo</Button></div>
+          <div className="planning"><div><span>Orçamento</span><strong>{shortMoney(budgetRealized)} / {shortMoney(budgetPlanned)}</strong><b>{budgetPercent}%</b></div><div className="planning-track"><i style={{ width: `${budgetPercent}%` }} /></div><Button onClick={() => go('/rh')} size="sm">Ver planejamento completo</Button></div>
         </Card>
-        <Card title="Lançamentos recentes" actions={<Button variant="tertiary" size="sm" onClick={() => navigate('/financeiro')}>Ver todos</Button>}>
+        <Card title="Lançamentos recentes" actions={<Button variant="tertiary" size="sm" onClick={() => go('/financeiro')}>Ver todos</Button>}>
           <div className="recent-list">{recent.length === 0 ? <span className="ui-muted">Nenhum lançamento nesta competência.</span> : recent.map((item) => <div className="recent-item" key={item.installmentId}><span className={item.entryType === 'income' ? 'recent-icon income' : 'recent-icon expense'}>{item.entryType === 'income' ? '↑' : '↓'}</span><div><strong>{item.description}</strong><small>{item.installmentCount > 1 ? `Parcela ${item.installmentNumber}/${item.installmentCount}` : item.counterpartyName ?? 'Lançamento financeiro'}</small></div><b className={item.entryType === 'income' ? 'is-income' : 'is-expense'}>{shortMoney(item.amount)}</b></div>)}</div>
         </Card>
       </div>
 
       <div className="dashboard-two-col dashboard-bottom">
-        <Card title="Acesso rápido"><div className="quick-actions"><button onClick={() => navigate('/financeiro')}>＋<span>Nova entrada</span></button><button onClick={() => navigate('/financeiro')}>−<span>Nova saída</span></button><button onClick={() => navigate('/financeiro')}>⇄<span>Transferência</span></button><button onClick={() => navigate('/financeiro')}>▤<span>Contas do mês</span></button><button onClick={() => navigate('/financeiro')}>•••<span>Mais opções</span></button></div></Card>
-        <Card title="Notificações" actions={<Button variant="tertiary" size="sm" onClick={() => navigate('/financeiro')}>Ver todas</Button>}><div className="notification-list"><button onClick={() => navigate('/financeiro')}><span>▣</span><div><strong>{overdue.length} títulos com vencimento anterior</strong><small>{shortMoney(overdueTotal)}</small></div><b>›</b></button><button onClick={() => navigate('/financeiro')}><span>◷</span><div><strong>{dueToday.length} títulos vencem hoje</strong><small>{shortMoney(dueTodayTotal)}</small></div><b>›</b></button></div></Card>
+        <Card title="Acesso rápido"><div className="quick-actions"><button onClick={() => go('/financeiro')}>＋<span>Nova entrada</span></button><button onClick={() => go('/financeiro')}>−<span>Nova saída</span></button><button onClick={() => go('/financeiro')}>⇄<span>Transferência</span></button><button onClick={() => go('/financeiro')}>▤<span>Contas do mês</span></button><button onClick={() => go('/financeiro')}>•••<span>Mais opções</span></button></div></Card>
+        <Card title="Notificações" actions={<Button variant="tertiary" size="sm" onClick={() => go('/financeiro')}>Ver todas</Button>}><div className="notification-list"><button onClick={() => go('/financeiro')}><span>▣</span><div><strong>{overdue.length} títulos com vencimento anterior</strong><small>{shortMoney(overdueTotal)}</small></div><b>›</b></button><button onClick={() => go('/financeiro')}><span>◷</span><div><strong>{dueToday.length} títulos vencem hoje</strong><small>{shortMoney(dueTodayTotal)}</small></div><b>›</b></button></div></Card>
       </div>
     </section>
   );
