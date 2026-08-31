@@ -31,19 +31,12 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setValidationMessage(null);
-
     if (setupMode) {
       if (password !== confirmPassword) {
         setValidationMessage('As senhas informadas não são iguais.');
         return;
       }
-      void onBootstrapFirstOwner({
-        email: email.trim(),
-        password,
-        bootstrapCode: bootstrapCode.trim(),
-        tenantName: tenantName.trim(),
-        companyName: companyName.trim(),
-      });
+      void onBootstrapFirstOwner({ email: email.trim(), password, bootstrapCode: bootstrapCode.trim(), tenantName: tenantName.trim(), companyName: companyName.trim() });
       return;
     }
     void onSignIn(email.trim(), password);
@@ -58,60 +51,20 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
   return (
     <main className="auth-page">
       <div className="auth-page__panel">
-        <div className="auth-page__brand" aria-label="Gestão">
-          <img className="auth-page__logo" src="/gestao-icon.svg" alt="Gestão" />
+        <div className="auth-page__brand" aria-label="Gestão — Sua gestão, mais simples">
+          <img className="auth-page__logo" src="/gestao-brand.svg" alt="Gestão — Sua gestão, mais simples" />
         </div>
-
         <Card>
           <form className="ui-stack" onSubmit={handleSubmit}>
-            {setupMode && (
-              <>
-                <Input label="Organização" value={tenantName} onChange={(event) => setTenantName(event.target.value)} required />
-                <Input label="Empresa inicial" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required />
-                <Input label="Código inicial" value={bootstrapCode} onChange={(event) => setBootstrapCode(event.target.value)} required />
-              </>
-            )}
-            <Input
-              label="E-mail"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-            <Input
-              label="Senha"
-              type="password"
-              autoComplete={setupMode ? 'new-password' : 'current-password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-            {setupMode && (
-              <Input
-                label="Confirmar senha"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                required
-              />
-            )}
+            {setupMode && <><Input label="Organização" value={tenantName} onChange={(event) => setTenantName(event.target.value)} required /><Input label="Empresa inicial" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required /><Input label="Código inicial" value={bootstrapCode} onChange={(event) => setBootstrapCode(event.target.value)} required /></>}
+            <Input label="E-mail" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <Input label="Senha" type="password" autoComplete={setupMode ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} required />
+            {setupMode && <Input label="Confirmar senha" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />}
             {noticeMessage && <Feedback tone="success" title="Primeiro acesso" message={noticeMessage} />}
             {validationMessage && <Feedback tone="danger" title="Confira os dados" message={validationMessage} />}
-            {errorMessage && (
-              <Feedback
-                tone="danger"
-                title={setupMode ? 'Não foi possível criar o acesso' : 'Não foi possível entrar'}
-                message={errorMessage}
-              />
-            )}
-            <Button type="submit" size="lg" disabled={loading} loading={loading}>
-              {setupMode ? 'Criar primeiro acesso' : 'Entrar'}
-            </Button>
-            <Button type="button" variant="tertiary" disabled={loading} onClick={toggleSetupMode}>
-              {setupMode ? 'Voltar para entrar' : 'Configurar primeiro acesso'}
-            </Button>
+            {errorMessage && <Feedback tone="danger" title={setupMode ? 'Não foi possível criar o acesso' : 'Não foi possível entrar'} message={errorMessage} />}
+            <Button type="submit" size="lg" disabled={loading} loading={loading}>{setupMode ? 'Criar primeiro acesso' : 'Entrar'}</Button>
+            <Button type="button" variant="tertiary" disabled={loading} onClick={toggleSetupMode}>{setupMode ? 'Voltar para entrar' : 'Configurar primeiro acesso'}</Button>
           </form>
         </Card>
       </div>
