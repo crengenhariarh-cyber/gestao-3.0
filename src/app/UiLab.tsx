@@ -42,7 +42,7 @@ export function UiLab() {
 
         <Card title="Abas" description="Ativa, inativa, contador, desabilitada e rolagem horizontal.">
           <Tabs items={tabItems} activeId={activeTab} onChange={setActiveTab} ariaLabel="Exemplo de abas" />
-          <p className="ui-muted" style={{ marginTop: 14 }}>Conteúdo ativo: {tabItems.find((item) => item.id === activeTab)?.label}</p>
+          <p className="ui-muted ui-lab__active-content">Conteúdo ativo: {tabItems.find((item) => item.id === activeTab)?.label}</p>
         </Card>
 
         <Card title="Campos" description="Label, ajuda, erro e estado desabilitado padronizados.">
