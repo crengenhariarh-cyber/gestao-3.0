@@ -1,19 +1,19 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
 import appShellSource from '../../app/AppShell.tsx?raw';
-import shellCssSource from '../../app/shell.css?raw';
+import shellCssSource from '../../app/shell.css?inline';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
-import engineeringCssSource from '../../modules/engineering/ui/engineering.css?raw';
+import engineeringCssSource from '../../modules/engineering/ui/engineering.css?inline';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
-import financeCssSource from '../../modules/finance/ui/finance.css?raw';
+import financeCssSource from '../../modules/finance/ui/finance.css?inline';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
-import hrCssSource from '../../modules/hr/ui/hr.css?raw';
+import hrCssSource from '../../modules/hr/ui/hr.css?inline';
 import loginSource from '../../modules/platform/ui/LoginPage.tsx?raw';
 import authGatewaySource from '../../modules/platform/infrastructure/SupabaseAuthGateway.ts?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
-import stylesSource from './styles.css?raw';
+import stylesSource from './styles.css?inline';
 
 const operationalSources = [financeSource, hrSource, engineeringOperationsSource, engineeringMaintenanceSource];
 const moduleCssSources = [financeCssSource, hrCssSource, engineeringCssSource, shellCssSource];
