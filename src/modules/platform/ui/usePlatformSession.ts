@@ -18,7 +18,15 @@ export interface PlatformSession {
   companies: readonly CompanySummary[];
   activeCompanyId: string | null;
   errorMessage: string | null;
+  noticeMessage: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  bootstrapFirstOwner: (input: {
+    email: string;
+    password: string;
+    bootstrapCode: string;
+    tenantName: string;
+    companyName: string;
+  }) => Promise<void>;
   signOut: () => Promise<void>;
   selectCompany: (companyId: string) => void;
 }
@@ -31,6 +39,7 @@ export function usePlatformSession(): PlatformSession {
   const [contexts, setContexts] = useState<readonly AccessContext[]>([]);
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const hydrateAccess = useCallback(async () => {
     const currentUser = await authGateway.getCurrentUser();
@@ -46,10 +55,21 @@ export function usePlatformSession(): PlatformSession {
     const nextContexts = await accessRepository.listContextsForCurrentUser();
     const nextCompanies = flattenAuthorizedCompanies(nextContexts);
 
+    if (nextCompanies.length === 0) {
+      await authGateway.signOut();
+      setUser(null);
+      setContexts([]);
+      setActiveCompanyId(null);
+      setErrorMessage('Usuário autenticado, mas sem empresa autorizada.');
+      setStatus('anonymous');
+      return;
+    }
+
     setUser(currentUser);
     setContexts(nextContexts);
     setActiveCompanyId((current) => resolveActiveCompanyId(nextCompanies, current));
     setErrorMessage(null);
+    setNoticeMessage(null);
     setStatus('ready');
   }, [accessRepository, authGateway]);
 
@@ -64,6 +84,7 @@ export function usePlatformSession(): PlatformSession {
     async (email: string, password: string) => {
       setStatus('loading');
       setErrorMessage(null);
+      setNoticeMessage(null);
 
       try {
         await authGateway.signInWithPassword(email, password);
@@ -76,12 +97,42 @@ export function usePlatformSession(): PlatformSession {
     [authGateway, hydrateAccess],
   );
 
+  const bootstrapFirstOwner = useCallback(
+    async (input: {
+      email: string;
+      password: string;
+      bootstrapCode: string;
+      tenantName: string;
+      companyName: string;
+    }) => {
+      setStatus('loading');
+      setErrorMessage(null);
+      setNoticeMessage(null);
+
+      try {
+        const result = await authGateway.signUpFirstOwner(input);
+        if (result.sessionCreated) {
+          await hydrateAccess();
+          return;
+        }
+
+        setNoticeMessage('Primeiro acesso criado. Confirme o e-mail e depois entre normalmente.');
+        setStatus('anonymous');
+      } catch {
+        setErrorMessage('Não foi possível criar o primeiro acesso. Verifique o código inicial e os dados informados.');
+        setStatus('anonymous');
+      }
+    },
+    [authGateway, hydrateAccess],
+  );
+
   const signOut = useCallback(async () => {
     await authGateway.signOut();
     setUser(null);
     setContexts([]);
     setActiveCompanyId(null);
     setErrorMessage(null);
+    setNoticeMessage(null);
     setStatus('anonymous');
   }, [authGateway]);
 
@@ -105,7 +156,9 @@ export function usePlatformSession(): PlatformSession {
     companies,
     activeCompanyId,
     errorMessage,
+    noticeMessage,
     signIn,
+    bootstrapFirstOwner,
     signOut,
     selectCompany,
   };
