@@ -41,12 +41,12 @@ describe('Design System final regression', () => {
   });
 
   it('keeps desktop light and mobile dark theme centralized in shared tokens', () => {
-    expect(stylesSource).toContain('color-scheme: light');
-    expect(stylesSource).toContain('@media(max-width:760px)');
-    expect(stylesSource).toContain('color-scheme:dark');
-    expect(stylesSource).toContain('--surface:');
-    expect(stylesSource).toContain('--text:');
-    expect(stylesSource).toContain('--border:');
+    expect(stylesSource).toMatch(/color-scheme\s*:\s*light\s*;/);
+    expect(stylesSource).toMatch(/@media\s*\(\s*max-width\s*:\s*760px\s*\)/);
+    expect(stylesSource).toMatch(/color-scheme\s*:\s*dark\s*;/);
+    expect(stylesSource).toMatch(/--surface\s*:/);
+    expect(stylesSource).toMatch(/--text\s*:/);
+    expect(stylesSource).toMatch(/--border\s*:/);
   });
 
   it('keeps shared buttons safe outside explicit forms', () => {
@@ -60,8 +60,8 @@ describe('Design System final regression', () => {
     expect(dialogSource).toContain('aria-describedby={description ? descriptionId : undefined}');
     expect(dialogSource).toContain('← {backLabel}');
     expect(dialogSource).toContain('aria-label="Fechar"');
-    expect(stylesSource).toContain('height:100dvh');
-    expect(stylesSource).toContain('grid-template-rows:auto minmax(0,1fr) auto');
+    expect(stylesSource).toMatch(/height\s*:\s*100dvh\s*;/);
+    expect(stylesSource).toMatch(/grid-template-rows\s*:\s*auto\s+minmax\(0\s*,\s*1fr\)\s+auto\s*;/);
   });
 
   it('keeps final production navigation free of the UI laboratory', () => {
