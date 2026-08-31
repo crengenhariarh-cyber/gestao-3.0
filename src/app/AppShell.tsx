@@ -5,6 +5,7 @@ import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
+import { Card } from '../shared/ui/Card';
 import { EmptyState } from '../shared/ui/Feedback';
 import { Select } from '../shared/ui/Select';
 
@@ -12,7 +13,8 @@ const navigation = [
   { to: '/', label: 'Início', shortLabel: 'Início', icon: '⌂', end: true },
   { to: '/financeiro', label: 'Financeiro', shortLabel: 'Financeiro', icon: 'R$' },
   { to: '/rh', label: 'RH', shortLabel: 'RH', icon: 'RH' },
-  { to: '/engenharia', label: 'Engenharia', shortLabel: 'Engenharia', icon: 'E' },
+  { to: '/engenharia', label: 'Engenharia', shortLabel: 'Engenharia', icon: '▰' },
+  { to: '/mais', label: 'Mais', shortLabel: 'Mais', icon: '•••' },
 ] as const;
 
 export interface AppShellProps { session: PlatformSession; }
@@ -24,14 +26,36 @@ export function AppShell({ session }: AppShellProps) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
   }
 
+  const companyOptions = session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }));
+
+  const morePage = (
+    <section className="app-more" aria-labelledby="more-title">
+      <div className="app-section-heading">
+        <div><span className="ui-muted">Gestão</span><h1 id="more-title">Mais</h1></div>
+        <p className="ui-muted">Configurações e informações do ambiente.</p>
+      </div>
+      <div className="app-more__grid">
+        <Card title="Empresa ativa" description="Altere o contexto sem misturar dados entre empresas.">
+          <Select label="Empresa" value={session.activeCompanyId ?? ''} options={companyOptions} onChange={(event) => session.selectCompany(event.target.value)}/>
+        </Card>
+        <Card title="Sua conta" description={session.user?.email ?? 'Usuário autenticado'}>
+          <Button variant="secondary" onClick={() => void session.signOut()}>Sair do Gestão</Button>
+        </Card>
+      </div>
+    </section>
+  );
+
   return (
     <div className="app-shell">
       <a className="app-skip-link" href="#app-main">Ir para o conteúdo</a>
       <header className="app-header">
         <div className="app-header__top">
-          <div className="app-brand"><strong>Gestão</strong><span>{session.user?.email ?? 'Usuário autenticado'}</span></div>
+          <NavLink to="/" className="app-brand" aria-label="Gestão — Início">
+            <img src="/gestao-icon.svg?v=3" alt="" aria-hidden="true" />
+            <div><strong>Gestão</strong><span>Sua gestão, mais simples</span></div>
+          </NavLink>
           <div className="app-header__actions">
-            <Select label="Empresa" value={session.activeCompanyId ?? ''} options={session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }))} onChange={(event) => session.selectCompany(event.target.value)}/>
+            <Select label="Empresa" value={session.activeCompanyId ?? ''} options={companyOptions} onChange={(event) => session.selectCompany(event.target.value)}/>
             <Button variant="tertiary" onClick={() => void session.signOut()}>Sair</Button>
           </div>
         </div>
@@ -47,6 +71,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="O Financeiro precisa de uma empresa ativa autorizada."/>}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="RH e Orçamento precisam de uma empresa ativa autorizada."/>}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : <EmptyState title="Selecione uma empresa" message="A Engenharia precisa de uma empresa ativa autorizada."/>}/>
+          <Route path="/mais" element={morePage}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
       </main>
