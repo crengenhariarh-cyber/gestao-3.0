@@ -20,10 +20,10 @@ const operationalSources = [
 describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
     for (const source of operationalSources) {
-      expect(source).not.toMatch(/<button\b/i);
-      expect(source).not.toMatch(/<input\b/i);
-      expect(source).not.toMatch(/<select\b/i);
-      expect(source).not.toMatch(/<dialog\b/i);
+      expect(source).not.toMatch(/<button\b/);
+      expect(source).not.toMatch(/<input\b/);
+      expect(source).not.toMatch(/<select\b/);
+      expect(source).not.toMatch(/<dialog\b/);
     }
   });
 
