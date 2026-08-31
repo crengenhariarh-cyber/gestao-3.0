@@ -49,13 +49,11 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
     const compensations = new Map<string, number>();
     for (const row of compensationResult.data ?? []) if (!compensations.has(row.employment_contract_id)) compensations.set(row.employment_contract_id, Number(row.base_salary));
     const allocations = new Map<string, { costCenterId: string; costCenterName: string; allocationPercent: number }>();
-    for (const row of allocationResult.data ?? []) {
-      if (!allocations.has(row.employment_contract_id)) allocations.set(row.employment_contract_id, {
-        costCenterId: row.cost_center_id,
-        costCenterName: (row.cost_centers as unknown as { name: string }).name,
-        allocationPercent: Number(row.allocation_percent),
-      });
-    }
+    for (const row of allocationResult.data ?? []) if (!allocations.has(row.employment_contract_id)) allocations.set(row.employment_contract_id, {
+      costCenterId: row.cost_center_id,
+      costCenterName: (row.cost_centers as unknown as { name: string }).name,
+      allocationPercent: Number(row.allocation_percent),
+    });
     const employees = (contractsResult.data ?? []).map((row) => {
       const allocation = allocations.get(row.id);
       return {
@@ -116,9 +114,7 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
 
   async createEmployeeBundle(input: CreateEmployeeBundleInput): Promise<void> {
     amount(input.baseSalary, 'baseSalary', true);
-    const result = await this.client.rpc('create_hr_employee_bundle', {
-      p_tenant_id: input.tenantId, p_company_id: input.companyId, p_full_name: required(input.fullName, 'fullName'), p_hired_on: required(input.hiredOn, 'hiredOn'), p_job_title: required(input.jobTitle, 'jobTitle'), p_base_salary: input.baseSalary, p_cost_center_id: input.costCenterId ?? null, p_allocation_percent: input.allocationPercent ?? 100,
-    });
+    const result = await this.client.rpc('create_hr_employee_bundle', { p_tenant_id: input.tenantId, p_company_id: input.companyId, p_full_name: required(input.fullName, 'fullName'), p_hired_on: required(input.hiredOn, 'hiredOn'), p_job_title: required(input.jobTitle, 'jobTitle'), p_base_salary: input.baseSalary, p_cost_center_id: input.costCenterId ?? null, p_allocation_percent: input.allocationPercent ?? 100 });
     if (result.error) throw result.error;
   }
   async changeSalary(scope: CompanyScope, employmentContractId: string, effectiveFrom: string, baseSalary: number): Promise<void> {
@@ -145,6 +141,10 @@ export class SupabaseHrOperationsRepository implements HrOperationsRepository {
   }
   async reopenPayroll(scope: CompanyScope, payrollClosingId: string, reason: string): Promise<void> {
     const result = await this.client.rpc('reopen_payroll', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_payroll_closing_id: payrollClosingId, p_reason: required(reason, 'reason') });
+    if (result.error) throw result.error;
+  }
+  async configurePayrollFinance(scope: CompanyScope, salaryCategoryId: string, fgtsCategoryId: string, inssCategoryId: string, irrfCategoryId: string): Promise<void> {
+    const result = await this.client.rpc('configure_payroll_finance', { p_tenant_id: scope.tenantId, p_company_id: scope.companyId, p_salary_category_id: salaryCategoryId, p_fgts_category_id: fgtsCategoryId, p_inss_category_id: inssCategoryId, p_irrf_category_id: irrfCategoryId });
     if (result.error) throw result.error;
   }
   async syncPayrollPayables(scope: CompanyScope, competenceMonth: string, salaryDueDate: string, fgtsDueDate: string, inssDueDate: string, irrfDueDate: string): Promise<void> {
