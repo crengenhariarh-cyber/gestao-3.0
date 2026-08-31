@@ -19,6 +19,7 @@ export interface EngineeringOperationalSnapshot {
   productionPeriods: readonly EngineeringProductionPeriodOption[];
   employees: readonly EngineeringEmployeeOption[];
   provisionals: readonly EngineeringProvisionalOption[];
+  accounts: readonly EngineeringReferenceItem[];
 }
 
 export interface EngineeringOperationsRepository {
