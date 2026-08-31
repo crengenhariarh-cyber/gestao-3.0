@@ -1,13 +1,13 @@
 {
-  "name": "Gestão 3.0",
+  "name": "Gestão",
   "short_name": "Gestão",
   "description": "Gestão financeira, RH e engenharia.",
   "lang": "pt-BR",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#2563eb",
+  "background_color": "#071426",
+  "theme_color": "#071426",
   "icons": [
     {
       "src": "/gestao-icon.svg",
