@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FinancialTransfer, CreateFinancialTransfer } from '../domain/accounts';
 import type {
+  CardInstallment,
   CardStatementBalance,
   CloseCardStatement,
   CreateCardPurchase,
@@ -31,6 +32,7 @@ export interface FinanceReferenceData {
   costCenters: readonly CostCenter[];
   accounts: readonly FinancialAccount[];
   cards: readonly CreditCard[];
+  cardInstallments: readonly CardInstallment[];
   statements: readonly CardStatementBalance[];
   installmentBalances: readonly InstallmentBalance[];
   transfers: readonly FinancialTransfer[];
@@ -55,17 +57,18 @@ export function useFinanceOperations(scope: CompanyScope) {
   const loadReferences = useCallback(async (): Promise<FinanceReferenceData> => {
     setState((current) => ({ ...current, busy: true, errorMessage: null }));
     try {
-      const [categories, costCenters, accounts, cards, statements, installmentBalances, transfers, recurrences] = await Promise.all([
+      const [categories, costCenters, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences] = await Promise.all([
         repositories.registries.listCategories(scope),
         repositories.registries.listCostCenters(scope),
         repositories.registries.listAccounts(scope),
         repositories.cards.listCards(scope),
+        repositories.cards.listInstallments(scope),
         repositories.cards.listStatements(scope),
         repositories.settlements.listBalances(scope),
         repositories.accounts.listTransfers(scope),
         repositories.recurrences.list(scope),
       ]);
-      const references = { categories, costCenters, accounts, cards, statements, installmentBalances, transfers, recurrences };
+      const references = { categories, costCenters, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences };
       setState((current) => ({ ...current, busy: false, references }));
       return references;
     } catch (error) {
