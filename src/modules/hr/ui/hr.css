@@ -1,20 +1,20 @@
 .hr-overview { display: grid; gap: 16px; }
 .hr-overview__heading { display: flex; justify-content: space-between; gap: 16px; align-items: end; }
 .hr-overview__heading h1 { margin: 4px 0 0; }
-.hr-overview__heading p { margin: 0; max-width: 560px; }
+.hr-overview__heading p { margin: 0; max-width: 560px; color: var(--muted); }
 .hr-overview__content { display: grid; gap: 16px; }
 .hr-overview__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .hr-kpi { display: block; font-size: 1.45rem; line-height: 1.2; }
 .hr-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .hr-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: min(100%, 1100px); margin: 0 auto; }
 .hr-list { display: grid; gap: 0; }
-.hr-list__row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--ui-border, #e5e7eb); }
+.hr-list__row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .hr-list__row:last-child { border-bottom: 0; }
 .hr-list__row > div:first-child { display: grid; gap: 4px; }
 .hr-list__values { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; text-align: right; }
 .hr-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; }
 .hr-summary div { display: grid; gap: 4px; }
-.hr-summary dt { color: #64748b; font-size: .875rem; }
+.hr-summary dt { color: var(--muted); font-size: .875rem; }
 .hr-summary dd { margin: 0; font-weight: 700; }
 @media (max-width: 760px) {
   .hr-overview__heading { display: grid; align-items: start; }
