@@ -9,14 +9,14 @@ type HrBudgetOverviewState =
 
 const BUDGET_PROJECTION_START = '2026-09-01';
 
-function currentCompetence(): { month: string; year: number } {
+export function currentHrCompetence(): { month: string; year: number } {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const month = currentMonth < BUDGET_PROJECTION_START ? BUDGET_PROJECTION_START : currentMonth;
   return { month, year: Number(month.slice(0, 4)) };
 }
 
-export function useHrBudgetOverview(scope: { tenantId: string; companyId: string } | null): HrBudgetOverviewState {
+export function useHrBudgetOverview(scope: { tenantId: string; companyId: string } | null, refreshToken = 0): HrBudgetOverviewState {
   const repository = useMemo(() => getHrBudgetRepository(), []);
   const tenantId = scope?.tenantId ?? null;
   const companyId = scope?.companyId ?? null;
@@ -28,29 +28,18 @@ export function useHrBudgetOverview(scope: { tenantId: string; companyId: string
       return;
     }
 
-    const competence = currentCompetence();
+    const competence = currentHrCompetence();
     let cancelled = false;
     setState({ status: 'loading', data: null, errorMessage: null });
 
-    void repository.getOverview({
-      tenantId,
-      companyId,
-      competenceMonth: competence.month,
-      year: competence.year,
-    }).then((data) => {
-      if (!cancelled) setState({ status: 'ready', data, errorMessage: null });
-    }).catch(() => {
-      if (!cancelled) {
-        setState({
-          status: 'error',
-          data: null,
-          errorMessage: 'Não foi possível carregar RH e orçamento desta empresa.',
-        });
-      }
-    });
+    void repository.getOverview({ tenantId, companyId, competenceMonth: competence.month, year: competence.year })
+      .then((data) => { if (!cancelled) setState({ status: 'ready', data, errorMessage: null }); })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', data: null, errorMessage: 'Não foi possível carregar RH e orçamento desta empresa.' });
+      });
 
     return () => { cancelled = true; };
-  }, [repository, tenantId, companyId]);
+  }, [repository, tenantId, companyId, refreshToken]);
 
   return state;
 }
