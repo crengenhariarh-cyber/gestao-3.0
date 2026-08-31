@@ -25,7 +25,6 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
   const [confirmPassword, setConfirmPassword] = useState('');
   const [bootstrapCode, setBootstrapCode] = useState('');
   const [tenantName, setTenantName] = useState('');
-  const [companyName, setCompanyName] = useState('');
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -36,7 +35,7 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
         setValidationMessage('As senhas informadas não são iguais.');
         return;
       }
-      void onBootstrapFirstOwner({ email: email.trim(), password, bootstrapCode: bootstrapCode.trim(), tenantName: tenantName.trim(), companyName: companyName.trim() });
+      void onBootstrapFirstOwner({ email: email.trim(), password, bootstrapCode: bootstrapCode.trim(), tenantName: tenantName.trim(), companyName: 'CR' });
       return;
     }
     void onSignIn(email.trim(), password);
@@ -56,7 +55,7 @@ export function LoginPage({ loading, errorMessage, noticeMessage, onSignIn, onBo
         </div>
         <Card>
           <form className="ui-stack" onSubmit={handleSubmit}>
-            {setupMode && <><Input label="Organização" value={tenantName} onChange={(event) => setTenantName(event.target.value)} required /><Input label="Empresa inicial" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required /><Input label="Código inicial" value={bootstrapCode} onChange={(event) => setBootstrapCode(event.target.value)} required /></>}
+            {setupMode && <><Input label="Organização" value={tenantName} onChange={(event) => setTenantName(event.target.value)} required /><Feedback tone="success" title="Estrutura inicial" message="Este primeiro acesso criará automaticamente as divisões CR, PR e Pessoal dentro desta organização." /><Input label="Código inicial" value={bootstrapCode} onChange={(event) => setBootstrapCode(event.target.value)} required /></>}
             <Input label="E-mail" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
             <Input label="Senha" type="password" autoComplete={setupMode ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} required />
             {setupMode && <Input label="Confirmar senha" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />}
