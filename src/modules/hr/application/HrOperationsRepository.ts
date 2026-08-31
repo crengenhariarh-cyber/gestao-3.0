@@ -104,6 +104,7 @@ export interface HrOperationsRepository {
   closePayroll(scope: CompanyScope, employmentContractId: string, competenceMonth: string, idempotencyKey: string): Promise<void>;
   calculateStatutory(scope: CompanyScope, payrollClosingId: string, dependents: number, otherLegalDeductions: number): Promise<void>;
   reopenPayroll(scope: CompanyScope, payrollClosingId: string, reason: string): Promise<void>;
+  configurePayrollFinance(scope: CompanyScope, salaryCategoryId: string, fgtsCategoryId: string, inssCategoryId: string, irrfCategoryId: string): Promise<void>;
   syncPayrollPayables(scope: CompanyScope, competenceMonth: string, salaryDueDate: string, fgtsDueDate: string, inssDueDate: string, irrfDueDate: string): Promise<void>;
   upsertBudgetPlan(input: UpsertBudgetInput): Promise<void>;
   upsertBudgetLimit(input: UpsertBudgetLimitInput): Promise<void>;
