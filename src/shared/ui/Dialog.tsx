@@ -36,6 +36,7 @@ export function Dialog({
   onClose,
 }: DialogProps) {
   const titleId = useId();
+  const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
@@ -110,7 +112,7 @@ export function Dialog({
             </Button>
             <div className="ui-dialog__heading">
               <h2 id={titleId}>{title}</h2>
-              {description && <p>{description}</p>}
+              {description && <p id={descriptionId}>{description}</p>}
             </div>
           </div>
 
