@@ -1,5 +1,5 @@
-const CACHE_NAME = 'gestao-3-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/gestao-icon.svg'];
+const CACHE_NAME = 'gestao-3-shell-v3';
+const APP_SHELL = ['/', '/manifest.webmanifest?v=3', '/gestao-icon.svg?v=3'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
