@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title"><title id="title">Gestão 3.0</title><rect width="512" height="512" rx="112" fill="#2563eb"/><path d="M128 150h256v54H182v62h166v54H182v42h202v54H128z" fill="#fff"/><circle cx="356" cy="176" r="28" fill="#bfdbfe"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Gestão</title><desc id="desc">Ícone oficial Gestão com G azul e gráfico de resultados</desc>
+<defs><linearGradient id="g" x1=".15" y1=".05" x2=".75" y2=".95"><stop offset="0" stop-color="#24d8f4"/><stop offset=".48" stop-color="#0789ff"/><stop offset="1" stop-color="#164de8"/></linearGradient><linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#12bdf5"/><stop offset="1" stop-color="#19e4e2"/></linearGradient></defs>
+<rect width="512" height="512" rx="112" fill="#071426"/>
+<path d="M390 120H250c-84 0-151 62-151 142s67 143 151 143c58 0 105-26 135-67v-86H254l40-45h126v146c-37 66-101 105-170 105-113 0-204-88-204-196S137 66 250 66h183z" fill="url(#g)"/>
+<path d="M157 355h38v58h-38zm54-48h38v106h-38zm54-58h38v164h-38z" fill="url(#b)"/>
+<path d="M304 356c35-10 66-31 89-61l-24-8 59-33-4 67-18-16c-26 36-61 62-102 75z" fill="url(#b)"/>
+</svg>
