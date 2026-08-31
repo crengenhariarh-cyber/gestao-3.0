@@ -30,7 +30,7 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
   constructor(private readonly client: SupabaseClient) {}
 
   async getSnapshot(scope: EngineeringScope): Promise<EngineeringOperationalSnapshot> {
-    const [works, structures, services, contracts, contractServices, measurements, periods, employees, provisionals] = await Promise.all([
+    const [works, structures, services, contracts, contractServices, measurements, periods, employees, provisionals, accounts] = await Promise.all([
       this.client.from('works').select('id,name').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).neq('status', 'cancelled').order('name'),
       this.client.from('work_structures').select('id,name,work_id').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('status', 'active').order('sort_order'),
       this.client.from('engineering_services').select('id,name,default_unit').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('status', 'active').order('name'),
@@ -40,8 +40,9 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
       this.client.from('engineering_production_periods').select('id,work_id,competence,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('competence', { ascending: false }),
       this.client.from('employment_contracts').select('id,employees!inner(full_name)').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('status', 'active').order('hired_on'),
       this.client.from('provisional_contracts').select('id,provisional_number,status,work_id').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('created_at', { ascending: false }),
+      this.client.from('financial_account_balances').select('account_id,name,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).eq('status', 'active').order('name'),
     ]);
-    const error = [works.error, structures.error, services.error, contracts.error, contractServices.error, measurements.error, periods.error, employees.error, provisionals.error].find(Boolean);
+    const error = [works.error, structures.error, services.error, contracts.error, contractServices.error, measurements.error, periods.error, employees.error, provisionals.error, accounts.error].find(Boolean);
     if (error) throw error;
 
     return {
@@ -54,6 +55,7 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
       productionPeriods: (periods.data ?? []).map((row) => ({ id: row.id, workId: row.work_id, competence: row.competence, status: row.status })),
       employees: (employees.data ?? []).map((row) => ({ id: row.id, name: row.employees.full_name })),
       provisionals: (provisionals.data ?? []).map((row) => ({ id: row.id, number: row.provisional_number, status: row.status, workId: row.work_id })),
+      accounts: (accounts.data ?? []).map((row) => ({ id: row.account_id, name: row.name })),
     };
   }
 
