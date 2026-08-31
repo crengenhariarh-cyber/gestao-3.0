@@ -5,6 +5,7 @@ export interface FinancialAccountBalance extends CompanyScope {
   name: string;
   accountType: 'bank' | 'cash' | 'other';
   status: 'active' | 'inactive';
+  includeInDashboard: boolean;
   openingBalance: number;
   movementTotal: number;
   currentBalance: number;
