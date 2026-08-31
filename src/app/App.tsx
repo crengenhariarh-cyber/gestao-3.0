@@ -5,6 +5,7 @@ import { LoadingState } from '../shared/ui/Feedback';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { AppShell } from './AppShell';
 import './shell.css';
+import './central-menu.css';
 import './final.css';
 
 export function App() {
