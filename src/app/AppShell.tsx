@@ -68,6 +68,7 @@ export function AppShell({ session }: AppShellProps) {
   const location = useLocation();
   const [centralMenuOpen, setCentralMenuOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+  const [homeRefreshToken, setHomeRefreshToken] = useState(0);
   const companies = visibleCompanies(session.companies);
   const allCompaniesSelected = isAllCompanies(session.activeCompanyId);
   const activeCompany = allCompaniesSelected ? undefined : companies.find((company) => company.id === session.activeCompanyId);
@@ -121,7 +122,7 @@ export function AppShell({ session }: AppShellProps) {
       <main className="app-page" id="app-main" tabIndex={-1}>
         <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany ? companyLabel(activeCompany) : ''}</strong></div>
         <Routes>
-          <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
+          <Route path="/" element={<HomePage key={homeRefreshToken} companies={selectedCompanies}/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany}/> : allCompaniesBanks}/>
@@ -138,7 +139,7 @@ export function AppShell({ session }: AppShellProps) {
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
       </nav>
 
-      <QuickEntryDialog open={entryOpen} companies={companies} initialCompanyId={activeCompany?.id ?? ''} allCompaniesMode={allCompaniesSelected} onClose={() => { setQuickEntryOpen(false); if (routeEntryRequested) void navigate('/'); }} />
+      <QuickEntryDialog open={entryOpen} companies={companies} initialCompanyId={activeCompany?.id ?? ''} allCompaniesMode={allCompaniesSelected} onClose={() => { setQuickEntryOpen(false); setHomeRefreshToken((value) => value + 1); if (routeEntryRequested) void navigate('/'); }} />
 
       <CentralMenu open={centralMenuOpen} onClose={() => setCentralMenuOpen(false)} onNavigate={(to) => { void navigate(to); }} onSignOut={() => { void session.signOut(); }} />
     </div>
