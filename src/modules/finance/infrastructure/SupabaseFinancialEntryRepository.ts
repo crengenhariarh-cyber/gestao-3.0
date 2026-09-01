@@ -26,6 +26,8 @@ type ListRow = {
     counterparty_name: string | null;
     category_id: string;
     cost_center_id: string | null;
+    work_id: string | null;
+    payment_method: FinancialEntryListItem['paymentMethod'];
     competence_month: string;
     planned_account_id: string | null;
     notes: string | null;
@@ -53,6 +55,8 @@ function toListItem(row: ListRow): FinancialEntryListItem {
     counterpartyName: row.financial_entries.counterparty_name,
     categoryId: row.financial_entries.category_id,
     costCenterId: row.financial_entries.cost_center_id,
+    workId: row.financial_entries.work_id,
+    paymentMethod: row.financial_entries.payment_method,
     competenceMonth: row.financial_entries.competence_month,
     plannedAccountId: row.financial_entries.planned_account_id,
     installmentNumber: row.installment_number,
@@ -70,6 +74,19 @@ function installmentCount(value: number | undefined): number {
 
 export class SupabaseFinancialEntryRepository implements FinancialEntryRepository {
   constructor(private readonly client: SupabaseClient) {}
+
+  private async updateMetadata(raw: CreateSingleFinancialEntry, entryId: string): Promise<void> {
+    const { error } = await this.client.from('financial_entries')
+      .update({
+        work_id: raw.workId ?? null,
+        payment_method: raw.paymentMethod ?? null,
+        planned_account_id: raw.plannedAccountId ?? null,
+      })
+      .eq('tenant_id', raw.tenantId)
+      .eq('company_id', raw.companyId)
+      .eq('id', entryId);
+    if (error) throw error;
+  }
 
   async createSingle(raw: CreateSingleFinancialEntry): Promise<CreatedSingleFinancialEntry> {
     const input = normalizeSingleFinancialEntry(raw);
@@ -93,6 +110,7 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
       const rpcData: unknown = rpcResult.data;
       const created: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
       if (!isCreateInstallmentRow(created)) throw new Error('installment financial entry creation returned an invalid result');
+      await this.updateMetadata(raw, created.entry_id);
       return { entryId: created.entry_id, installmentId: null };
     }
 
@@ -113,6 +131,7 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
     const rpcData: unknown = rpcResult.data;
     const created: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (!isCreateRow(created)) throw new Error('financial entry creation returned an invalid result');
+    await this.updateMetadata(raw, created.entry_id);
     return { entryId: created.entry_id, installmentId: created.installment_id };
   }
 
@@ -135,6 +154,7 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
       p_notes: input.notes ?? null,
     });
     if (error) throw error;
+    await this.updateMetadata(raw, raw.entryId);
   }
 
   async deleteUnsettled(scope: CompanyScope, entryId: string): Promise<void> {
@@ -159,7 +179,7 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
   async list(scope: CompanyScope): Promise<readonly FinancialEntryListItem[]> {
     const { data, error } = await this.client
       .from('financial_installments')
-      .select('id,tenant_id,company_id,installment_number,installment_count,due_date,amount,financial_entries!inner(id,entry_type,description,counterparty_name,category_id,cost_center_id,competence_month,planned_account_id,notes)')
+      .select('id,tenant_id,company_id,installment_number,installment_count,due_date,amount,financial_entries!inner(id,entry_type,description,counterparty_name,category_id,cost_center_id,work_id,payment_method,competence_month,planned_account_id,notes)')
       .eq('tenant_id', scope.tenantId)
       .eq('company_id', scope.companyId)
       .order('due_date')
