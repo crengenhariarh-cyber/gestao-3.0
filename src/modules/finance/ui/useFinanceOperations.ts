@@ -22,6 +22,7 @@ import type {
   UpdateCostCenter,
   UpdateFinancialAccount,
   UpdateFinancialCategory,
+  WorkReference,
 } from '../domain/registries';
 import type { CreateFinancialRecurrenceRule, FinancialRecurrenceRule } from '../domain/recurrence';
 import type { InstallmentBalance, RecordFinancialSettlement } from '../domain/settlements';
@@ -33,6 +34,7 @@ type EntryUpdateOperationInput = Omit<UpdateFinancialEntry, keyof CompanyScope |
 export interface FinanceReferenceData {
   categories: readonly FinancialCategory[];
   costCenters: readonly CostCenter[];
+  works: readonly WorkReference[];
   accounts: readonly FinancialAccount[];
   cards: readonly CreditCard[];
   cardInstallments: readonly CardInstallment[];
@@ -63,9 +65,10 @@ export function useFinanceOperations(scope: CompanyScope) {
   const loadReferences = useCallback(async (): Promise<FinanceReferenceData> => {
     setState((current) => ({ ...current, busy: true, errorMessage: null }));
     try {
-      const [categories, costCenters, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences] = await Promise.all([
+      const [categories, costCenters, works, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences] = await Promise.all([
         repositories.registries.listCategories(scope),
         repositories.registries.listCostCenters(scope),
+        repositories.registries.listWorks(scope),
         repositories.registries.listAccounts(scope),
         repositories.cards.listCards(scope),
         repositories.cards.listInstallments(scope),
@@ -74,7 +77,7 @@ export function useFinanceOperations(scope: CompanyScope) {
         repositories.accounts.listTransfers(scope),
         repositories.recurrences.list(scope),
       ]);
-      const references = { categories, costCenters, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences };
+      const references = { categories, costCenters, works, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences };
       setState((current) => ({ ...current, busy: false, references }));
       return references;
     } catch (error) {
