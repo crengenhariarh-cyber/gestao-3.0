@@ -4,12 +4,12 @@ import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
+import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
-import { Dialog } from '../shared/ui/Dialog';
 import { EmptyState } from '../shared/ui/Feedback';
 import { Select } from '../shared/ui/Select';
 import { CentralMenu } from './CentralMenu';
@@ -23,7 +23,6 @@ const navigation = [
 
 const quickNavigation = [
   { to: '/', label: 'Início', icon: 'home', end: true },
-  { to: '/financeiro?action=new-entry', label: 'Adicionar', icon: 'add' },
   { to: '/bancos', label: 'Bancos', icon: 'bank' },
   { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: 'card' },
 ] as const;
@@ -43,7 +42,7 @@ export function AppShell({ session }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [centralMenuOpen, setCentralMenuOpen] = useState(false);
-  const [entryCompanyId, setEntryCompanyId] = useState('');
+  const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const allCompaniesSelected = isAllCompanies(session.activeCompanyId);
   const activeCompany = allCompaniesSelected ? undefined : session.companies.find((company) => company.id === session.activeCompanyId);
 
@@ -55,13 +54,9 @@ export function AppShell({ session }: AppShellProps) {
     ...(session.companies.length > 1 ? [{ value: ALL_COMPANIES_ID, label: 'Todas as empresas' }] : []),
     ...session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName })),
   ];
-  const directCompanyOptions = session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName }));
   const selectedCompanies = allCompaniesSelected ? session.companies : activeCompany ? [activeCompany] : [];
   const searchParams = new URLSearchParams(location.search);
-  const newEntryRequested = location.pathname === '/financeiro' && searchParams.get('action') === 'new-entry';
-  const chooseCompanyForEntry = allCompaniesSelected && newEntryRequested;
-  const effectiveEntryCompanyId = entryCompanyId || session.companies[0]?.id || '';
-  const activeMobileItem = location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : newEntryRequested ? 'Adicionar' : null;
+  const activeMobileItem = quickEntryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : null;
 
   const allCompaniesFinance = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Financeiro ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
@@ -103,25 +98,13 @@ export function AppShell({ session }: AppShellProps) {
       </main>
 
       <nav className="app-mobile-nav" aria-label="Atalhos rápidos">
-        {quickNavigation.map((item) => <NavLink key={item.label} to={item.to} end={'end' in item ? item.end : false} className={`app-mobile-nav__link ${activeMobileItem === item.label ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon={item.icon}/></span><span>{item.label}</span></NavLink>)}
+        <NavLink to="/" end className={`app-mobile-nav__link ${activeMobileItem === 'Início' ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon="home"/></span><span>Início</span></NavLink>
+        <Button variant="tertiary" className={`app-mobile-nav__button ${activeMobileItem === 'Adicionar' ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Novo lançamento" onClick={() => setQuickEntryOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="add"/></span><span>Adicionar</span></Button>
+        {quickNavigation.slice(1).map((item) => <NavLink key={item.label} to={item.to} className={`app-mobile-nav__link ${activeMobileItem === item.label ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon={item.icon}/></span><span>{item.label}</span></NavLink>)}
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
       </nav>
 
-      <Dialog
-        open={chooseCompanyForEntry}
-        title="Escolher empresa"
-        description="O lançamento precisa pertencer a uma empresa específica."
-        confirmLabel="Continuar para lançamento"
-        onClose={() => { setEntryCompanyId(''); void navigate('/'); }}
-        onBack={() => { setEntryCompanyId(''); void navigate('/'); }}
-        onConfirm={() => {
-          if (!effectiveEntryCompanyId) return;
-          session.selectCompany(effectiveEntryCompanyId);
-          setEntryCompanyId('');
-        }}
-      >
-        <Select label="Empresa do lançamento" value={effectiveEntryCompanyId} options={directCompanyOptions} onChange={(event) => setEntryCompanyId(event.target.value)} />
-      </Dialog>
+      <QuickEntryDialog open={quickEntryOpen} companies={session.companies} initialCompanyId={activeCompany?.id} onClose={() => setQuickEntryOpen(false)} />
 
       <CentralMenu
         open={centralMenuOpen}
