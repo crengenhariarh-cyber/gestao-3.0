@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error Vitest runs on Node; the application bundle intentionally does not depend on @types/node.
 import { readFileSync } from 'node:fs';
 import appSource from '../../app/App.tsx?raw';
 import appShellSource from '../../app/AppShell.tsx?raw';
@@ -58,7 +57,7 @@ describe('Design System final regression', () => {
   });
 
   it('keeps canonical component appearance centralized in shared styles', () => {
-    expect(sharedStylesSource).toContain('--primary:#2563eb');
+    expect(sharedStylesSource).toMatch(/--primary\s*:\s*#2563eb\s*;/);
     expect(sharedStylesSource).toContain('.ui-button--primary');
     expect(sharedStylesSource).toContain('.ui-card{');
     expect(sharedStylesSource).toContain('.ui-dialog{');
