@@ -138,6 +138,89 @@
   grid-column: 1 / -1;
 }
 
+/* Bancos: mesma linguagem do Design System, com composição própria de painel bancário. */
+.finance-overview[aria-labelledby="banks-title"] {
+  gap: 20px;
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards > .ui-card {
+  min-height: 132px;
+  background: var(--surface-elevated);
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards > .ui-card:first-child {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border) 72%);
+  box-shadow: var(--shadow-md);
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards .ui-card__content {
+  display: flex;
+  min-height: 82px;
+  align-items: flex-end;
+}
+
+.finance-overview[aria-labelledby="banks-title"] .balance-card__value {
+  display: block;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list {
+  gap: 14px;
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list__group {
+  position: relative;
+  padding: 18px;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list__group:has(.finance-list__row--button[aria-pressed="true"]) {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border) 45%);
+  box-shadow: 0 0 0 2px var(--focus-ring), var(--shadow-sm);
+}
+
+.finance-list__row--button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.finance-list__row--button > span {
+  display: grid;
+  gap: 3px;
+}
+
+.finance-list__row--button small {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 650;
+}
+
+.finance-overview[aria-labelledby="banks-title"] > .ui-card:last-of-type > .ui-card__content {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards > .ui-card:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 760px) {
   .finance-overview__heading {
     align-items: start;
@@ -151,8 +234,29 @@
   .finance-overview__cards,
   .finance-section,
   .finance-form-grid,
-  .finance-list {
+  .finance-list,
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards {
     grid-template-columns: 1fr;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] {
+    gap: 16px;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards > .ui-card:first-child {
+    grid-column: auto;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards > .ui-card {
+    min-height: 112px;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] > .finance-overview__cards .ui-card__content {
+    min-height: 64px;
+  }
+
+  .finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list__group {
+    padding: 14px;
   }
 
   .finance-section {
