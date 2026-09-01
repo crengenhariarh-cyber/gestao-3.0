@@ -1,3 +1,4 @@
+import type { FinancialPaymentMethod } from './entries';
 import type { CompanyScope, RegistryStatus } from './registries';
 
 export interface CreditCard extends CompanyScope {
@@ -40,6 +41,8 @@ export interface CreateCardPurchase extends CompanyScope {
   counterpartyName?: string | null;
   categoryId: string;
   costCenterId?: string | null;
+  workId?: string | null;
+  paymentMethod?: FinancialPaymentMethod | null;
   totalAmount: number;
   installmentCount: number;
   idempotencyKey: string;
