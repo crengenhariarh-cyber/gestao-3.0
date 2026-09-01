@@ -181,26 +181,17 @@
   box-shadow: var(--shadow-sm);
 }
 
-.finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list__group:has(.finance-list__row--button[aria-pressed="true"]) {
+.finance-overview[aria-labelledby="banks-title"] > .ui-card .finance-list__group--selected {
   border-color: color-mix(in srgb, var(--primary) 55%, var(--border) 45%);
   box-shadow: 0 0 0 2px var(--focus-ring), var(--shadow-sm);
 }
 
-.finance-list__row--button {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
-.finance-list__row--button > span {
+.finance-list__row--account > span {
   display: grid;
   gap: 3px;
 }
 
-.finance-list__row--button small {
+.finance-list__row--account small {
   color: var(--muted);
   font-size: .78rem;
   font-weight: 650;
