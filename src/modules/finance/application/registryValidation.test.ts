@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { normalizeAccount, normalizeCategory, normalizeCostCenter } from './registryValidation';
 
 describe('finance registry validation', () => {
-  it('normalizes category name without changing company scope', () => {
+  it('normalizes category name to uppercase without changing company scope', () => {
     expect(normalizeCategory({ tenantId: 'tenant-a', companyId: 'company-a', name: '  Combustível ', kind: 'expense' })).toEqual({
-      tenantId: 'tenant-a', companyId: 'company-a', name: 'Combustível', kind: 'expense',
+      tenantId: 'tenant-a', companyId: 'company-a', name: 'COMBUSTÍVEL', kind: 'expense',
     });
   });
 
@@ -12,9 +12,9 @@ describe('finance registry validation', () => {
     expect(() => normalizeCategory({ tenantId: 'tenant-a', companyId: ' ', name: 'Receita', kind: 'income' })).toThrow('companyId is required');
   });
 
-  it('normalizes empty cost center code to null', () => {
+  it('normalizes cost center name to uppercase and empty code to null', () => {
     expect(normalizeCostCenter({ tenantId: 'tenant-a', companyId: 'company-a', name: ' Obra A ', code: ' ' })).toEqual({
-      tenantId: 'tenant-a', companyId: 'company-a', name: 'Obra A', code: null,
+      tenantId: 'tenant-a', companyId: 'company-a', name: 'OBRA A', code: null,
     });
   });
 
