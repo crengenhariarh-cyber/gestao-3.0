@@ -8,6 +8,7 @@ import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
+import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 import { Tabs } from '../../../shared/ui/Tabs';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
@@ -181,10 +182,13 @@ export function BanksPage({ company }: BanksPageProps) {
   }
 
   return <section className="finance-overview" aria-labelledby="banks-title">
-    <div className="finance-overview__heading">
-      <div><span className="ui-muted">Saldos, extratos e transferências</span><h1 id="banks-title">Bancos</h1></div>
-      <div className="finance-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button variant="secondary" onClick={openTransfer} disabled={activeAccounts.length < 2}>Nova transferência</Button><Button variant="secondary" onClick={() => openPlan()} disabled={uniqueOpenEntries.length === 0}>Planejar títulos</Button></div>
-    </div>
+    <PageHeader
+      id="banks-title"
+      eyebrow="Financeiro"
+      title="Bancos"
+      description="Saldos, extratos, transferências e planejamento bancário da empresa selecionada."
+      actions={<><Button onClick={openNewAccount}>Novo banco</Button><Button variant="secondary" onClick={openTransfer} disabled={activeAccounts.length < 2}>Nova transferência</Button><Button variant="secondary" onClick={() => openPlan()} disabled={uniqueOpenEntries.length === 0}>Planejar títulos</Button></>}
+    />
 
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
