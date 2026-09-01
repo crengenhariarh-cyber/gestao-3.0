@@ -10,6 +10,6 @@ export interface FinancialEntryRepository {
   createSingle(input: CreateSingleFinancialEntry): Promise<CreatedSingleFinancialEntry>;
   update(input: UpdateFinancialEntry): Promise<void>;
   deleteUnsettled(scope: CompanyScope, entryId: string): Promise<void>;
-  setPlannedAccount(scope: CompanyScope, entryId: string, accountId: string | null): Promise<void>;
+  setPlannedAccount(scope: CompanyScope, entryId: string, accountId: string | null, accountCompanyId?: string): Promise<void>;
   list(scope: CompanyScope): Promise<readonly FinancialEntryListItem[]>;
 }
