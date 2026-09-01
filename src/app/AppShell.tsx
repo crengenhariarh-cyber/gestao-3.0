@@ -8,7 +8,7 @@ import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
-import type { CompanySummary } from '../modules/platform/domain/AccessContext';
+import { companyLabel, visibleCompanies } from '../modules/platform/domain/companyPresentation';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
 import { EmptyState } from '../shared/ui/Feedback';
@@ -27,30 +27,6 @@ const quickNavigation = [
   { to: '/bancos', label: 'Bancos', icon: 'bank' },
   { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: 'card' },
 ] as const;
-
-const COMPANY_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
-function companyLabel(company: CompanySummary): string {
-  const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
-  if (raw.includes('SARTORI')) return 'Sartori';
-  if (raw.includes('BLAZE')) return 'Blaze';
-  if (raw.includes('PESSOAL')) return 'Pessoal';
-  if (raw.includes('ADMIN')) return 'Admin';
-  if (raw.includes('PR-HIST') || /(^|\s)PR(\s|$)/.test(raw)) return 'PR';
-  if (raw.includes('CR-HIST') || /(^|\s)CR(\s|$)/.test(raw)) return 'CR';
-  return company.tradeName ?? company.legalName;
-}
-function visibleCompanies(companies: readonly CompanySummary[]): readonly CompanySummary[] {
-  const chosen = new Map<string, CompanySummary>();
-  for (const company of companies) {
-    const label = companyLabel(company);
-    if (!COMPANY_ORDER.includes(label as (typeof COMPANY_ORDER)[number])) continue;
-    const current = chosen.get(label);
-    const currentHistoric = current ? /HIST/i.test(`${current.tradeName ?? ''} ${current.legalName}`) : true;
-    const candidateHistoric = /HIST/i.test(`${company.tradeName ?? ''} ${company.legalName}`);
-    if (!current || (currentHistoric && !candidateHistoric)) chosen.set(label, company);
-  }
-  return COMPANY_ORDER.flatMap((label) => chosen.get(label) ? [chosen.get(label)!] : []);
-}
 
 type MobileIcon = 'home' | 'add' | 'bank' | 'card' | 'more';
 function MobileNavIcon({ icon }: { icon: MobileIcon }) {
