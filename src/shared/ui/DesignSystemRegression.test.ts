@@ -1,31 +1,37 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error Vitest runs on Node; the application bundle intentionally does not depend on @types/node.
+import { readFileSync } from 'node:fs';
 import appSource from '../../app/App.tsx?raw';
 import appShellSource from '../../app/AppShell.tsx?raw';
-import finalCssSource from '../../app/final.css?raw';
-import shellCssSource from '../../app/shell.css?raw';
-import centralMenuCssSource from '../../app/central-menu.css?raw';
 import mainSource from '../../main.tsx?raw';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
-import engineeringCssSource from '../../modules/engineering/ui/engineering.css?raw';
 import banksSource from '../../modules/finance/ui/BanksPage.tsx?raw';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
 import monthlyAccountsSource from '../../modules/finance/ui/MonthlyAccountsPage.tsx?raw';
 import quickEntrySource from '../../modules/finance/ui/QuickEntryDialog.tsx?raw';
-import financeCssSource from '../../modules/finance/ui/finance.css?raw';
-import monthlyAccountsCssSource from '../../modules/finance/ui/monthly-accounts.css?raw';
-import quickEntryCssSource from '../../modules/finance/ui/quick-entry.css?raw';
 import homeSource from '../../modules/home/ui/HomePage.tsx?raw';
-import homeCssSource from '../../modules/home/ui/home.css?raw';
-import bankBrandCssSource from '../../modules/home/ui/bank-brand.css?raw';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
-import hrCssSource from '../../modules/hr/ui/hr.css?raw';
 import loginSource from '../../modules/platform/ui/LoginPage.tsx?raw';
 import authGatewaySource from '../../modules/platform/infrastructure/SupabaseAuthGateway.ts?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
-import sharedStylesSource from './styles.css?raw';
+
+const readSource = (relativePath: string) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+const sharedStylesSource = readSource('./styles.css');
+const nonCanonicalCssSources = [
+  readSource('../../app/final.css'),
+  readSource('../../app/shell.css'),
+  readSource('../../app/central-menu.css'),
+  readSource('../../modules/finance/ui/finance.css'),
+  readSource('../../modules/finance/ui/monthly-accounts.css'),
+  readSource('../../modules/finance/ui/quick-entry.css'),
+  readSource('../../modules/home/ui/home.css'),
+  readSource('../../modules/home/ui/bank-brand.css'),
+  readSource('../../modules/hr/ui/hr.css'),
+  readSource('../../modules/engineering/ui/engineering.css'),
+];
 
 const operationalSources = [
   homeSource,
@@ -36,19 +42,6 @@ const operationalSources = [
   hrSource,
   engineeringOperationsSource,
   engineeringMaintenanceSource,
-];
-
-const nonCanonicalCssSources = [
-  finalCssSource,
-  shellCssSource,
-  centralMenuCssSource,
-  financeCssSource,
-  monthlyAccountsCssSource,
-  quickEntryCssSource,
-  homeCssSource,
-  bankBrandCssSource,
-  hrCssSource,
-  engineeringCssSource,
 ];
 
 describe('Design System final regression', () => {
