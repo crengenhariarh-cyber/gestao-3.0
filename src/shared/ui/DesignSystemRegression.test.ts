@@ -4,13 +4,14 @@ import appShellSource from '../../app/AppShell.tsx?raw';
 import engineeringOperationsSource from '../../modules/engineering/ui/EngineeringOperationsPanel.tsx?raw';
 import engineeringMaintenanceSource from '../../modules/engineering/ui/EngineeringProvisionalMaintenance.tsx?raw';
 import financeSource from '../../modules/finance/ui/FinancePage.tsx?raw';
+import homeSource from '../../modules/home/ui/HomePage.tsx?raw';
 import hrSource from '../../modules/hr/ui/HrBudgetPage.tsx?raw';
 import loginSource from '../../modules/platform/ui/LoginPage.tsx?raw';
 import authGatewaySource from '../../modules/platform/infrastructure/SupabaseAuthGateway.ts?raw';
 import buttonSource from './Button.tsx?raw';
 import dialogSource from './Dialog.tsx?raw';
 
-const operationalSources = [financeSource, hrSource, engineeringOperationsSource, engineeringMaintenanceSource];
+const operationalSources = [homeSource, financeSource, hrSource, engineeringOperationsSource, engineeringMaintenanceSource];
 
 describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
