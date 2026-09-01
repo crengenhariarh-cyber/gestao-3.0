@@ -20,7 +20,7 @@ const sections: readonly MenuSection[] = [
     items: [
       { label: 'Lançamentos', to: '/financeiro?tab=lancamentos' },
       { label: 'Contas do mês', to: '/contas-do-mes' },
-      { label: 'Bancos', to: '/financeiro?tab=contas' },
+      { label: 'Bancos', to: '/bancos' },
       { label: 'Cartões', to: '/financeiro?tab=cartoes' },
       { label: 'Limites', disabled: true },
       { label: 'Dashboard financeiro', to: '/financeiro?tab=resumo' },
