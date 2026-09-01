@@ -74,7 +74,13 @@ export function HomePage({ companies }: HomePageProps) {
             <g className="balance-chart__grid"><line x1="0" y1="42" x2="620" y2="42"/><line x1="0" y1="85" x2="620" y2="85"/><line x1="0" y1="128" x2="620" y2="128"/></g>
             <polyline className="balance-chart__line" points={polyline(balanceSeries)} />
           </svg>
-          <div className="balance-range"><button>7 dias</button><button>15 dias</button><button className="is-active">30 dias</button><button>90 dias</button><button>1 ano</button></div>
+          <div className="balance-range" aria-label="Período do gráfico">
+            <Button size="sm" variant="secondary">7 dias</Button>
+            <Button size="sm" variant="secondary">15 dias</Button>
+            <Button size="sm" aria-pressed="true">30 dias</Button>
+            <Button size="sm" variant="secondary">90 dias</Button>
+            <Button size="sm" variant="secondary">1 ano</Button>
+          </div>
           <div className="balance-card__footer"><span>Saldo atual</span><strong>{money(data.bankBalance)}</strong></div>
         </div>
       </Card>
@@ -83,7 +89,7 @@ export function HomePage({ companies }: HomePageProps) {
         <div className="budget-list">
           {costCenterBudgets.length === 0 ? <span className="ui-muted">Nenhum orçamento criado nesta competência.</span> : costCenterBudgets.map((item) => {
             const available = item.plannedTotal - item.realizedTotal;
-            return <button className="budget-item" key={`${item.companyId}-${item.costCenterId ?? 'geral'}`} onClick={() => go('/rh?tab=orcamento')}><div><strong>{item.costCenterName ?? 'Geral'}</strong><small>{companies.length > 1 ? item.companyName : 'Orçamento mensal'}</small></div><div><strong>{money(available)}</strong><small>disponível</small></div><span aria-hidden="true">›</span></button>;
+            return <Button variant="secondary" className="budget-item" key={`${item.companyId}-${item.costCenterId ?? 'geral'}`} onClick={() => go('/rh?tab=orcamento')}><div><strong>{item.costCenterName ?? 'Geral'}</strong><small>{companies.length > 1 ? item.companyName : 'Orçamento mensal'}</small></div><div><strong>{money(available)}</strong><small>disponível</small></div><span aria-hidden="true">›</span></Button>;
           })}
         </div>
       </Card>
