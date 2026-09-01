@@ -130,6 +130,23 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     setNewRegistryName('');
     setLocalError(null);
     setLocalSuccess(null);
+    setForm((current) => ({
+      ...current,
+      entryType: 'expense',
+      date: today(),
+      description: '',
+      amountDigits: '',
+      paymentMethod: 'pix',
+      launchType: 'single',
+      installmentCount: '2',
+      recurrenceCount: '12',
+      accountRef: '',
+      cardRef: '',
+      categoryId: '',
+      costCenterId: '',
+      counterparty: '',
+      notes: '',
+    }));
   }, [companies, initialCompanyId, open]);
 
   const company = companies.find((item) => item.id === companyId) ?? companies[0];
@@ -260,18 +277,44 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       cardRef: value === 'credit' ? current.cardRef : '',
     }));
   }
-  function resetForNextEntry() {
-    setForm((current) => ({ ...current, description: '', amountDigits: '', counterparty: '', notes: '' }));
+  function clearSmartFill(description: string) {
+    const defaultCompanyId = initialCompanyId || companies[0]?.id || '';
     setLastSuggestedDescription('');
+    if (allCompaniesMode) setCompanyId(defaultCompanyId);
+    setForm((current) => ({
+      ...current,
+      description,
+      entryType: 'expense',
+      paymentMethod: 'pix',
+      launchType: 'single',
+      accountRef: '',
+      cardRef: '',
+      categoryId: '',
+      costCenterId: '',
+    }));
+  }
+  function resetForNextEntry() {
+    clearSmartFill('');
+    setForm((current) => ({ ...current, amountDigits: '', counterparty: '', notes: '' }));
   }
   function smartFill(description: string) {
     const query = normalized(description);
-    set('description', description);
-    if (query.length < 3 || query === lastSuggestedDescription) return;
+    if (query.length < 3) {
+      if (lastSuggestedDescription) clearSmartFill(description);
+      else set('description', description);
+      return;
+    }
+    if (query === lastSuggestedDescription) {
+      set('description', description);
+      return;
+    }
     const candidates = templates.filter((item) => normalized(item.description) === query || normalized(item.description).includes(query));
     const match = candidates[0];
-    if (!match) return;
-    if (!allCompaniesMode && match.companyId !== companyId) return;
+    if (!match || (!allCompaniesMode && match.companyId !== companyId)) {
+      if (lastSuggestedDescription) clearSmartFill(description);
+      else set('description', description);
+      return;
+    }
     setLastSuggestedDescription(query);
     if (allCompaniesMode) setCompanyId(match.companyId);
     setForm((current) => ({
