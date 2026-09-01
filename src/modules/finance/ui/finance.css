@@ -391,13 +391,10 @@
 .finance-card-statements .finance-list__group {
   gap: 7px;
   padding: 14px;
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: none;
-}
-
-.finance-card-statements .finance-list__group:has(.finance-list__row:nth-child(2) span:first-child:not(:empty)) {
-  border-color: color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
 }
 
 .finance-card-statements .finance-list__group > .finance-list__row:first-child {
