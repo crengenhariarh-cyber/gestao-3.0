@@ -12,7 +12,7 @@ import type { CompanyScope } from '../domain/registries';
 
 type BalanceRow = {
   account_id: string; tenant_id: string; company_id: string; name: string;
-  account_type: FinancialAccountBalance['accountType']; status: FinancialAccountBalance['status'];
+  account_type: FinancialAccountBalance['accountType']; bank_institution: FinancialAccountBalance['bankInstitution']; status: FinancialAccountBalance['status'];
   opening_balance: number | string; movement_total: number | string; current_balance: number | string;
   include_in_dashboard: boolean;
 };
@@ -43,13 +43,13 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
 
   async listBalances(scope: CompanyScope): Promise<readonly FinancialAccountBalance[]> {
     const { data, error } = await this.client.from('financial_account_balances')
-      .select('account_id,tenant_id,company_id,name,account_type,status,opening_balance,movement_total,current_balance,include_in_dashboard')
+      .select('account_id,tenant_id,company_id,name,account_type,bank_institution,status,opening_balance,movement_total,current_balance,include_in_dashboard')
       .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name')
       .returns<BalanceRow[]>();
     if (error) throw error;
     return data.map((row) => ({
       accountId: row.account_id, tenantId: row.tenant_id, companyId: row.company_id,
-      name: row.name, accountType: row.account_type, status: row.status,
+      name: row.name, accountType: row.account_type, bankInstitution: row.bank_institution, status: row.status,
       includeInDashboard: row.include_in_dashboard,
       openingBalance: Number(row.opening_balance), movementTotal: Number(row.movement_total),
       currentBalance: Number(row.current_balance),
