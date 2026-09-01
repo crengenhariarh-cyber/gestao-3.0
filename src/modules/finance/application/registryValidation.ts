@@ -10,12 +10,16 @@ function required(value: string, field: string): string {
   return normalized;
 }
 
+function requiredUpper(value: string, field: string): string {
+  return required(value, field).toLocaleUpperCase('pt-BR');
+}
+
 export function normalizeCategory(input: CreateFinancialCategory): CreateFinancialCategory {
   return {
     ...input,
     tenantId: required(input.tenantId, 'tenantId'),
     companyId: required(input.companyId, 'companyId'),
-    name: required(input.name, 'name'),
+    name: requiredUpper(input.name, 'name'),
   };
 }
 
@@ -24,8 +28,8 @@ export function normalizeCostCenter(input: CreateCostCenter): CreateCostCenter {
     ...input,
     tenantId: required(input.tenantId, 'tenantId'),
     companyId: required(input.companyId, 'companyId'),
-    name: required(input.name, 'name'),
-    code: input.code?.trim() || null,
+    name: requiredUpper(input.name, 'name'),
+    code: input.code?.trim().toLocaleUpperCase('pt-BR') || null,
   };
 }
 
