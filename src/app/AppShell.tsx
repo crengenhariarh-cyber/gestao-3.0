@@ -132,7 +132,7 @@ export function AppShell({ session }: AppShellProps) {
       </main>
 
       <nav className="app-mobile-nav" aria-label="Atalhos rápidos">
-        <NavLink to="/" end className={`app-mobile-nav__link ${activeMobileItem === 'Início' ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon="home"/></span><span>Início</span></NavLink>
+        <NavLink to="/" end className={`app-mobile-nav__link app-mobile-nav__link--home ${activeMobileItem === 'Início' ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon="home"/></span><span>Início</span></NavLink>
         <Button variant="tertiary" className={`app-mobile-nav__button ${activeMobileItem === 'Adicionar' ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Novo lançamento" onClick={() => setQuickEntryOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="add"/></span><span>Adicionar</span></Button>
         {quickNavigation.slice(1).map((item) => <NavLink key={item.label} to={item.to} className={`app-mobile-nav__link ${activeMobileItem === item.label ? 'app-mobile-nav__link--active' : ''}`.trim()}><span className="app-mobile-nav__icon"><MobileNavIcon icon={item.icon}/></span><span>{item.label}</span></NavLink>)}
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
