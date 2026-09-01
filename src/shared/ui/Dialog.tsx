@@ -105,7 +105,7 @@ export function Dialog({
         <header className="ui-dialog__header">
           <div className="ui-dialog__header-main">
             <Button
-              variant="secondary"
+              variant="tertiary"
               size="sm"
               onClick={onBack ?? onClose}
               disabled={loading}
