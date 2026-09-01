@@ -10,6 +10,7 @@ import { Select } from '../../../shared/ui/Select';
 import { useFinanceOperations } from './useFinanceOperations';
 import { useFinanceOverview } from './useFinanceOverview';
 import './finance.css';
+import './monthly-accounts.css';
 
 interface MonthlyAccountsPageProps { company: CompanySummary; }
 type AccountScope = 'all' | 'payable' | 'receivable' | 'paid';
