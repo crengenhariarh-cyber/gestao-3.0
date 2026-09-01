@@ -34,6 +34,7 @@ export interface CreditCardLimit extends CompanyScope {
 }
 
 export interface CreateCardPurchase extends CompanyScope {
+  expenseCompanyId?: string;
   cardId: string;
   purchaseDate: string;
   description: string;
