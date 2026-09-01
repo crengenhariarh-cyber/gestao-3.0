@@ -30,6 +30,15 @@ export interface HomeBudgetItem {
   realizedTotal: number;
 }
 
+export interface HomeBankAccount {
+  companyId: string;
+  companyName: string;
+  accountId: string;
+  name: string;
+  accountType: 'bank' | 'cash' | 'other';
+  currentBalance: number;
+}
+
 export interface HomeOverviewData {
   month: string;
   bankBalance: number;
@@ -40,6 +49,7 @@ export interface HomeOverviewData {
   entries: readonly HomeEntry[];
   balanceMovements: readonly HomeBalanceMovement[];
   budgets: readonly HomeBudgetItem[];
+  bankAccounts: readonly HomeBankAccount[];
 }
 
 type HomeOverviewState =
@@ -103,12 +113,14 @@ export function useHomeOverview(companies: readonly CompanySummary[], refreshTok
         const entries: HomeEntry[] = [];
         const balanceMovements: HomeBalanceMovement[] = [];
         const budgets: HomeBudgetItem[] = [];
+        const bankAccounts: HomeBankAccount[] = [];
 
         results.forEach(({ company, summary, balances, movements, entries: companyEntries, budget }) => {
           const label = companyName(company);
           const dashboardAccounts = balances.filter((item) => item.status === 'active' && item.includeInDashboard);
           const dashboardAccountIds = new Set(dashboardAccounts.map((item) => item.accountId));
           bankBalance += dashboardAccounts.reduce((total, item) => total + item.currentBalance, 0);
+          dashboardAccounts.forEach((item) => bankAccounts.push({ companyId: company.id, companyName: label, accountId: item.accountId, name: item.name, accountType: item.accountType, currentBalance: item.currentBalance }));
           movements
             .filter((item) => dashboardAccountIds.has(item.accountId))
             .forEach((item) => balanceMovements.push({ movementOn: item.movementOn, signedAmount: item.direction === 'inflow' ? item.amount : -item.amount }));
@@ -124,7 +136,7 @@ export function useHomeOverview(companies: readonly CompanySummary[], refreshTok
             .forEach((item) => budgets.push({ companyId: company.id, companyName: label, costCenterId: item.costCenterId, costCenterName: item.costCenterName, plannedTotal: item.plannedTotal, realizedTotal: item.realizedTotal }));
         });
 
-        setState({ status: 'ready', data: { month, bankBalance, incomePlanned, incomeRealized, expensePlanned, expenseRealized, entries, balanceMovements, budgets }, errorMessage: null });
+        setState({ status: 'ready', data: { month, bankBalance, incomePlanned, incomeRealized, expensePlanned, expenseRealized, entries, balanceMovements, budgets, bankAccounts }, errorMessage: null });
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error', data: null, errorMessage: 'Não foi possível carregar a visão consolidada.' });
