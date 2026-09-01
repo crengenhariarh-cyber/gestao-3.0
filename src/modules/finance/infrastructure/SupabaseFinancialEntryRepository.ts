@@ -27,6 +27,7 @@ type ListRow = {
     category_id: string;
     cost_center_id: string | null;
     competence_month: string;
+    planned_account_id: string | null;
     notes: string | null;
   };
 };
@@ -53,6 +54,7 @@ function toListItem(row: ListRow): FinancialEntryListItem {
     categoryId: row.financial_entries.category_id,
     costCenterId: row.financial_entries.cost_center_id,
     competenceMonth: row.financial_entries.competence_month,
+    plannedAccountId: row.financial_entries.planned_account_id,
     installmentNumber: row.installment_number,
     installmentCount: row.installment_count,
     dueDate: row.due_date,
@@ -144,10 +146,20 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
     if (error) throw error;
   }
 
+  async setPlannedAccount(scope: CompanyScope, entryId: string, accountId: string | null): Promise<void> {
+    const { error } = await this.client.rpc('set_financial_entry_planned_account', {
+      p_tenant_id: scope.tenantId,
+      p_company_id: scope.companyId,
+      p_entry_id: entryId,
+      p_account_id: accountId,
+    });
+    if (error) throw error;
+  }
+
   async list(scope: CompanyScope): Promise<readonly FinancialEntryListItem[]> {
     const { data, error } = await this.client
       .from('financial_installments')
-      .select('id,tenant_id,company_id,installment_number,installment_count,due_date,amount,financial_entries!inner(id,entry_type,description,counterparty_name,category_id,cost_center_id,competence_month,notes)')
+      .select('id,tenant_id,company_id,installment_number,installment_count,due_date,amount,financial_entries!inner(id,entry_type,description,counterparty_name,category_id,cost_center_id,competence_month,planned_account_id,notes)')
       .eq('tenant_id', scope.tenantId)
       .eq('company_id', scope.companyId)
       .order('due_date')
