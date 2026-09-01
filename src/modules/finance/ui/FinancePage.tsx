@@ -15,7 +15,6 @@ import './finance.css';
 
 interface FinancePageProps { company: CompanySummary; allowDirectAction?: boolean; }
 type ModalKind = 'entry' | 'entryDelete' | 'settlement' | 'recurrence' | 'category' | 'costCenter' | 'account' | 'card' | 'transfer' | 'cardPurchase' | 'cardClose' | 'cardPayment' | null;
-
 type FinanceTab = 'resumo' | 'lancamentos' | 'contas' | 'cartoes';
 const FINANCE_TABS: readonly FinanceTab[] = ['resumo', 'lancamentos', 'contas', 'cartoes'];
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -59,6 +58,15 @@ export function FinancePage({ company, allowDirectAction = false }: FinancePageP
     next.set('tab', 'lancamentos');
     setSearchParams(next, { replace: true });
   }, [allowDirectAction, requestedAction, requestedTab, setSearchParams]);
+
+  function changeTab(id: string) {
+    const nextTab = financeTab(id);
+    setActiveTab(nextTab);
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', nextTab);
+    next.delete('action');
+    setSearchParams(next, { replace: true });
+  }
 
   if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando financeiro…" />;
   if (overview.status === 'error') return <EmptyState title="Financeiro indisponível" message={overview.errorMessage} />;
@@ -205,15 +213,19 @@ export function FinancePage({ company, allowDirectAction = false }: FinancePageP
   if (modal === 'cardClose') modalContent = <div className="finance-form-grid"><Select label="Cartão" value={form.cardId ?? ''} onChange={(event) => field('cardId', event.target.value)} options={cardOptions} required /><Input label="Competência da fatura" type="month" value={form.statementMonth ?? monthInput()} onChange={(event) => field('statementMonth', event.target.value)} required /></div>;
   if (modal === 'cardPayment') modalContent = <div className="finance-form-grid"><Select label="Fatura" value={form.statementId ?? ''} onChange={(event) => { const selected = openStatements.find((item) => item.statementId === event.target.value); field('statementId', event.target.value); if (selected) field('amount', String(selected.remainingAmount)); }} options={statementOptions} required /><Select label="Conta" value={form.accountId ?? ''} onChange={(event) => field('accountId', event.target.value)} options={accountOptions} required /><Input label="Data" type="date" value={form.paidOn ?? today()} onChange={(event) => field('paidOn', event.target.value)} required /><Input label="Valor" type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={(event) => field('amount', event.target.value)} required /><Input label="Observação" value={form.notes ?? ''} onChange={(event) => field('notes', event.target.value)} /></div>;
 
+  const headerTitle = activeTab === 'cartoes' ? 'Cartões' : activeTab === 'lancamentos' ? 'Lançamentos' : activeTab === 'contas' ? 'Contas e bancos' : 'Financeiro';
+  const headerDescription = activeTab === 'cartoes'
+    ? 'Limites, compras, parcelas e faturas da empresa selecionada.'
+    : activeTab === 'lancamentos'
+      ? 'Lançamentos, baixas, recorrências, categorias e centros de custo da empresa selecionada.'
+      : activeTab === 'contas'
+        ? 'Contas financeiras, saldos e transferências da empresa selecionada.'
+        : 'Resumo operacional de receitas e despesas da empresa selecionada.';
+  const headerActions = activeTab === 'cartoes' ? <><Button onClick={() => open('card')}>Novo cartão</Button><Button variant="secondary" onClick={() => open('cardPurchase')} disabled={activeCards.length === 0}>Nova compra</Button><Button variant="secondary" onClick={() => open('cardClose')} disabled={activeCards.length === 0}>Fechar fatura</Button><Button variant="secondary" onClick={() => open('cardPayment')} disabled={openStatements.length === 0}>Pagar fatura</Button></> : undefined;
+
   return <section className="finance-overview" aria-labelledby="finance-title">
-    {activeTab === 'cartoes' ? <PageHeader
-      id="finance-title"
-      eyebrow={`Financeiro · Competência ${formatMonth(data.month)}`}
-      title="Cartões"
-      description="Limites, compras, parcelas e faturas da empresa selecionada."
-      actions={<><Button onClick={() => open('card')}>Novo cartão</Button><Button variant="secondary" onClick={() => open('cardPurchase')} disabled={activeCards.length === 0}>Nova compra</Button><Button variant="secondary" onClick={() => open('cardClose')} disabled={activeCards.length === 0}>Fechar fatura</Button><Button variant="secondary" onClick={() => open('cardPayment')} disabled={openStatements.length === 0}>Pagar fatura</Button></>}
-    /> : <div className="finance-overview__heading"><div><span className="ui-muted">Competência {formatMonth(data.month)}</span><h1 id="finance-title">Financeiro</h1></div><p className="ui-muted">Resumo operacional, lançamentos, contas, cartões e recorrências da empresa selecionada.</p></div>}
-    <Tabs items={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as FinanceTab)} ariaLabel="Seções do financeiro" />
+    <PageHeader id="finance-title" eyebrow={`Financeiro · Competência ${formatMonth(data.month)}`} title={headerTitle} description={headerDescription} actions={headerActions} />
+    <Tabs items={tabs} activeId={activeTab} onChange={changeTab} ariaLabel="Seções do financeiro" />
     {operations.state.errorMessage && modal === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && modal === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
