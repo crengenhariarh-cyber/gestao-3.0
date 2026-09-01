@@ -127,7 +127,7 @@ export function CardsPage({ company }: CardsPageProps) {
       {selectedCard && <p className="ui-muted">Visualizando apenas {selectedCard.name}.</p>}
     </Card>
 
-    <Tabs tabs={tabs} activeTab={activeTab} onChange={(value) => setActiveTab(value as CardsTab)} />
+    <Tabs items={tabs} activeId={activeTab} onChange={(value) => setActiveTab(value as CardsTab)} ariaLabel="Seções de cartões" />
 
     {activeTab === 'cartoes' && <div className="finance-section" role="tabpanel">
       <Card title="Meus cartões" description="Cadastro, limite, fechamento e vencimento">
