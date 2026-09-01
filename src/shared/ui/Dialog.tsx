@@ -6,6 +6,7 @@ interface DialogProps {
   title: string;
   description?: string;
   children?: ReactNode;
+  footer?: ReactNode;
   confirmLabel?: string;
   backLabel?: string;
   loading?: boolean;
@@ -28,6 +29,7 @@ export function Dialog({
   title,
   description,
   children,
+  footer,
   confirmLabel = 'Salvar',
   backLabel = 'Voltar',
   loading = false,
@@ -131,11 +133,9 @@ export function Dialog({
 
         <div className="ui-dialog__content">{children}</div>
 
-        {onConfirm && (
+        {(footer || onConfirm) && (
           <footer className="ui-dialog__footer">
-            <Button onClick={onConfirm} loading={loading}>
-              {confirmLabel}
-            </Button>
+            {footer ?? <Button onClick={onConfirm} loading={loading}>{confirmLabel}</Button>}
           </footer>
         )}
       </section>
