@@ -21,6 +21,13 @@ export interface CostCenter extends CompanyScope {
   status: RegistryStatus;
 }
 
+export interface WorkReference extends CompanyScope {
+  id: string;
+  name: string;
+  code: string | null;
+  status: RegistryStatus;
+}
+
 export interface FinancialAccount extends CompanyScope {
   id: string;
   name: string;
