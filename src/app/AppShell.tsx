@@ -8,6 +8,7 @@ import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
+import type { CompanySummary } from '../modules/platform/domain/AccessContext';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
 import { Button } from '../shared/ui/Button';
 import { EmptyState } from '../shared/ui/Feedback';
@@ -27,6 +28,30 @@ const quickNavigation = [
   { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: 'card' },
 ] as const;
 
+const COMPANY_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
+function companyLabel(company: CompanySummary): string {
+  const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
+  if (raw.includes('SARTORI')) return 'Sartori';
+  if (raw.includes('BLAZE')) return 'Blaze';
+  if (raw.includes('PESSOAL')) return 'Pessoal';
+  if (raw.includes('ADMIN')) return 'Admin';
+  if (raw.includes('PR-HIST') || /(^|\s)PR(\s|$)/.test(raw)) return 'PR';
+  if (raw.includes('CR-HIST') || /(^|\s)CR(\s|$)/.test(raw)) return 'CR';
+  return company.tradeName ?? company.legalName;
+}
+function visibleCompanies(companies: readonly CompanySummary[]): readonly CompanySummary[] {
+  const chosen = new Map<string, CompanySummary>();
+  for (const company of companies) {
+    const label = companyLabel(company);
+    if (!COMPANY_ORDER.includes(label as (typeof COMPANY_ORDER)[number])) continue;
+    const current = chosen.get(label);
+    const currentHistoric = current ? /HIST/i.test(`${current.tradeName ?? ''} ${current.legalName}`) : true;
+    const candidateHistoric = /HIST/i.test(`${company.tradeName ?? ''} ${company.legalName}`);
+    if (!current || (currentHistoric && !candidateHistoric)) chosen.set(label, company);
+  }
+  return COMPANY_ORDER.flatMap((label) => chosen.get(label) ? [chosen.get(label)!] : []);
+}
+
 type MobileIcon = 'home' | 'add' | 'bank' | 'card' | 'more';
 function MobileNavIcon({ icon }: { icon: MobileIcon }) {
   if (icon === 'home') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-7h-5v7h-5A1.5 1.5 0 0 1 3 19.5z"/></svg>;
@@ -43,26 +68,29 @@ export function AppShell({ session }: AppShellProps) {
   const location = useLocation();
   const [centralMenuOpen, setCentralMenuOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+  const companies = visibleCompanies(session.companies);
   const allCompaniesSelected = isAllCompanies(session.activeCompanyId);
-  const activeCompany = allCompaniesSelected ? undefined : session.companies.find((company) => company.id === session.activeCompanyId);
+  const activeCompany = allCompaniesSelected ? undefined : companies.find((company) => company.id === session.activeCompanyId);
+  const searchParams = new URLSearchParams(location.search);
+  const routeEntryRequested = location.pathname === '/financeiro' && searchParams.get('action') === 'new-entry';
+  const entryOpen = quickEntryOpen || routeEntryRequested;
 
-  if (session.companies.length === 0) {
+  if (companies.length === 0) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
   }
 
   const companyOptions = [
-    ...(session.companies.length > 1 ? [{ value: ALL_COMPANIES_ID, label: 'Todas as empresas' }] : []),
-    ...session.companies.map((company) => ({ value: company.id, label: company.tradeName ?? company.legalName })),
+    ...(companies.length > 1 ? [{ value: ALL_COMPANIES_ID, label: 'Todas as empresas' }] : []),
+    ...companies.map((company) => ({ value: company.id, label: companyLabel(company) })),
   ];
-  const selectedCompanies = allCompaniesSelected ? session.companies : activeCompany ? [activeCompany] : [];
-  const searchParams = new URLSearchParams(location.search);
-  const activeMobileItem = quickEntryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : null;
+  const selectedCompanies = allCompaniesSelected ? companies : activeCompany ? [activeCompany] : [];
+  const activeMobileItem = entryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : null;
 
-  const allCompaniesFinance = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Financeiro ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><FinancePage company={company}/></section>)}</div>;
-  const allCompaniesMonthlyAccounts = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
-  const allCompaniesBanks = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><BanksPage company={company}/></section>)}</div>;
-  const allCompaniesRh = <div>{session.companies.map((company) => <section key={company.id} aria-label={`RH ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
-  const allCompaniesEngineering = <div>{session.companies.map((company) => <section key={company.id} aria-label={`Engenharia ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
+  const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
+  const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
+  const allCompaniesBanks = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Bancos ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><BanksPage company={company}/></section>)}</div>;
+  const allCompaniesRh = <div>{companies.map((company) => <section key={company.id} aria-label={`RH ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
+  const allCompaniesEngineering = <div>{companies.map((company) => <section key={company.id} aria-label={`Engenharia ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
   return (
     <div className="app-shell">
@@ -74,7 +102,7 @@ export function AppShell({ session }: AppShellProps) {
             <div><strong>Gestão</strong><span>Sua gestão, mais simples</span></div>
           </NavLink>
           <div className="app-header__actions">
-            <Select label="Empresa" value={session.activeCompanyId ?? ''} options={companyOptions} onChange={(event) => session.selectCompany(event.target.value)}/>
+            <Select label="Empresa" value={allCompaniesSelected ? ALL_COMPANIES_ID : activeCompany?.id ?? ALL_COMPANIES_ID} options={companyOptions} onChange={(event) => session.selectCompany(event.target.value)}/>
             <Button variant="tertiary" onClick={() => void session.signOut()}>Sair</Button>
           </div>
         </div>
@@ -85,10 +113,10 @@ export function AppShell({ session }: AppShellProps) {
       </header>
 
       <main className="app-page" id="app-main" tabIndex={-1}>
-        <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
+        <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany ? companyLabel(activeCompany) : ''}</strong></div>
         <Routes>
           <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
-          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction/> : allCompaniesFinance}/>
+          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany}/> : allCompaniesBanks}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
@@ -104,14 +132,9 @@ export function AppShell({ session }: AppShellProps) {
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
       </nav>
 
-      <QuickEntryDialog open={quickEntryOpen} companies={session.companies} initialCompanyId={activeCompany?.id ?? ''} onClose={() => setQuickEntryOpen(false)} />
+      <QuickEntryDialog open={entryOpen} companies={companies} initialCompanyId={activeCompany?.id ?? ''} allCompaniesMode={allCompaniesSelected} onClose={() => { setQuickEntryOpen(false); if (routeEntryRequested) void navigate('/'); }} />
 
-      <CentralMenu
-        open={centralMenuOpen}
-        onClose={() => setCentralMenuOpen(false)}
-        onNavigate={(to) => { void navigate(to); }}
-        onSignOut={() => { void session.signOut(); }}
-      />
+      <CentralMenu open={centralMenuOpen} onClose={() => setCentralMenuOpen(false)} onNavigate={(to) => { void navigate(to); }} onSignOut={() => { void session.signOut(); }} />
     </div>
   );
 }
