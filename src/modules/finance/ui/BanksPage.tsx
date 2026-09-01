@@ -204,14 +204,15 @@ export function BanksPage({ company }: BanksPageProps) {
         {activeBalances.map((item) => {
           const projection = projectedByAccount.get(item.accountId) ?? { inflow: 0, outflow: 0 };
           const expected = item.currentBalance + projection.inflow - projection.outflow;
-          return <div className="finance-list__group" key={item.accountId}>
-            <button type="button" className="finance-list__row finance-list__row--button" onClick={() => setSelectedAccountId(item.accountId)} aria-pressed={effectiveAccountId === item.accountId}>
+          const isSelected = effectiveAccountId === item.accountId;
+          return <div className={`finance-list__group${isSelected ? ' finance-list__group--selected' : ''}`} key={item.accountId}>
+            <div className="finance-list__row finance-list__row--account">
               <span><strong>{item.name}</strong><small>{item.accountType === 'bank' ? 'Banco' : item.accountType === 'cash' ? 'Dinheiro' : 'Outra conta'}</small></span>
               <strong>{currency.format(item.currentBalance)}</strong>
-            </button>
+            </div>
             <div className="finance-list__row"><span>Saldo inicial {currency.format(item.openingBalance)}</span><span>Previsto {currency.format(expected)}</span></div>
             <div className="finance-list__row"><span>A receber {currency.format(projection.inflow)}</span><span>A pagar {currency.format(projection.outflow)}</span></div>
-            <div className="finance-actions"><Button size="sm" variant="secondary" onClick={() => setSelectedAccountId(item.accountId)}>Extratos</Button><Button size="sm" variant="tertiary" onClick={() => openEditAccount(item.accountId)}>Editar</Button></div>
+            <div className="finance-actions"><Button size="sm" variant={isSelected ? 'primary' : 'secondary'} onClick={() => setSelectedAccountId(item.accountId)}>{isSelected ? 'Extrato selecionado' : 'Ver extrato'}</Button><Button size="sm" variant="tertiary" onClick={() => openEditAccount(item.accountId)}>Editar</Button></div>
           </div>;
         })}
       </div>}
