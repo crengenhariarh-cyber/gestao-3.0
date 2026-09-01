@@ -7,9 +7,11 @@ interface DialogProps {
   description?: string;
   children?: ReactNode;
   confirmLabel?: string;
+  secondaryConfirmLabel?: string;
   backLabel?: string;
   loading?: boolean;
   onConfirm?: (() => void) | undefined;
+  onSecondaryConfirm?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onClose: () => void;
 }
@@ -29,9 +31,11 @@ export function Dialog({
   description,
   children,
   confirmLabel = 'Salvar',
+  secondaryConfirmLabel = 'Salvar e continuar',
   backLabel = 'Voltar',
   loading = false,
   onConfirm,
+  onSecondaryConfirm,
   onBack,
   onClose,
 }: DialogProps) {
@@ -131,11 +135,18 @@ export function Dialog({
 
         <div className="ui-dialog__content">{children}</div>
 
-        {onConfirm && (
+        {(onConfirm || onSecondaryConfirm) && (
           <footer className="ui-dialog__footer">
-            <Button onClick={onConfirm} loading={loading}>
-              {confirmLabel}
-            </Button>
+            {onSecondaryConfirm && (
+              <Button variant="secondary" onClick={onSecondaryConfirm} disabled={loading}>
+                {secondaryConfirmLabel}
+              </Button>
+            )}
+            {onConfirm && (
+              <Button onClick={onConfirm} loading={loading}>
+                {confirmLabel}
+              </Button>
+            )}
           </footer>
         )}
       </section>
