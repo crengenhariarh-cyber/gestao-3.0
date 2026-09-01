@@ -5,6 +5,7 @@ import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
+import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 import { useFinanceOperations } from './useFinanceOperations';
 import { useFinanceOverview } from './useFinanceOverview';
@@ -85,173 +86,64 @@ export function MonthlyAccountsPage({ company }: MonthlyAccountsPageProps) {
   const editType = editForm.entryType === 'income' ? 'income' : 'expense';
   const categoryOptions = [{ value: '', label: 'Selecione…' }, ...(references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === editType)).map((item) => ({ value: item.id, label: item.name }))];
 
-  function closeDialog() {
-    setDialog(null);
-    operations.clearFeedback();
-  }
-
+  function closeDialog() { setDialog(null); operations.clearFeedback(); }
   function openPayment(installmentId: string) {
     const entry = periodEntries.find((item) => item.installmentId === installmentId);
     const balance = balanceByInstallment.get(installmentId);
     setPaymentForm({ installmentId, accountId: '', settledOn: today(), amount: String(balance?.remainingAmount ?? entry?.amount ?? ''), notes: '' });
-    operations.clearFeedback();
-    setDialog('payment');
+    operations.clearFeedback(); setDialog('payment');
   }
-
   function openEdit(entryId: string) {
     const installments = data.entries.filter((item) => item.entryId === entryId).sort((a, b) => a.installmentNumber - b.installmentNumber);
-    const first = installments[0];
-    if (!first) return;
-    setEditForm({
-      entryId,
-      entryType: first.entryType,
-      description: first.description,
-      counterparty: first.counterpartyName ?? '',
-      categoryId: first.categoryId,
-      costCenterId: first.costCenterId ?? '',
-      competenceMonth: first.competenceMonth.slice(0, 7),
-      dueDate: first.dueDate,
-      amount: String(installments.reduce((total, item) => total + item.amount, 0)),
-      installmentCount: String(first.installmentCount),
-      notes: first.notes ?? '',
-    });
-    operations.clearFeedback();
-    setDialog('edit');
+    const first = installments[0]; if (!first) return;
+    setEditForm({ entryId, entryType: first.entryType, description: first.description, counterparty: first.counterpartyName ?? '', categoryId: first.categoryId, costCenterId: first.costCenterId ?? '', competenceMonth: first.competenceMonth.slice(0, 7), dueDate: first.dueDate, amount: String(installments.reduce((total, item) => total + item.amount, 0)), installmentCount: String(first.installmentCount), notes: first.notes ?? '' });
+    operations.clearFeedback(); setDialog('edit');
   }
+  function openDelete(entryId: string, description: string) { setDeleteTarget({ entryId, description }); operations.clearFeedback(); setDialog('delete'); }
+  async function refreshAfterOperation() { await operations.loadReferences(); setRefreshToken((value) => value + 1); closeDialog(); }
+  async function savePayment() { try { await operations.settleInstallment({ installmentId: paymentForm.installmentId, accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: money(paymentForm.amount), idempotencyKey: key('monthly-account'), notes: paymentForm.notes || null }); await refreshAfterOperation(); } catch { /* feedback padronizado permanece no modal */ } }
+  async function saveEdit() { try { await operations.updateEntry({ entryId: editForm.entryId, entryType: editType, description: editForm.description, counterpartyName: editForm.counterparty || null, categoryId: editForm.categoryId, costCenterId: editForm.costCenterId || null, competenceMonth: monthStart(editForm.competenceMonth), dueDate: editForm.dueDate, amount: money(editForm.amount), installmentCount: Number(editForm.installmentCount), notes: editForm.notes || null }); await refreshAfterOperation(); } catch { /* feedback padronizado permanece no modal */ } }
+  async function confirmDelete() { try { await operations.deleteEntry(deleteTarget.entryId); await refreshAfterOperation(); } catch { /* feedback padronizado permanece no modal */ } }
 
-  function openDelete(entryId: string, description: string) {
-    setDeleteTarget({ entryId, description });
-    operations.clearFeedback();
-    setDialog('delete');
-  }
-
-  async function refreshAfterOperation() {
-    await operations.loadReferences();
-    setRefreshToken((value) => value + 1);
-    closeDialog();
-  }
-
-  async function savePayment() {
-    try {
-      await operations.settleInstallment({
-        installmentId: paymentForm.installmentId,
-        accountId: paymentForm.accountId,
-        settledOn: paymentForm.settledOn,
-        amount: money(paymentForm.amount),
-        idempotencyKey: key('monthly-account'),
-        notes: paymentForm.notes || null,
-      });
-      await refreshAfterOperation();
-    } catch { /* feedback padronizado permanece no modal */ }
-  }
-
-  async function saveEdit() {
-    try {
-      await operations.updateEntry({
-        entryId: editForm.entryId,
-        entryType: editType,
-        description: editForm.description,
-        counterpartyName: editForm.counterparty || null,
-        categoryId: editForm.categoryId,
-        costCenterId: editForm.costCenterId || null,
-        competenceMonth: monthStart(editForm.competenceMonth),
-        dueDate: editForm.dueDate,
-        amount: money(editForm.amount),
-        installmentCount: Number(editForm.installmentCount),
-        notes: editForm.notes || null,
-      });
-      await refreshAfterOperation();
-    } catch { /* feedback padronizado permanece no modal */ }
-  }
-
-  async function confirmDelete() {
-    try {
-      await operations.deleteEntry(deleteTarget.entryId);
-      await refreshAfterOperation();
-    } catch { /* feedback padronizado permanece no modal */ }
-  }
-
-  return <section className="finance-overview" aria-labelledby="monthly-accounts-title">
-    <div className="finance-overview__heading">
-      <div><span className="ui-muted">Período {formatDate(rangeStart)} a {formatDate(rangeEnd)}</span><h1 id="monthly-accounts-title">Contas do mês</h1></div>
-      <p className="ui-muted">Visão operacional de contas a pagar, contas a receber e títulos já baixados.</p>
-    </div>
+  return <section className="finance-overview monthly-accounts" aria-labelledby="monthly-accounts-title">
+    <PageHeader id="monthly-accounts-title" eyebrow={`Período ${formatDate(rangeStart)} a ${formatDate(rangeEnd)}`} title="Contas do mês" description="Contas a pagar, contas a receber e títulos baixados da empresa selecionada." />
 
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
-    <Card title="Período" description="Consulte o mês atual ou qualquer intervalo de vencimentos">
-      <div className="finance-form-grid">
-        <Input label="Data inicial" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-        <Input label="Data final" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-      </div>
+    <Card className="monthly-accounts__period" title="Período" description="Consulte o mês atual ou qualquer intervalo de vencimentos">
+      <div className="finance-form-grid"><Input label="Data inicial" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /><Input label="Data final" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
       <div className="finance-actions"><Button size="sm" variant="secondary" onClick={() => { const current = currentMonthRange(); setStartDate(current.start); setEndDate(current.end); }}>Mês atual</Button></div>
     </Card>
 
-    <div className="finance-overview__cards">
+    <div className="finance-overview__cards monthly-accounts__summary">
       <Card title="A pagar"><strong className="balance-card__value">{currency.format(totals.payable)}</strong></Card>
       <Card title="A receber"><strong className="balance-card__value">{currency.format(totals.receivable)}</strong></Card>
-      <Card title="Vencidas"><strong className="balance-card__value">{currency.format(totals.overdue)}</strong></Card>
+      <Card className="monthly-accounts__kpi--alert" title="Vencidas"><strong className="balance-card__value">{currency.format(totals.overdue)}</strong></Card>
       <Card title="Pagas no período"><strong className="balance-card__value">{currency.format(totals.paid)}</strong></Card>
     </div>
 
-    <Card title="Contas" description="Pesquise e filtre sem sair do período selecionado">
-      <div className="finance-form-grid">
-        <Input label="Buscar" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Descrição, fornecedor ou observação" />
-        <Select label="Mostrar" value={filter} onChange={(event) => setFilter(event.target.value as AccountScope)} options={[
-          { value: 'all', label: 'Todas' },
-          { value: 'payable', label: 'A pagar' },
-          { value: 'receivable', label: 'A receber' },
-          { value: 'paid', label: 'Pagas / recebidas' },
-        ]} />
-      </div>
-
-      {visibleEntries.length === 0 ? <p className="ui-muted">Nenhuma conta encontrada para este filtro.</p> : <div className="finance-list">
-        {visibleEntries.map((item) => {
-          const balance = balanceByInstallment.get(item.installmentId);
-          const remaining = Math.max(0, balance?.remainingAmount ?? item.amount);
-          const paid = balance?.financialStatus === 'paid' || remaining <= 0;
-          const partial = !paid && remaining + 0.005 < item.amount;
-          const overdue = !paid && item.entryType === 'expense' && item.dueDate < today();
-          return <div className="finance-list__group" key={item.installmentId}>
-            <div className="finance-list__row"><strong>{item.description}</strong><strong>{currency.format(item.amount)}</strong></div>
-            <div className="finance-list__row"><span>{item.installmentCount > 1 ? `Parcela ${item.installmentNumber}/${item.installmentCount}` : 'Parcela única'}</span><span>Vence {formatDate(item.dueDate)}</span></div>
-            <div className="finance-list__row"><span>{item.entryType === 'income' ? 'A receber' : 'A pagar'}{overdue ? ' · Vencida' : ''}</span><span>{paid ? 'Baixada' : partial ? `Parcial · saldo ${currency.format(remaining)}` : `Saldo ${currency.format(remaining)}`}</span></div>
-            {item.counterpartyName && <div className="finance-list__row"><span>{item.counterpartyName}</span></div>}
-            <div className="finance-actions">
-              {!paid && <Button size="sm" onClick={() => openPayment(item.installmentId)}>{item.entryType === 'income' ? 'Receber' : partial ? 'Completar pagamento' : 'Pagar'}</Button>}
-              {item.installmentNumber === 1 && !paid && <Button size="sm" variant="secondary" onClick={() => openEdit(item.entryId)}>Editar</Button>}
-              {item.installmentNumber === 1 && !paid && <Button size="sm" variant="tertiary" onClick={() => openDelete(item.entryId, item.description)}>Excluir</Button>}
-            </div>
-          </div>;
-        })}
+    <Card className="monthly-accounts__list-card" title="Contas" description="Pesquise e filtre sem sair do período selecionado">
+      <div className="finance-form-grid"><Input label="Buscar" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Descrição, fornecedor ou observação" /><Select label="Mostrar" value={filter} onChange={(event) => setFilter(event.target.value as AccountScope)} options={[{ value: 'all', label: 'Todas' }, { value: 'payable', label: 'A pagar' }, { value: 'receivable', label: 'A receber' }, { value: 'paid', label: 'Pagas / recebidas' }]} /></div>
+      {visibleEntries.length === 0 ? <p className="ui-muted">Nenhuma conta encontrada para este filtro.</p> : <div className="finance-list monthly-accounts__list">
+        {visibleEntries.map((item) => { const balance = balanceByInstallment.get(item.installmentId); const remaining = Math.max(0, balance?.remainingAmount ?? item.amount); const paid = balance?.financialStatus === 'paid' || remaining <= 0; const partial = !paid && remaining + 0.005 < item.amount; const overdue = !paid && item.entryType === 'expense' && item.dueDate < today(); return <div className={`finance-list__group monthly-account ${overdue ? 'monthly-account--overdue' : ''} ${paid ? 'monthly-account--paid' : ''}`} key={item.installmentId}>
+          <div className="finance-list__row"><strong>{item.description}</strong><strong>{currency.format(item.amount)}</strong></div>
+          <div className="finance-list__row"><span>{item.installmentCount > 1 ? `Parcela ${item.installmentNumber}/${item.installmentCount}` : 'Parcela única'}</span><span>Vence {formatDate(item.dueDate)}</span></div>
+          <div className="finance-list__row"><span>{item.entryType === 'income' ? 'A receber' : 'A pagar'}{overdue ? ' · Vencida' : ''}</span><span>{paid ? 'Baixada' : partial ? `Parcial · saldo ${currency.format(remaining)}` : `Saldo ${currency.format(remaining)}`}</span></div>
+          {item.counterpartyName && <div className="finance-list__row"><span>{item.counterpartyName}</span></div>}
+          <div className="finance-actions">{!paid && <Button size="sm" onClick={() => openPayment(item.installmentId)}>{item.entryType === 'income' ? 'Receber' : partial ? 'Completar pagamento' : 'Pagar'}</Button>}{item.installmentNumber === 1 && !paid && <Button size="sm" variant="secondary" onClick={() => openEdit(item.entryId)}>Editar</Button>}{item.installmentNumber === 1 && !paid && <Button size="sm" variant="tertiary" onClick={() => openDelete(item.entryId, item.description)}>Excluir</Button>}</div>
+        </div>; })}
       </div>}
     </Card>
 
     <Dialog open={dialog === 'payment'} title="Pagamento ou recebimento" description="Baixa vinculada exclusivamente à empresa e à conta selecionadas." loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void savePayment(); }}>
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
-      <div className="finance-form-grid">
-        <Select label="Conta" value={paymentForm.accountId} onChange={(event) => setPaymentForm((current) => ({ ...current, accountId: event.target.value }))} options={accountOptions} required />
-        <Input label="Data" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required />
-        <Input label="Valor" type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} required />
-        <Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} />
-      </div>
+      <div className="finance-form-grid"><Select label="Conta" value={paymentForm.accountId} onChange={(event) => setPaymentForm((current) => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /><Input label="Data" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor" type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} /></div>
     </Dialog>
 
     <Dialog open={dialog === 'edit'} title="Editar lançamento" description="Altera o lançamento e sua série somente quando as regras financeiras permitirem." loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveEdit(); }}>
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
-      <div className="finance-form-grid">
-        <Select label="Tipo" value={editType} onChange={(event) => setEditForm((current) => ({ ...current, entryType: event.target.value }))} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} />
-        <Input label="Descrição" value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} required />
-        <Input label="Fornecedor / pagador" value={editForm.counterparty} onChange={(event) => setEditForm((current) => ({ ...current, counterparty: event.target.value }))} />
-        <Select label="Categoria" value={editForm.categoryId} onChange={(event) => setEditForm((current) => ({ ...current, categoryId: event.target.value }))} options={categoryOptions} required />
-        <Select label="Centro de custo" value={editForm.costCenterId} onChange={(event) => setEditForm((current) => ({ ...current, costCenterId: event.target.value }))} options={costCenterOptions} />
-        <Input label="Competência inicial" type="month" value={editForm.competenceMonth} onChange={(event) => setEditForm((current) => ({ ...current, competenceMonth: event.target.value }))} required />
-        <Input label="Primeiro vencimento" type="date" value={editForm.dueDate} onChange={(event) => setEditForm((current) => ({ ...current, dueDate: event.target.value }))} required />
-        <Input label="Valor total" type="number" min="0.01" step="0.01" value={editForm.amount} onChange={(event) => setEditForm((current) => ({ ...current, amount: event.target.value }))} required />
-        <Input label="Parcelas" type="number" min="1" max="120" step="1" value={editForm.installmentCount} onChange={(event) => setEditForm((current) => ({ ...current, installmentCount: event.target.value }))} required />
-        <Input label="Observação" value={editForm.notes} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} />
-      </div>
+      <div className="finance-form-grid"><Select label="Tipo" value={editType} onChange={(event) => setEditForm((current) => ({ ...current, entryType: event.target.value }))} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} /><Input label="Descrição" value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} required /><Input label="Fornecedor / pagador" value={editForm.counterparty} onChange={(event) => setEditForm((current) => ({ ...current, counterparty: event.target.value }))} /><Select label="Categoria" value={editForm.categoryId} onChange={(event) => setEditForm((current) => ({ ...current, categoryId: event.target.value }))} options={categoryOptions} required /><Select label="Centro de custo" value={editForm.costCenterId} onChange={(event) => setEditForm((current) => ({ ...current, costCenterId: event.target.value }))} options={costCenterOptions} /><Input label="Competência inicial" type="month" value={editForm.competenceMonth} onChange={(event) => setEditForm((current) => ({ ...current, competenceMonth: event.target.value }))} required /><Input label="Primeiro vencimento" type="date" value={editForm.dueDate} onChange={(event) => setEditForm((current) => ({ ...current, dueDate: event.target.value }))} required /><Input label="Valor total" type="number" min="0.01" step="0.01" value={editForm.amount} onChange={(event) => setEditForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Parcelas" type="number" min="1" max="120" step="1" value={editForm.installmentCount} onChange={(event) => setEditForm((current) => ({ ...current, installmentCount: event.target.value }))} required /><Input label="Observação" value={editForm.notes} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></div>
     </Dialog>
 
     <Dialog open={dialog === 'delete'} title="Excluir lançamento" description="A exclusão só é permitida para lançamentos sem baixa e sem vínculos protegidos." loading={operations.state.busy} confirmLabel="Excluir" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void confirmDelete(); }}>
