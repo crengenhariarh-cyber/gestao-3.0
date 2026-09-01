@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
@@ -74,6 +74,12 @@ export function AppShell({ session }: AppShellProps) {
   const searchParams = new URLSearchParams(location.search);
   const routeEntryRequested = location.pathname === '/financeiro' && searchParams.get('action') === 'new-entry';
   const entryOpen = quickEntryOpen || routeEntryRequested;
+
+  useEffect(() => {
+    if (!routeEntryRequested) return;
+    setQuickEntryOpen(true);
+    void navigate('/', { replace: true });
+  }, [navigate, routeEntryRequested]);
 
   if (companies.length === 0) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;

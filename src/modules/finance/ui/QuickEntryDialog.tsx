@@ -6,6 +6,8 @@ import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 import { getSupabaseClient } from '../../../shared/infrastructure/supabase/client';
+import type { CreditCard } from '../domain/cards';
+import type { FinancialAccount } from '../domain/registries';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 import { useFinanceOperations } from './useFinanceOperations';
 import './quick-entry.css';
@@ -13,7 +15,19 @@ import './quick-entry.css';
 type EntryType = 'expense' | 'income';
 type LaunchType = 'single' | 'installment' | 'recurring';
 type PaymentMethod = 'pix' | 'debit' | 'credit' | 'cash' | 'transfer' | 'boleto' | 'other';
-type SmartTemplate = { description:string; companyId:string; entryType:EntryType; categoryId:string; costCenterId:string; accountId:string; paymentMethod:PaymentMethod; cardId:string; occurredOn:string };
+type OwnedAccount = FinancialAccount & { ownerLabel: string };
+type OwnedCard = CreditCard & { ownerLabel: string };
+type SmartTemplate = {
+  description: string;
+  companyId: string;
+  entryType: EntryType;
+  categoryId: string;
+  costCenterId: string;
+  accountRef: string;
+  paymentMethod: PaymentMethod;
+  cardRef: string;
+  occurredOn: string;
+};
 
 interface QuickEntryDialogProps {
   open: boolean;
@@ -26,11 +40,46 @@ interface QuickEntryDialogProps {
 const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = (value: string) => `${value.slice(0, 7)}-01`;
 const idempotencyKey = (prefix: string) => `${prefix}:${crypto.randomUUID()}`;
-const digitsOnly = (value:string) => value.replace(/\D/g,'').slice(0,14);
-const amountFromDigits = (digits:string) => Number(digits || '0') / 100;
-const formatMoneyDigits = (digits:string) => digits ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(amountFromDigits(digits)) : '';
-const normalized = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
-
+const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, 14);
+const amountFromDigits = (digits: string) => Number(digits || '0') / 100;
+const formatMoneyDigits = (digits: string) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amountFromDigits(digits)) : '';
+const normalized = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR');
+const paymentRef = (companyId: string, resourceId: string) => `${companyId}::${resourceId}`;
+function parsePaymentRef(value: string): { companyId: string; resourceId: string } | null {
+  const separator = value.indexOf('::');
+  if (separator <= 0) return null;
+  return { companyId: value.slice(0, separator), resourceId: value.slice(separator + 2) };
+}
+function companyName(company: CompanySummary): string {
+  const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
+  if (raw.includes('PESSOAL')) return 'Pessoal';
+  if (raw.includes('PR')) return 'PR';
+  if (raw.includes('CR')) return 'CR';
+  return company.tradeName ?? company.legalName;
+}
+const COST_CENTER_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
+function costCenterLabel(code: string | null, name: string): string | null {
+  const raw = `${code ?? ''} ${name}`.toLocaleUpperCase('pt-BR');
+  if (raw.includes('ADMIN')) return 'Admin';
+  if (raw.includes('BLAZE')) return 'Blaze';
+  if (raw.includes('PESSOAL')) return 'Pessoal';
+  if (raw.includes('SARTORI')) return 'Sartori';
+  if (raw.includes('CR-HIST') || /(^|\s)CR(\s|$)/.test(raw)) return 'CR';
+  if (raw.includes('PR-HIST') || /(^|\s)PR(\s|$)/.test(raw)) return 'PR';
+  return null;
+}
+function canonicalCostCenters<T extends { id: string; code: string | null; name: string }>(rows: readonly T[]): readonly { item: T; label: string }[] {
+  const chosen = new Map<string, T>();
+  for (const item of rows) {
+    const label = costCenterLabel(item.code, item.name);
+    if (!label) continue;
+    const current = chosen.get(label);
+    const currentHistoric = current ? /HIST/i.test(`${current.code ?? ''} ${current.name}`) : true;
+    const candidateHistoric = /HIST/i.test(`${item.code ?? ''} ${item.name}`);
+    if (!current || (currentHistoric && !candidateHistoric)) chosen.set(label, item);
+  }
+  return COST_CENTER_ORDER.flatMap((label) => chosen.get(label) ? [{ item: chosen.get(label)!, label }] : []);
+}
 function recurrenceEnd(start: string, count: number): string {
   const date = new Date(`${start}T12:00:00`);
   date.setMonth(date.getMonth() + Math.max(0, count - 1));
@@ -42,6 +91,12 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const [moreOptions, setMoreOptions] = useState(false);
   const [templates, setTemplates] = useState<readonly SmartTemplate[]>([]);
   const [lastSuggestedDescription, setLastSuggestedDescription] = useState('');
+  const [paymentAccounts, setPaymentAccounts] = useState<readonly OwnedAccount[]>([]);
+  const [paymentCards, setPaymentCards] = useState<readonly OwnedCard[]>([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [localSuccess, setLocalSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
     entryType: 'expense' as EntryType,
     date: today(),
@@ -51,8 +106,8 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     launchType: 'single' as LaunchType,
     installmentCount: '2',
     recurrenceCount: '12',
-    accountId: '',
-    cardId: '',
+    accountRef: '',
+    cardRef: '',
     categoryId: '',
     costCenterId: '',
     counterparty: '',
@@ -63,44 +118,111 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     if (!open) return;
     setCompanyId(initialCompanyId || companies[0]?.id || '');
     setLastSuggestedDescription('');
+    setLocalError(null);
+    setLocalSuccess(null);
   }, [companies, initialCompanyId, open]);
-
-  useEffect(() => {
-    if (!open || companies.length === 0) return;
-    let cancelled = false;
-    void (async () => {
-      const repositories = getFinanceRepositories();
-      const entryLists = await Promise.all(companies.map(async company => {
-        const rows = await repositories.entries.list({tenantId:company.tenantId,companyId:company.id});
-        return rows.map(row => ({description:row.description,companyId:company.id,entryType:row.entryType,categoryId:row.categoryId,costCenterId:row.costCenterId ?? '',accountId:row.plannedAccountId ?? '',paymentMethod:'pix' as PaymentMethod,cardId:'',occurredOn:row.dueDate}));
-      }));
-      const tenantId = companies[0]?.tenantId;
-      const cardTemplates:SmartTemplate[] = [];
-      if (tenantId) {
-        const {data} = await getSupabaseClient().from('card_transactions').select('company_id,card_id,purchase_date,description,category_id,cost_center_id').eq('tenant_id',tenantId).order('purchase_date',{ascending:false}).limit(200);
-        for (const row of data ?? []) cardTemplates.push({description:String(row.description ?? ''),companyId:String(row.company_id ?? ''),entryType:'expense',categoryId:String(row.category_id ?? ''),costCenterId:row.cost_center_id ? String(row.cost_center_id) : '',accountId:'',paymentMethod:'credit',cardId:String(row.card_id ?? ''),occurredOn:String(row.purchase_date ?? '')});
-      }
-      if (!cancelled) setTemplates([...cardTemplates,...entryLists.flat()].sort((a,b)=>b.occurredOn.localeCompare(a.occurredOn)));
-    })().catch(() => { if (!cancelled) setTemplates([]); });
-    return () => { cancelled = true; };
-  }, [companies, open]);
 
   const company = companies.find((item) => item.id === companyId) ?? companies[0];
   const scope = useMemo(() => ({ tenantId: company?.tenantId ?? '', companyId: company?.id ?? '' }), [company?.id, company?.tenantId]);
   const operations = useFinanceOperations(scope);
   const references = operations.state.references;
 
-  const activeAccounts = (references?.accounts ?? []).filter((item) => item.status === 'active');
-  const activeCards = (references?.cards ?? []).filter((item) => item.status === 'active');
+  useEffect(() => {
+    if (!open || companies.length === 0) return;
+    let cancelled = false;
+    setPaymentLoading(true);
+    void (async () => {
+      const repositories = getFinanceRepositories();
+      const sourceCompanies = allCompaniesMode ? companies : company ? [company] : [];
+      const rows = await Promise.all(sourceCompanies.map(async (owner) => {
+        const ownerScope = { tenantId: owner.tenantId, companyId: owner.id };
+        const [accounts, cards] = await Promise.all([
+          repositories.registries.listAccounts(ownerScope),
+          repositories.cards.listCards(ownerScope),
+        ]);
+        return {
+          accounts: accounts.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyName(owner) })),
+          cards: cards.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyName(owner) })),
+        };
+      }));
+      if (!cancelled) {
+        setPaymentAccounts(rows.flatMap((item) => item.accounts));
+        setPaymentCards(rows.flatMap((item) => item.cards));
+        setPaymentLoading(false);
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setPaymentAccounts([]);
+        setPaymentCards([]);
+        setPaymentLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [allCompaniesMode, companies, company, open]);
+
+  useEffect(() => {
+    if (!open || companies.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const repositories = getFinanceRepositories();
+      const entryLists = await Promise.all(companies.map(async (entryCompany) => {
+        const rows = await repositories.entries.list({ tenantId: entryCompany.tenantId, companyId: entryCompany.id });
+        return rows.map((row) => ({
+          description: row.description,
+          companyId: entryCompany.id,
+          entryType: row.entryType,
+          categoryId: row.categoryId,
+          costCenterId: row.costCenterId ?? '',
+          accountRef: row.plannedAccountId ? paymentRef(entryCompany.id, row.plannedAccountId) : '',
+          paymentMethod: 'pix' as PaymentMethod,
+          cardRef: '',
+          occurredOn: row.dueDate,
+        }));
+      }));
+      const tenantId = companies[0]?.tenantId;
+      const cardTemplates: SmartTemplate[] = [];
+      if (tenantId) {
+        const { data } = await getSupabaseClient()
+          .from('card_transactions')
+          .select('company_id,expense_company_id,card_id,purchase_date,description,category_id,cost_center_id')
+          .eq('tenant_id', tenantId)
+          .order('purchase_date', { ascending: false })
+          .limit(200);
+        for (const row of data ?? []) {
+          const expenseCompanyId = String(row.expense_company_id ?? row.company_id ?? '');
+          cardTemplates.push({
+            description: String(row.description ?? ''),
+            companyId: expenseCompanyId,
+            entryType: 'expense',
+            categoryId: String(row.category_id ?? ''),
+            costCenterId: row.cost_center_id ? String(row.cost_center_id) : '',
+            accountRef: '',
+            paymentMethod: 'credit',
+            cardRef: paymentRef(String(row.company_id ?? ''), String(row.card_id ?? '')),
+            occurredOn: String(row.purchase_date ?? ''),
+          });
+        }
+      }
+      if (!cancelled) setTemplates([...cardTemplates, ...entryLists.flat()].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn)));
+    })().catch(() => { if (!cancelled) setTemplates([]); });
+    return () => { cancelled = true; };
+  }, [companies, open]);
+
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
   const categories = (references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === form.entryType));
+  const costCenters = canonicalCostCenters(activeCostCenters);
 
-  const companyOptions = companies.map((item) => ({ value: item.id, label: item.tradeName ?? item.legalName }));
-  const accountOptions = [{ value: '', label: 'Selecione' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))];
-  const cardOptions = [{ value: '', label: 'Selecione o cartão' }, ...activeCards.map((item) => ({ value: item.id, label: item.name }))];
+  const companyOptions = companies.map((item) => ({ value: item.id, label: companyName(item) }));
+  const accountOptions = [
+    { value: '', label: 'Selecione' },
+    ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: allCompaniesMode ? `${item.name} · ${item.ownerLabel}` : item.name })),
+  ];
+  const cardOptions = [
+    { value: '', label: 'Selecione o cartão' },
+    ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: allCompaniesMode ? `${item.name} · ${item.ownerLabel}` : item.name })),
+  ];
   const categoryOptions = [{ value: '', label: 'Selecione' }, ...categories.map((item) => ({ value: item.id, label: item.name }))];
-  const costCenterOptions = [{ value: '', label: 'Selecione' }, ...activeCostCenters.map((item) => ({ value: item.id, label: item.code ? `${item.code} · ${item.name}` : item.name }))];
-
+  const costCenterOptions = [{ value: '', label: 'Selecione' }, ...costCenters.map(({ item, label }) => ({ value: item.id, label }))];
   const paymentOptions = [
     { value: 'pix', label: 'Pix' },
     { value: 'debit', label: 'Cartão de débito' },
@@ -116,48 +238,125 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     ...(form.paymentMethod === 'credit' ? [] : [{ value: 'recurring', label: 'Recorrente' }]),
   ];
 
-  function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [field]: value })); }
-  function setPaymentMethod(value: PaymentMethod) { setForm((current) => ({ ...current, paymentMethod: value, launchType: value === 'credit' && current.launchType === 'recurring' ? 'single' : current.launchType, accountId: value === 'credit' ? '' : current.accountId, cardId: value === 'credit' ? current.cardId : '' })); }
-  function resetForNextEntry() { setForm((current) => ({ ...current, description: '', amountDigits: '', counterparty: '', notes: '' })); setLastSuggestedDescription(''); }
-  function smartFill(description:string) {
+  function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+  function setPaymentMethod(value: PaymentMethod) {
+    setForm((current) => ({
+      ...current,
+      paymentMethod: value,
+      launchType: value === 'credit' && current.launchType === 'recurring' ? 'single' : current.launchType,
+      accountRef: value === 'credit' ? '' : current.accountRef,
+      cardRef: value === 'credit' ? current.cardRef : '',
+    }));
+  }
+  function resetForNextEntry() {
+    setForm((current) => ({ ...current, description: '', amountDigits: '', counterparty: '', notes: '' }));
+    setLastSuggestedDescription('');
+  }
+  function smartFill(description: string) {
     const query = normalized(description);
-    set('description',description);
+    set('description', description);
     if (query.length < 3 || query === lastSuggestedDescription) return;
-    const candidates = templates.filter(item => normalized(item.description) === query || normalized(item.description).includes(query));
+    const candidates = templates.filter((item) => normalized(item.description) === query || normalized(item.description).includes(query));
     const match = candidates[0];
     if (!match) return;
+    if (!allCompaniesMode && match.companyId !== companyId) return;
     setLastSuggestedDescription(query);
-    setCompanyId(match.companyId);
-    setForm(current => ({...current,description,entryType:match.entryType,categoryId:match.categoryId,costCenterId:match.costCenterId,accountId:match.accountId,paymentMethod:match.paymentMethod,cardId:match.cardId,launchType:'single'}));
+    if (allCompaniesMode) setCompanyId(match.companyId);
+    setForm((current) => ({
+      ...current,
+      description,
+      entryType: match.entryType,
+      categoryId: match.categoryId,
+      costCenterId: match.costCenterId,
+      accountRef: match.accountRef,
+      paymentMethod: match.paymentMethod,
+      cardRef: match.cardRef,
+      launchType: 'single',
+    }));
   }
 
   async function launch(keepData: boolean) {
     operations.clearFeedback();
+    setLocalError(null);
+    setLocalSuccess(null);
     const amount = amountFromDigits(form.amountDigits);
     if (!company || !form.description.trim() || !Number.isFinite(amount) || amount <= 0 || !form.categoryId) return;
-    if (form.paymentMethod === 'credit' && (!form.cardId || form.entryType !== 'expense')) return;
+    if (form.paymentMethod === 'credit' && (!form.cardRef || form.entryType !== 'expense')) return;
+    setSubmitting(true);
     try {
       if (form.launchType === 'recurring') {
         const count = Math.max(1, Math.trunc(Number(form.recurrenceCount || '1')));
-        await operations.createRecurrence({ entryType:form.entryType, description:form.description.trim(), counterpartyName:form.counterparty.trim() || null, categoryId:form.categoryId, costCenterId:form.costCenterId || null, amount, frequency:'monthly', intervalCount:1, startDate:form.date, endDate:recurrenceEnd(form.date,count), notes:form.notes.trim() || null });
+        await operations.createRecurrence({
+          entryType: form.entryType,
+          description: form.description.trim(),
+          counterpartyName: form.counterparty.trim() || null,
+          categoryId: form.categoryId,
+          costCenterId: form.costCenterId || null,
+          amount,
+          frequency: 'monthly',
+          intervalCount: 1,
+          startDate: form.date,
+          endDate: recurrenceEnd(form.date, count),
+          notes: form.notes.trim() || null,
+        });
       } else if (form.paymentMethod === 'credit') {
-        await operations.createCardPurchase({ cardId:form.cardId, purchaseDate:form.date, description:form.description.trim(), counterpartyName:form.counterparty.trim() || null, categoryId:form.categoryId, costCenterId:form.costCenterId || null, totalAmount:amount, installmentCount:form.launchType === 'installment' ? Math.max(2,Math.trunc(Number(form.installmentCount || '2'))) : 1, idempotencyKey:idempotencyKey('quick-card-purchase'), notes:form.notes.trim() || null });
+        const card = parsePaymentRef(form.cardRef);
+        if (!card) throw new Error('Selecione um cartão válido.');
+        const result = await getSupabaseClient().rpc('create_card_purchase_cross_company', {
+          p_tenant_id: company.tenantId,
+          p_card_company_id: card.companyId,
+          p_expense_company_id: company.id,
+          p_card_id: card.resourceId,
+          p_purchase_date: form.date,
+          p_description: form.description.trim(),
+          p_counterparty_name: form.counterparty.trim() || null,
+          p_category_id: form.categoryId,
+          p_cost_center_id: form.costCenterId || null,
+          p_total_amount: amount,
+          p_installment_count: form.launchType === 'installment' ? Math.max(2, Math.trunc(Number(form.installmentCount || '2'))) : 1,
+          p_idempotency_key: idempotencyKey('quick-card-purchase'),
+          p_notes: form.notes.trim() || null,
+        });
+        if (result.error) throw result.error;
+        setLocalSuccess('Compra no cartão registrada com sucesso.');
       } else {
-        const created = await operations.createEntry({ entryType:form.entryType, description:form.description.trim(), counterpartyName:form.counterparty.trim() || null, categoryId:form.categoryId, costCenterId:form.costCenterId || null, competenceMonth:monthStart(form.date), dueDate:form.date, amount, installmentCount:form.launchType === 'installment' ? Math.max(2,Math.trunc(Number(form.installmentCount || '2'))) : 1, notes:form.notes.trim() || null });
-        if (form.accountId) await operations.setEntryPlannedAccount(created.entryId, form.accountId);
+        const created = await operations.createEntry({
+          entryType: form.entryType,
+          description: form.description.trim(),
+          counterpartyName: form.counterparty.trim() || null,
+          categoryId: form.categoryId,
+          costCenterId: form.costCenterId || null,
+          competenceMonth: monthStart(form.date),
+          dueDate: form.date,
+          amount,
+          installmentCount: form.launchType === 'installment' ? Math.max(2, Math.trunc(Number(form.installmentCount || '2'))) : 1,
+          notes: form.notes.trim() || null,
+        });
+        const account = parsePaymentRef(form.accountRef);
+        if (account) await getFinanceRepositories().entries.setPlannedAccount(scope, created.entryId, account.resourceId, account.companyId);
       }
       await operations.loadReferences();
       if (keepData) resetForNextEntry(); else onClose();
-    } catch { /* feedback padronizado permanece visível */ }
+    } catch (error) {
+      setLocalError(error instanceof Error && error.message ? error.message : 'Não foi possível concluir o lançamento.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  const footer = <div className="quick-entry__footer-actions"><Button variant="secondary" disabled={operations.state.busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button><Button loading={operations.state.busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button></div>;
+  const busy = operations.state.busy || paymentLoading || submitting;
+  const footer = <div className="quick-entry__footer-actions">
+    <Button variant="secondary" disabled={busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button>
+    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button>
+  </div>;
 
-  return <Dialog open={open} title="Novo lançamento" description="Dados completos do lançamento financeiro." onClose={onClose} onBack={onClose} loading={operations.state.busy} footer={footer}>
+  return <Dialog open={open} title="Novo lançamento" description="Dados completos do lançamento financeiro." onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
     {!company ? <Feedback tone="danger" title="Empresa obrigatória" message="Selecione uma empresa para continuar." /> : !references && operations.state.busy ? <LoadingState label="Carregando dados do lançamento…" /> : <>
-      {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível lançar" message={operations.state.errorMessage} />}
-      {operations.state.successMessage && <Feedback tone="success" title="Lançamento concluído" message={operations.state.successMessage} />}
-      {allCompaniesMode && <p className="quick-entry__hint">Na visão “Todas as empresas”, o formulário pode reaproveitar dados do último lançamento semelhante entre as empresas visíveis.</p>}
+      {(localError ?? operations.state.errorMessage) && <Feedback tone="danger" title="Não foi possível lançar" message={localError ?? operations.state.errorMessage ?? ''} />}
+      {(localSuccess ?? operations.state.successMessage) && <Feedback tone="success" title="Lançamento concluído" message={localSuccess ?? operations.state.successMessage ?? ''} />}
+      {allCompaniesMode && <p className="quick-entry__hint">Todas as empresas: contas e cartões ficam disponíveis independentemente da empresa da despesa. A despesa continua dimensionada na empresa, categoria e centro de custo escolhidos.</p>}
       <div className="quick-entry">
         <div className="quick-entry__step"><span>1</span><strong>Dados principais</strong></div>
         <div className="quick-entry__grid">
@@ -169,9 +368,9 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           <Select label="Tipo de lançamento" value={form.launchType} onChange={(event) => set('launchType', event.target.value as LaunchType)} options={launchOptions} />
           {form.launchType === 'installment' && <Input label="Quantidade de parcelas" type="number" min="2" max="120" step="1" value={form.installmentCount} onChange={(event) => set('installmentCount', event.target.value)} required />}
           {form.launchType === 'recurring' && <Input label="Quantidade de repetições" type="number" min="1" max="120" step="1" value={form.recurrenceCount} onChange={(event) => set('recurrenceCount', event.target.value)} required />}
-          {form.paymentMethod === 'credit' && <Select label="Cartão" value={form.cardId} onChange={(event) => set('cardId', event.target.value)} options={cardOptions} required />}
-          {form.paymentMethod !== 'credit' && <Select label="Conta / banco" value={form.accountId} onChange={(event) => set('accountId', event.target.value)} options={accountOptions} />}
-          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setForm((current) => ({ ...current, categoryId:'', costCenterId:'', accountId:'', cardId:'' })); }} /> : <Input label="Empresa" value={company.tradeName ?? company.legalName} disabled />}
+          {form.paymentMethod === 'credit' && <Select label="Cartão" value={form.cardRef} onChange={(event) => set('cardRef', event.target.value)} options={cardOptions} required />}
+          {form.paymentMethod !== 'credit' && <Select label="Conta / banco" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
+          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '' })); }} /> : <Input label="Empresa" value={companyName(company)} disabled />}
           <Select label="Obra / centro de custo" value={form.costCenterId} onChange={(event) => set('costCenterId', event.target.value)} options={costCenterOptions} />
           <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
         </div>

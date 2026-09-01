@@ -146,11 +146,12 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
     if (error) throw error;
   }
 
-  async setPlannedAccount(scope: CompanyScope, entryId: string, accountId: string | null): Promise<void> {
-    const { error } = await this.client.rpc('set_financial_entry_planned_account', {
+  async setPlannedAccount(scope: CompanyScope, entryId: string, accountId: string | null, accountCompanyId = scope.companyId): Promise<void> {
+    const { error } = await this.client.rpc('set_financial_entry_planned_account_cross_company', {
       p_tenant_id: scope.tenantId,
       p_company_id: scope.companyId,
       p_entry_id: entryId,
+      p_account_company_id: accountCompanyId,
       p_account_id: accountId,
     });
     if (error) throw error;
