@@ -36,6 +36,13 @@ type MaterializeRow = {
   next_occurrence_date: string;
 };
 
+type RecurrenceMetadataRow = {
+  tenant_id: string;
+  company_id: string;
+  work_id: string | null;
+  payment_method: FinancialRecurrenceRule['paymentMethod'];
+};
+
 const recurrenceSelect = 'id,tenant_id,company_id,entry_type,description,counterparty_name,category_id,cost_center_id,work_id,payment_method,amount,frequency,interval_count,start_date,end_date,next_occurrence_date,day_of_month,status,notes';
 
 function recurrence(row: RecurrenceRow): FinancialRecurrenceRule {
@@ -123,6 +130,13 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
   async materializeNext(ruleId: string): Promise<MaterializedFinancialRecurrence> {
     if (!ruleId.trim()) throw new Error('ruleId is required');
 
+    const { data: metadata, error: metadataError } = await this.client
+      .from('financial_recurrence_rules')
+      .select('tenant_id,company_id,work_id,payment_method')
+      .eq('id', ruleId)
+      .single<RecurrenceMetadataRow>();
+    if (metadataError) throw metadataError;
+
     const rpcResult = await this.client.rpc('materialize_next_financial_recurrence', {
       p_rule_id: ruleId,
     });
@@ -132,10 +146,11 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
     const row: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (!isMaterializeRow(row)) throw new Error('recurrence materialization returned an invalid result');
 
-    const { error } = await this.client.rpc('copy_financial_recurrence_metadata_to_entry', {
-      p_rule_id: ruleId,
-      p_entry_id: row.entry_id,
-    });
+    const { error } = await this.client.from('financial_entries')
+      .update({ work_id: metadata.work_id, payment_method: metadata.payment_method })
+      .eq('tenant_id', metadata.tenant_id)
+      .eq('company_id', metadata.company_id)
+      .eq('id', row.entry_id);
     if (error) throw error;
 
     return {
