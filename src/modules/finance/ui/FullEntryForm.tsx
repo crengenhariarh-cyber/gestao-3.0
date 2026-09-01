@@ -6,7 +6,8 @@ import { Select } from '../../../shared/ui/Select';
 interface Option { value: string; label: string; }
 
 interface FullEntryFormProps {
-  companyName: string;
+  companyId: string;
+  companyOptions: readonly Option[];
   form: Record<string, string>;
   busy: boolean;
   categoryOptions: readonly Option[];
@@ -14,6 +15,7 @@ interface FullEntryFormProps {
   workOptions: readonly Option[];
   accountOptions: readonly Option[];
   cardOptions: readonly Option[];
+  onCompanyChange: (companyId: string) => void;
   onField: (name: string, value: string) => void;
 }
 
@@ -35,7 +37,8 @@ const launchModeOptions: readonly Option[] = [
 ];
 
 export function FullEntryForm({
-  companyName,
+  companyId,
+  companyOptions,
   form,
   busy,
   categoryOptions,
@@ -43,12 +46,14 @@ export function FullEntryForm({
   workOptions,
   accountOptions,
   cardOptions,
+  onCompanyChange,
   onField,
 }: FullEntryFormProps) {
   const [showMore, setShowMore] = useState(false);
   const paymentMethod = form.paymentMethod ?? '';
   const launchMode = form.launchMode ?? 'single';
   const isCredit = paymentMethod === 'credit';
+  const availableLaunchModes = isCredit ? launchModeOptions.filter((item) => item.value !== 'recurring') : launchModeOptions;
 
   return (
     <div className="finance-entry-form">
@@ -101,7 +106,10 @@ export function FullEntryForm({
               const next = event.target.value;
               onField('paymentMethod', next);
               if (next !== 'credit') onField('cardId', '');
-              if (next === 'credit') onField('accountId', '');
+              if (next === 'credit') {
+                onField('accountId', '');
+                if (launchMode === 'recurring') onField('launchMode', 'single');
+              }
             }}
             options={paymentOptions}
             required
@@ -109,17 +117,24 @@ export function FullEntryForm({
           />
           <Select
             label="Tipo de lançamento"
-            value={launchMode}
+            value={isCredit && launchMode === 'recurring' ? 'single' : launchMode}
             onChange={(event) => {
               const next = event.target.value;
               onField('launchMode', next);
               if (next !== 'installment') onField('installmentCount', '1');
               if (next !== 'recurring') onField('recurrenceCount', '12');
             }}
-            options={launchModeOptions}
-            disabled={busy || (isCredit && launchMode === 'recurring')}
+            options={availableLaunchModes}
+            disabled={busy}
           />
-          <Input label="Empresa" value={companyName} readOnly />
+          <Select
+            label="Empresa"
+            value={companyId}
+            onChange={(event) => onCompanyChange(event.target.value)}
+            options={companyOptions}
+            required
+            disabled={busy || companyOptions.length <= 1}
+          />
           <Select
             label="Obra"
             value={form.workId ?? ''}
@@ -176,7 +191,7 @@ export function FullEntryForm({
             />
           )}
 
-          {launchMode === 'recurring' && (
+          {!isCredit && launchMode === 'recurring' && (
             <Input
               label="Quantidade de recorrências"
               type="number"
@@ -226,10 +241,6 @@ export function FullEntryForm({
             />
           </div>
         </section>
-      )}
-
-      {isCredit && launchMode === 'recurring' && (
-        <p className="finance-entry-form__hint">Compras recorrentes no cartão devem ser lançadas como compra única ou parcelada. Para recorrência mensal, escolha outra forma de pagamento.</p>
       )}
     </div>
   );
