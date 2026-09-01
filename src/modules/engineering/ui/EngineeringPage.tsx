@@ -3,6 +3,7 @@ import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { EngineeringOverview } from '../domain/overview';
 import { Card } from '../../../shared/ui/Card';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
+import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Tabs } from '../../../shared/ui/Tabs';
 import { EngineeringAddendumMaintenance } from './EngineeringAddendumMaintenance';
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
@@ -29,7 +30,12 @@ export function EngineeringPage({company}:EngineeringPageProps){
   const empty=<p className="ui-muted">Nenhum registro nesta empresa.</p>;
   const refresh=()=>setRefreshToken(value=>value+1);
   return <section className="engineering-overview" aria-labelledby="engineering-title">
-    <div className="engineering-overview__heading"><div><span className="ui-muted">Módulo operacional</span><h1 id="engineering-title">Engenharia</h1></div><p className="ui-muted">Contratos, medições, produção, provisórios e aditivos integrados à empresa selecionada.</p></div>
+    <PageHeader
+      id="engineering-title"
+      eyebrow="Módulo operacional"
+      title="Engenharia"
+      description="Contratos, medições, produção, provisórios e aditivos integrados à empresa selecionada."
+    />
     <Tabs items={tabs} activeId={activeTab} onChange={id=>setActiveTab(id as TabId)} ariaLabel="Seções da engenharia"/>
     <EngineeringOperationsPanel activeTab={activeTab} scope={scope} onChanged={refresh}/>
     {activeTab==='aditivos'&&<EngineeringAddendumMaintenance addenda={data.addenda} onChanged={refresh}/>} 
