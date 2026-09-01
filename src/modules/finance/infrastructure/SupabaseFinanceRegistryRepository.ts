@@ -12,16 +12,21 @@ import type {
   UpdateCostCenter,
   UpdateFinancialAccount,
   UpdateFinancialCategory,
+  WorkReference,
 } from '../domain/registries';
 
 type CategoryRow = { id: string; tenant_id: string; company_id: string; name: string; kind: FinancialCategory['kind']; status: FinancialCategory['status'] };
 type CostCenterRow = { id: string; tenant_id: string; company_id: string; name: string; code: string | null; status: CostCenter['status'] };
+type WorkRow = { id: string; tenant_id: string; company_id: string; name: string; code: string | null; status: WorkReference['status'] };
 type AccountRow = { id: string; tenant_id: string; company_id: string; name: string; account_type: FinancialAccount['accountType']; opening_balance: number | string; status: FinancialAccount['status'] };
 
 function category(row: CategoryRow): FinancialCategory {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, kind: row.kind, status: row.status };
 }
 function costCenter(row: CostCenterRow): CostCenter {
+  return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, code: row.code, status: row.status };
+}
+function work(row: WorkRow): WorkReference {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, code: row.code, status: row.status };
 }
 function account(row: AccountRow): FinancialAccount {
@@ -75,6 +80,12 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
       .select('id,tenant_id,company_id,name,code,status').single();
     if (error) throw error;
     return costCenter(data);
+  }
+
+  async listWorks(scope: CompanyScope): Promise<readonly WorkReference[]> {
+    const { data, error } = await this.client.from('works').select('id,tenant_id,company_id,name,code,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name').returns<WorkRow[]>();
+    if (error) throw error;
+    return data.map(work);
   }
 
   async listAccounts(scope: CompanyScope): Promise<readonly FinancialAccount[]> {

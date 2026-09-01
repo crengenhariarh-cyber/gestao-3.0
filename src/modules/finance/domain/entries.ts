@@ -1,6 +1,7 @@
 import type { CompanyScope } from './registries';
 
 export type FinancialEntryType = 'income' | 'expense';
+export type FinancialPaymentMethod = 'pix' | 'debit' | 'credit' | 'cash' | 'transfer' | 'boleto' | 'other';
 
 export interface FinancialEntry extends CompanyScope {
   id: string;
@@ -9,6 +10,8 @@ export interface FinancialEntry extends CompanyScope {
   counterpartyName: string | null;
   categoryId: string;
   costCenterId: string | null;
+  workId: string | null;
+  paymentMethod: FinancialPaymentMethod | null;
   competenceMonth: string;
   plannedAccountId: string | null;
   notes: string | null;
@@ -32,6 +35,8 @@ export interface FinancialEntryListItem extends CompanyScope {
   counterpartyName: string | null;
   categoryId: string;
   costCenterId: string | null;
+  workId: string | null;
+  paymentMethod: FinancialPaymentMethod | null;
   competenceMonth: string;
   plannedAccountId: string | null;
   installmentNumber: number;
@@ -47,6 +52,9 @@ export interface CreateSingleFinancialEntry extends CompanyScope {
   counterpartyName?: string | null;
   categoryId: string;
   costCenterId?: string | null;
+  workId?: string | null;
+  paymentMethod?: FinancialPaymentMethod | null;
+  plannedAccountId?: string | null;
   competenceMonth: string;
   dueDate: string;
   amount: number;

@@ -17,6 +17,8 @@ type RecurrenceRow = {
   counterparty_name: string | null;
   category_id: string;
   cost_center_id: string | null;
+  work_id: string | null;
+  payment_method: FinancialRecurrenceRule['paymentMethod'];
   amount: number | string;
   frequency: FinancialRecurrenceRule['frequency'];
   interval_count: number;
@@ -34,6 +36,15 @@ type MaterializeRow = {
   next_occurrence_date: string;
 };
 
+type RecurrenceMetadataRow = {
+  tenant_id: string;
+  company_id: string;
+  work_id: string | null;
+  payment_method: FinancialRecurrenceRule['paymentMethod'];
+};
+
+const recurrenceSelect = 'id,tenant_id,company_id,entry_type,description,counterparty_name,category_id,cost_center_id,work_id,payment_method,amount,frequency,interval_count,start_date,end_date,next_occurrence_date,day_of_month,status,notes';
+
 function recurrence(row: RecurrenceRow): FinancialRecurrenceRule {
   return {
     id: row.id,
@@ -44,6 +55,8 @@ function recurrence(row: RecurrenceRow): FinancialRecurrenceRule {
     counterpartyName: row.counterparty_name,
     categoryId: row.category_id,
     costCenterId: row.cost_center_id,
+    workId: row.work_id,
+    paymentMethod: row.payment_method,
     amount: Number(row.amount),
     frequency: row.frequency,
     intervalCount: row.interval_count,
@@ -73,7 +86,7 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
   async list(scope: CompanyScope): Promise<readonly FinancialRecurrenceRule[]> {
     const { data, error } = await this.client
       .from('financial_recurrence_rules')
-      .select('id,tenant_id,company_id,entry_type,description,counterparty_name,category_id,cost_center_id,amount,frequency,interval_count,start_date,end_date,next_occurrence_date,day_of_month,status,notes')
+      .select(recurrenceSelect)
       .eq('tenant_id', scope.tenantId)
       .eq('company_id', scope.companyId)
       .order('next_occurrence_date')
@@ -96,6 +109,8 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
         counterparty_name: input.counterpartyName,
         category_id: input.categoryId,
         cost_center_id: input.costCenterId,
+        work_id: raw.workId ?? null,
+        payment_method: raw.paymentMethod ?? null,
         amount: input.amount,
         frequency: input.frequency,
         interval_count: input.intervalCount,
@@ -105,8 +120,8 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
         day_of_month: anchorDay,
         notes: input.notes,
       })
-      .select('id,tenant_id,company_id,entry_type,description,counterparty_name,category_id,cost_center_id,amount,frequency,interval_count,start_date,end_date,next_occurrence_date,day_of_month,status,notes')
-      .single();
+      .select(recurrenceSelect)
+      .single<RecurrenceRow>();
 
     if (error) throw error;
     return recurrence(data);
@@ -114,6 +129,13 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
 
   async materializeNext(ruleId: string): Promise<MaterializedFinancialRecurrence> {
     if (!ruleId.trim()) throw new Error('ruleId is required');
+
+    const { data: metadata, error: metadataError } = await this.client
+      .from('financial_recurrence_rules')
+      .select('tenant_id,company_id,work_id,payment_method')
+      .eq('id', ruleId)
+      .single<RecurrenceMetadataRow>();
+    if (metadataError) throw metadataError;
 
     const rpcResult = await this.client.rpc('materialize_next_financial_recurrence', {
       p_rule_id: ruleId,
@@ -123,6 +145,13 @@ export class SupabaseFinancialRecurrenceRepository implements FinancialRecurrenc
     const rpcData: unknown = rpcResult.data;
     const row: unknown = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (!isMaterializeRow(row)) throw new Error('recurrence materialization returned an invalid result');
+
+    const { error } = await this.client.from('financial_entries')
+      .update({ work_id: metadata.work_id, payment_method: metadata.payment_method })
+      .eq('tenant_id', metadata.tenant_id)
+      .eq('company_id', metadata.company_id)
+      .eq('id', row.entry_id);
+    if (error) throw error;
 
     return {
       entryId: row.entry_id,
