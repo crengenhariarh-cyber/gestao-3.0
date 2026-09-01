@@ -7,6 +7,7 @@ import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
+import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 import { Tabs } from '../../../shared/ui/Tabs';
 import { currentHrCompetence, useHrBudgetOverview } from './useHrBudgetOverview';
@@ -171,10 +172,13 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
 
   return (
     <section className="hr-overview" aria-labelledby="hr-title">
-      <div className="hr-overview__heading">
-        <div><span className="ui-muted">Competência {competenceMonth.slice(5, 7)}/{competenceMonth.slice(0, 4)}</span><h1 id="hr-title">RH + Orçamento</h1></div>
-        <div className="hr-competence"><Input label="Competência" type="month" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} /></div>
-      </div>
+      <PageHeader
+        id="hr-title"
+        eyebrow={`Competência ${competenceMonth.slice(5, 7)}/${competenceMonth.slice(0, 4)}`}
+        title="RH + Orçamento"
+        description="Colaboradores, folha, encargos e orçamento integrados à empresa selecionada."
+        actions={<div className="hr-competence"><Input label="Competência" type="month" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} /></div>}
+      />
       <Tabs items={tabs} activeId={activeTab} onChange={changeTab} ariaLabel="RH e orçamento" />
       {operations.state.errorMessage && modal === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
       {operations.state.successMessage && modal === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
