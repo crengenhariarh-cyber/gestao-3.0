@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
+import { CardsPage } from '../modules/finance/ui/CardsPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
 import { HomePage } from '../modules/home/ui/HomePage';
@@ -24,7 +25,7 @@ const quickNavigation = [
   { to: '/', label: 'Início', icon: '⌂', end: true },
   { to: '/financeiro?action=new-entry', label: 'Adicionar', icon: '+' },
   { to: '/bancos', label: 'Bancos', icon: '▥' },
-  { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: '▤' },
+  { to: '/cartoes', label: 'Cartões', icon: '▤' },
 ] as const;
 
 export interface AppShellProps { session: PlatformSession; }
@@ -48,6 +49,7 @@ export function AppShell({ session }: AppShellProps) {
   const allCompaniesFinance = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Financeiro ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
   const allCompaniesBanks = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><BanksPage company={company}/></section>)}</div>;
+  const allCompaniesCards = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Cartões ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><CardsPage company={company}/></section>)}</div>;
   const allCompaniesRh = <div>{session.companies.map((company) => <section key={company.id} aria-label={`RH ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
   const allCompaniesEngineering = <div>{session.companies.map((company) => <section key={company.id} aria-label={`Engenharia ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
@@ -78,6 +80,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction/> : allCompaniesFinance}/>
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany}/> : allCompaniesBanks}/>
+          <Route path="/cartoes" element={activeCompany ? <CardsPage company={activeCompany}/> : allCompaniesCards}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
