@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { PayrollEventRow } from '../application/HrOperationsRepository';
 import { Button } from '../../../shared/ui/Button';
@@ -14,6 +15,7 @@ import './hr.css';
 
 interface HrBudgetPageProps { company: CompanySummary; }
 type ModalKind = 'employee' | 'employeeEdit' | 'salary' | 'allocation' | 'terminate' | 'event' | 'voidEvent' | 'closePayroll' | 'statutory' | 'reopen' | 'financeConfig' | 'payables' | 'budgetPlan' | 'budgetLimit' | null;
+type HrTab = 'rh' | 'folha' | 'orcamento';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const eventLabels: Record<PayrollEventRow['eventKind'], string> = {
@@ -23,9 +25,12 @@ function sum(values: readonly number[]): number { return values.reduce((total, v
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function numberValue(value: string, fallback = 0): number { const result = Number(value.replace(',', '.')); return Number.isFinite(result) ? result : fallback; }
 function key(prefix: string): string { return `${prefix}:${crypto.randomUUID()}`; }
+function hrTab(value: string | null): HrTab { return value === 'folha' || value === 'orcamento' ? value : 'rh'; }
 
 export function HrBudgetPage({ company }: HrBudgetPageProps) {
-  const [activeTab, setActiveTab] = useState('rh');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<HrTab>(() => hrTab(requestedTab));
   const [modal, setModal] = useState<ModalKind>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [refreshToken, setRefreshToken] = useState(0);
@@ -41,6 +46,18 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
     { id: 'folha', label: 'Folha' },
     { id: 'orcamento', label: 'Orçamento' },
   ], []);
+
+  useEffect(() => {
+    setActiveTab(hrTab(requestedTab));
+  }, [requestedTab]);
+
+  function changeTab(id: string) {
+    const nextTab = hrTab(id);
+    setActiveTab(nextTab);
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', nextTab);
+    setSearchParams(next, { replace: true });
+  }
 
   if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando RH e orçamento…" />;
   if (overview.status === 'error' || overview.data === null) return <EmptyState title="RH indisponível" message={overview.errorMessage ?? 'Não foi possível carregar o módulo.'} />;
@@ -158,7 +175,7 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
         <div><span className="ui-muted">Competência {competenceMonth.slice(5, 7)}/{competenceMonth.slice(0, 4)}</span><h1 id="hr-title">RH + Orçamento</h1></div>
         <div className="hr-competence"><Input label="Competência" type="month" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} /></div>
       </div>
-      <Tabs items={tabs} activeId={activeTab} onChange={setActiveTab} ariaLabel="RH e orçamento" />
+      <Tabs items={tabs} activeId={activeTab} onChange={changeTab} ariaLabel="RH e orçamento" />
       {operations.state.errorMessage && modal === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
       {operations.state.successMessage && modal === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
