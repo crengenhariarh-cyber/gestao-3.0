@@ -57,7 +57,7 @@ export function AppShell({ session }: AppShellProps) {
       <header className="app-header">
         <div className="app-header__top">
           <NavLink to="/" className="app-brand" aria-label="Gestão — Início">
-            <img src="/gestao-icon.svg?v=3" alt="" aria-hidden="true" />
+            <img src="/gestao-internal.svg?v=1" alt="" aria-hidden="true" />
             <div><strong>Gestão</strong><span>Sua gestão, mais simples</span></div>
           </NavLink>
           <div className="app-header__actions">
