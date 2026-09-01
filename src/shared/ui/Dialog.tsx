@@ -4,7 +4,7 @@ import { Button } from './Button';
 interface DialogProps {
   open: boolean;
   title: string;
-  description?: string;
+  description?: string | undefined;
   children?: ReactNode;
   footer?: ReactNode;
   confirmLabel?: string;
