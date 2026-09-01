@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
+import { companyLabel } from '../../platform/domain/companyPresentation';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
@@ -49,13 +50,6 @@ function parsePaymentRef(value: string): { companyId: string; resourceId: string
   const separator = value.indexOf('::');
   if (separator <= 0) return null;
   return { companyId: value.slice(0, separator), resourceId: value.slice(separator + 2) };
-}
-function companyName(company: CompanySummary): string {
-  const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
-  if (raw.includes('PESSOAL')) return 'Pessoal';
-  if (raw.includes('PR')) return 'PR';
-  if (raw.includes('CR')) return 'CR';
-  return company.tradeName ?? company.legalName;
 }
 const COST_CENTER_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
 function costCenterLabel(code: string | null, name: string): string | null {
@@ -141,8 +135,8 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           repositories.cards.listCards(ownerScope),
         ]);
         return {
-          accounts: accounts.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyName(owner) })),
-          cards: cards.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyName(owner) })),
+          accounts: accounts.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyLabel(owner) })),
+          cards: cards.filter((item) => item.status === 'active').map((item) => ({ ...item, ownerLabel: companyLabel(owner) })),
         };
       }));
       if (!cancelled) {
@@ -212,7 +206,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const categories = (references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === form.entryType));
   const costCenters = canonicalCostCenters(activeCostCenters);
 
-  const companyOptions = companies.map((item) => ({ value: item.id, label: companyName(item) }));
+  const companyOptions = companies.map((item) => ({ value: item.id, label: companyLabel(item) }));
   const accountOptions = [
     { value: '', label: 'Selecione' },
     ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name })),
@@ -369,7 +363,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           {form.launchType === 'recurring' && <Input label="Quantidade de repetições" type="number" min="1" max="120" step="1" value={form.recurrenceCount} onChange={(event) => set('recurrenceCount', event.target.value)} required />}
           {form.paymentMethod === 'credit' && <Select label="Cartão" value={form.cardRef} onChange={(event) => set('cardRef', event.target.value)} options={cardOptions} required />}
           {form.paymentMethod !== 'credit' && <Select label="Conta / banco" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
-          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '' })); }} /> : <Input label="Empresa" value={companyName(company)} disabled />}
+          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '' })); }} /> : <Input label="Empresa" value={companyLabel(company)} disabled />}
           <Select label="Obra / centro de custo" value={form.costCenterId} onChange={(event) => set('costCenterId', event.target.value)} options={costCenterOptions} />
           <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
         </div>
