@@ -215,11 +215,11 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const companyOptions = companies.map((item) => ({ value: item.id, label: companyName(item) }));
   const accountOptions = [
     { value: '', label: 'Selecione' },
-    ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: allCompaniesMode ? `${item.name} · ${item.ownerLabel}` : item.name })),
+    ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name })),
   ];
   const cardOptions = [
     { value: '', label: 'Selecione o cartão' },
-    ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: allCompaniesMode ? `${item.name} · ${item.ownerLabel}` : item.name })),
+    ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name })),
   ];
   const categoryOptions = [{ value: '', label: 'Selecione' }, ...categories.map((item) => ({ value: item.id, label: item.name }))];
   const costCenterOptions = [{ value: '', label: 'Selecione' }, ...costCenters.map(({ item, label }) => ({ value: item.id, label }))];
