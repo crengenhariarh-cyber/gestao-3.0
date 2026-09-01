@@ -19,6 +19,7 @@ import dialogSource from './Dialog.tsx?raw';
 
 const readSource = (relativePath: string) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 const sharedStylesSource = readSource('./styles.css');
+const bankBrandCssSource = readSource('../../modules/home/ui/bank-brand.css');
 const nonCanonicalCssSources = [
   readSource('../../app/final.css'),
   readSource('../../app/shell.css'),
@@ -27,7 +28,7 @@ const nonCanonicalCssSources = [
   readSource('../../modules/finance/ui/monthly-accounts.css'),
   readSource('../../modules/finance/ui/quick-entry.css'),
   readSource('../../modules/home/ui/home.css'),
-  readSource('../../modules/home/ui/bank-brand.css'),
+  bankBrandCssSource,
   readSource('../../modules/hr/ui/hr.css'),
   readSource('../../modules/engineering/ui/engineering.css'),
 ];
@@ -71,7 +72,17 @@ describe('Design System final regression', () => {
       expect(css).not.toMatch(/\.ui-tab(?:--|__|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-input(?:--|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-(?:button|card|dialog|tab|input)[^{]*:(?:nth-child|first-child|last-child|last-of-type)\(/);
+      expect(css).not.toContain(':nth-child(');
+      expect(css).not.toContain(':last-of-type');
     }
+  });
+
+  it('keeps bank identity semantic instead of inferred from content or position', () => {
+    expect(bankBrandCssSource).not.toContain(':last-child');
+    expect(bankBrandCssSource).not.toContain('[aria-label^=');
+    expect(bankBrandCssSource).toContain('.bank-brand--nubank');
+    expect(bankBrandCssSource).toContain('.bank-brand--caixa');
+    expect(bankBrandCssSource).toContain('.bank-brand--inter');
   });
 
   it('keeps legacy visual layers out of production imports', () => {
