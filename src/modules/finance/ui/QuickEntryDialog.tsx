@@ -15,6 +15,7 @@ import './quick-entry.css';
 type EntryType = 'expense' | 'income';
 type LaunchType = 'single' | 'installment' | 'recurring';
 type PaymentMethod = 'pix' | 'debit' | 'credit' | 'cash' | 'transfer' | 'boleto' | 'other';
+type InlineRegistry = 'costCenter' | 'category';
 type OwnedAccount = FinancialAccount & { ownerLabel: string };
 type OwnedCard = CreditCard & { ownerLabel: string };
 type SmartTemplate = {
@@ -70,15 +71,20 @@ function costCenterLabel(code: string | null, name: string): string | null {
 }
 function canonicalCostCenters<T extends { id: string; code: string | null; name: string }>(rows: readonly T[]): readonly { item: T; label: string }[] {
   const chosen = new Map<string, T>();
+  const extras: T[] = [];
   for (const item of rows) {
     const label = costCenterLabel(item.code, item.name);
-    if (!label) continue;
+    if (!label) {
+      extras.push(item);
+      continue;
+    }
     const current = chosen.get(label);
     const currentHistoric = current ? /HIST/i.test(`${current.code ?? ''} ${current.name}`) : true;
     const candidateHistoric = /HIST/i.test(`${item.code ?? ''} ${item.name}`);
     if (!current || (currentHistoric && !candidateHistoric)) chosen.set(label, item);
   }
-  return COST_CENTER_ORDER.flatMap((label) => chosen.get(label) ? [{ item: chosen.get(label)!, label }] : []);
+  const canonical = COST_CENTER_ORDER.flatMap((label) => chosen.get(label) ? [{ item: chosen.get(label)!, label }] : []);
+  return [...canonical, ...extras.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map((item) => ({ item, label: item.name }))];
 }
 function recurrenceEnd(start: string, count: number): string {
   const date = new Date(`${start}T12:00:00`);
@@ -89,6 +95,8 @@ function recurrenceEnd(start: string, count: number): string {
 export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCompaniesMode = false, onClose }: QuickEntryDialogProps) {
   const [companyId, setCompanyId] = useState(initialCompanyId || companies[0]?.id || '');
   const [moreOptions, setMoreOptions] = useState(false);
+  const [inlineRegistry, setInlineRegistry] = useState<InlineRegistry | null>(null);
+  const [newRegistryName, setNewRegistryName] = useState('');
   const [templates, setTemplates] = useState<readonly SmartTemplate[]>([]);
   const [lastSuggestedDescription, setLastSuggestedDescription] = useState('');
   const [paymentAccounts, setPaymentAccounts] = useState<readonly OwnedAccount[]>([]);
@@ -118,6 +126,8 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     if (!open) return;
     setCompanyId(initialCompanyId || companies[0]?.id || '');
     setLastSuggestedDescription('');
+    setInlineRegistry(null);
+    setNewRegistryName('');
     setLocalError(null);
     setLocalSuccess(null);
   }, [companies, initialCompanyId, open]);
@@ -276,6 +286,27 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       launchType: 'single',
     }));
   }
+  async function createInlineRegistry(kind: InlineRegistry) {
+    const name = newRegistryName.trim();
+    if (!name || !company) return;
+    operations.clearFeedback();
+    setLocalError(null);
+    try {
+      if (kind === 'category') {
+        const created = await operations.createCategory({ name, kind: form.entryType });
+        await operations.loadReferences();
+        set('categoryId', created.id);
+      } else {
+        const created = await operations.createCostCenter({ name, code: null });
+        await operations.loadReferences();
+        set('costCenterId', created.id);
+      }
+      setInlineRegistry(null);
+      setNewRegistryName('');
+    } catch (error) {
+      setLocalError(error instanceof Error && error.message ? error.message : 'Não foi possível concluir o cadastro rápido.');
+    }
+  }
 
   async function launch(keepData: boolean) {
     operations.clearFeedback();
@@ -348,7 +379,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
 
   const busy = operations.state.busy || paymentLoading || submitting;
   const footer = <div className="quick-entry__footer-actions">
-    <Button variant="secondary" disabled={busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button>
+    <Button disabled={busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button>
     <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button>
   </div>;
 
@@ -368,12 +399,24 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           {form.launchType === 'installment' && <Input label="Quantidade de parcelas" type="number" min="2" max="120" step="1" value={form.installmentCount} onChange={(event) => set('installmentCount', event.target.value)} required />}
           {form.launchType === 'recurring' && <Input label="Quantidade de repetições" type="number" min="1" max="120" step="1" value={form.recurrenceCount} onChange={(event) => set('recurrenceCount', event.target.value)} required />}
           {form.paymentMethod === 'credit' && <Select label="Cartão" value={form.cardRef} onChange={(event) => set('cardRef', event.target.value)} options={cardOptions} required />}
-          {form.paymentMethod !== 'credit' && <Select label="Conta / banco" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
-          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '' })); }} /> : <Input label="Empresa" value={companyName(company)} disabled />}
-          <Select label="Obra / centro de custo" value={form.costCenterId} onChange={(event) => set('costCenterId', event.target.value)} options={costCenterOptions} />
-          <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
+          {form.paymentMethod !== 'credit' && <Select label="Banco" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
+          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => { setCompanyId(event.target.value); setInlineRegistry(null); setNewRegistryName(''); setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '' })); }} /> : <Input label="Empresa" value={companyName(company)} disabled />}
+          <div className="quick-entry__registry-field">
+            <div className="quick-entry__registry-control">
+              <Select label="Centro de custo" value={form.costCenterId} onChange={(event) => set('costCenterId', event.target.value)} options={costCenterOptions} />
+              <Button className="quick-entry__add" aria-label="Adicionar centro de custo" title="Adicionar centro de custo" onClick={() => { setInlineRegistry(inlineRegistry === 'costCenter' ? null : 'costCenter'); setNewRegistryName(''); }}>＋</Button>
+            </div>
+            {inlineRegistry === 'costCenter' && <div className="quick-entry__registry-create"><Input label="Novo centro de custo" value={newRegistryName} onChange={(event) => setNewRegistryName(event.target.value)} /><Button disabled={busy || !newRegistryName.trim()} onClick={() => { void createInlineRegistry('costCenter'); }}>Adicionar</Button></div>}
+          </div>
+          <div className="quick-entry__registry-field">
+            <div className="quick-entry__registry-control">
+              <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
+              <Button className="quick-entry__add" aria-label="Adicionar categoria" title="Adicionar categoria" onClick={() => { setInlineRegistry(inlineRegistry === 'category' ? null : 'category'); setNewRegistryName(''); }}>＋</Button>
+            </div>
+            {inlineRegistry === 'category' && <div className="quick-entry__registry-create"><Input label="Nova categoria" value={newRegistryName} onChange={(event) => setNewRegistryName(event.target.value)} /><Button disabled={busy || !newRegistryName.trim()} onClick={() => { void createInlineRegistry('category'); }}>Adicionar</Button></div>}
+          </div>
         </div>
-        <Button variant="secondary" className="quick-entry__more" onClick={() => setMoreOptions((value) => !value)} aria-expanded={moreOptions}>{moreOptions ? '⌃ Menos opções' : '⌄ Mais opções'}</Button>
+        <Button className="quick-entry__more" onClick={() => setMoreOptions((value) => !value)} aria-expanded={moreOptions}>{moreOptions ? '⌃ Menos opções' : '⌄ Mais opções'}</Button>
         {moreOptions && <div className="quick-entry__more-grid"><Input label={form.entryType === 'expense' ? 'Fornecedor / beneficiário' : 'Pagador / origem'} value={form.counterparty} onChange={(event) => set('counterparty', event.target.value)} /><Input label="Observação" value={form.notes} onChange={(event) => set('notes', event.target.value)} /></div>}
       </div>
     </>}
