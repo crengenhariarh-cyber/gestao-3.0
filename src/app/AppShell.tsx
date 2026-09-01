@@ -4,6 +4,7 @@ import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
+import { QuickEntryPage } from '../modules/finance/ui/QuickEntryPage';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
 import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
@@ -23,7 +24,7 @@ const navigation = [
 
 const quickNavigation = [
   { to: '/', label: 'Início', icon: 'home', end: true },
-  { to: '/financeiro?action=new-entry', label: 'Adicionar', icon: 'add' },
+  { to: '/adicionar', label: 'Adicionar', icon: 'add' },
   { to: '/bancos', label: 'Bancos', icon: 'bank' },
   { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: 'card' },
 ] as const;
@@ -61,7 +62,7 @@ export function AppShell({ session }: AppShellProps) {
   const newEntryRequested = location.pathname === '/financeiro' && searchParams.get('action') === 'new-entry';
   const chooseCompanyForEntry = allCompaniesSelected && newEntryRequested;
   const effectiveEntryCompanyId = entryCompanyId || session.companies[0]?.id || '';
-  const activeMobileItem = location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : newEntryRequested ? 'Adicionar' : null;
+  const activeMobileItem = location.pathname === '/' ? 'Início' : location.pathname === '/adicionar' ? 'Adicionar' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : newEntryRequested ? 'Adicionar' : null;
 
   const allCompaniesFinance = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Financeiro ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{session.companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${company.tradeName ?? company.legalName}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{company.tradeName ?? company.legalName}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
@@ -93,6 +94,7 @@ export function AppShell({ session }: AppShellProps) {
         <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany?.tradeName ?? activeCompany?.legalName}</strong></div>
         <Routes>
           <Route path="/" element={<HomePage companies={selectedCompanies}/>}/>
+          <Route path="/adicionar" element={<QuickEntryPage companies={session.companies} preferredCompanyId={activeCompany?.id ?? null}/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction/> : allCompaniesFinance}/>
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany}/> : allCompaniesBanks}/>
