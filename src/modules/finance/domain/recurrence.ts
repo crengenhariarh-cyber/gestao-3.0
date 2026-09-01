@@ -1,4 +1,4 @@
-import type { FinancialEntryType } from './entries';
+import type { FinancialEntryType, FinancialPaymentMethod } from './entries';
 import type { CompanyScope } from './registries';
 
 export type RecurrenceStatus = 'active' | 'inactive';
@@ -11,6 +11,8 @@ export interface FinancialRecurrenceRule extends CompanyScope {
   counterpartyName: string | null;
   categoryId: string;
   costCenterId: string | null;
+  workId: string | null;
+  paymentMethod: FinancialPaymentMethod | null;
   amount: number;
   frequency: RecurrenceFrequency;
   intervalCount: number;
@@ -28,6 +30,8 @@ export interface CreateFinancialRecurrenceRule extends CompanyScope {
   counterpartyName?: string | null;
   categoryId: string;
   costCenterId?: string | null;
+  workId?: string | null;
+  paymentMethod?: FinancialPaymentMethod | null;
   amount: number;
   frequency?: RecurrenceFrequency;
   intervalCount?: number;
