@@ -352,11 +352,10 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button>
   </div>;
 
-  return <Dialog open={open} title="Novo lançamento" description="Dados completos do lançamento financeiro." onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
+  return <Dialog open={open} title="Novo lançamento" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
     {!company ? <Feedback tone="danger" title="Empresa obrigatória" message="Selecione uma empresa para continuar." /> : !references && operations.state.busy ? <LoadingState label="Carregando dados do lançamento…" /> : <>
       {(localError ?? operations.state.errorMessage) && <Feedback tone="danger" title="Não foi possível lançar" message={localError ?? operations.state.errorMessage ?? ''} />}
       {(localSuccess ?? operations.state.successMessage) && <Feedback tone="success" title="Lançamento concluído" message={localSuccess ?? operations.state.successMessage ?? ''} />}
-      {allCompaniesMode && <p className="quick-entry__hint">Todas as empresas: contas e cartões ficam disponíveis independentemente da empresa da despesa. A despesa continua dimensionada na empresa, categoria e centro de custo escolhidos.</p>}
       <div className="quick-entry">
         <div className="quick-entry__step"><span>1</span><strong>Dados principais</strong></div>
         <div className="quick-entry__grid">
