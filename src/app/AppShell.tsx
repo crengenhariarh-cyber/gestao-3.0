@@ -104,7 +104,7 @@ export function AppShell({ session }: AppShellProps) {
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
       </nav>
 
-      <QuickEntryDialog open={quickEntryOpen} companies={session.companies} initialCompanyId={activeCompany?.id} onClose={() => setQuickEntryOpen(false)} />
+      <QuickEntryDialog open={quickEntryOpen} companies={session.companies} initialCompanyId={activeCompany?.id ?? ''} onClose={() => setQuickEntryOpen(false)} />
 
       <CentralMenu
         open={centralMenuOpen}
