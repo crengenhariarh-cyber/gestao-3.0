@@ -17,6 +17,19 @@ createRoot(root).render(
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js');
+    void navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then((registration) => {
+      void registration.update();
+    });
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const key = 'gestao-sw-controller-reload';
+    if (sessionStorage.getItem(key) === '1') return;
+    sessionStorage.setItem(key, '1');
+    window.location.reload();
+  });
+
+  window.addEventListener('pageshow', () => {
+    sessionStorage.removeItem('gestao-sw-controller-reload');
   });
 }
