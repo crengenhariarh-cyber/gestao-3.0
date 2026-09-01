@@ -104,6 +104,7 @@ export function useFinanceOperations(scope: CompanyScope) {
     createEntry: (input: EntryOperationInput) => execute(() => repositories.entries.createSingle({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento criado com sucesso.'),
     updateEntry: (input: EntryUpdateOperationInput) => execute(() => repositories.entries.update({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento atualizado com sucesso.'),
     deleteEntry: (entryId: string) => execute(() => repositories.entries.deleteUnsettled(scope, entryId), 'Lançamento excluído com sucesso.'),
+    setEntryPlannedAccount: (entryId: string, accountId: string | null) => execute(() => repositories.entries.setPlannedAccount(scope, entryId, accountId), 'Conta prevista atualizada com sucesso.'),
     settleInstallment: (input: Omit<RecordFinancialSettlement, keyof CompanyScope>) => execute(() => repositories.settlements.record({ ...scope, ...input }), 'Pagamento/recebimento registrado com sucesso.'),
     transfer: (input: Omit<CreateFinancialTransfer, keyof CompanyScope>) => execute(() => repositories.accounts.recordTransfer({ ...scope, ...input }), 'Transferência registrada com sucesso.'),
     createCard: (input: Omit<CreateCreditCard, keyof CompanyScope>) => execute(() => repositories.cards.createCard({ ...scope, ...input }), 'Cartão cadastrado com sucesso.'),
