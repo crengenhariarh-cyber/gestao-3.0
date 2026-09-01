@@ -15,6 +15,7 @@ type HomeOverviewState = {status:'idle'|'loading';data:HomeOverviewData|null;err
 function currentMonthStart(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;}
 function isoDate(value:Date){return value.toISOString().slice(0,10);}
 function companyName(company:CompanySummary){return company.tradeName??company.legalName;}
+function cardDisplayName(name:string){return name.replace(/^\s*HISTÓRICO\s*[·•-]\s*/i,'').trim();}
 
 export function useHomeOverview(companies:readonly CompanySummary[],refreshToken=0):HomeOverviewState{
  const finance=useMemo(()=>getFinanceRepositories(),[]); const hr=useMemo(()=>getHrBudgetRepository(),[]); const hrOperations=useMemo(()=>getHrOperationsRepository(),[]); const companyKey=companies.map(c=>c.id).sort().join(',');
@@ -28,7 +29,7 @@ export function useHomeOverview(companies:readonly CompanySummary[],refreshToken
   .then(results=>{if(cancelled)return; let bankBalance=0,incomePlanned=0,incomeRealized=0,expensePlanned=0,expenseRealized=0; const entries:HomeEntry[]=[],balanceMovements:HomeBalanceMovement[]=[],budgets:HomeBudgetItem[]=[],bankAccounts:HomeBankAccount[]=[],cards:HomeCard[]=[];
    results.forEach(({company,summary,balances,movements,entries:companyEntries,budget,operational,cardLimits})=>{const label=companyName(company); const dashboardAccounts=balances.filter(i=>i.status==='active'&&i.includeInDashboard); const ids=new Set(dashboardAccounts.map(i=>i.accountId));
     bankBalance+=dashboardAccounts.reduce((t,i)=>t+i.currentBalance,0); dashboardAccounts.forEach(i=>bankAccounts.push({companyId:company.id,companyName:label,accountId:i.accountId,name:i.name,currentBalance:i.currentBalance}));
-    cardLimits.forEach(i=>cards.push({companyId:company.id,companyName:label,cardId:i.cardId,name:i.name,creditLimit:i.creditLimit,committedAmount:i.committedAmount,availableLimit:i.availableLimit}));
+    cardLimits.forEach(i=>cards.push({companyId:company.id,companyName:label,cardId:i.cardId,name:cardDisplayName(i.name),creditLimit:i.creditLimit,committedAmount:i.committedAmount,availableLimit:i.availableLimit}));
     movements.filter(i=>ids.has(i.accountId)).forEach(i=>balanceMovements.push({movementOn:i.movementOn,signedAmount:i.direction==='inflow'?i.amount:-i.amount}));
     summary.forEach(i=>{if(i.entryType==='income'){incomePlanned+=i.plannedAmount;incomeRealized+=i.realizedAmount;}else{expensePlanned+=i.plannedAmount;expenseRealized+=i.realizedAmount;}});
     companyEntries.filter(i=>i.competenceMonth.slice(0,7)===month.slice(0,7)).forEach(i=>entries.push({installmentId:i.installmentId,entryType:i.entryType,description:i.description,counterpartyName:i.counterpartyName,installmentNumber:i.installmentNumber,installmentCount:i.installmentCount,dueDate:i.dueDate,amount:i.amount,companyName:label}));
