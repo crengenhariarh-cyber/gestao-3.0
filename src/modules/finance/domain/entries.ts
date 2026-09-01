@@ -10,6 +10,7 @@ export interface FinancialEntry extends CompanyScope {
   categoryId: string;
   costCenterId: string | null;
   competenceMonth: string;
+  plannedAccountId: string | null;
   notes: string | null;
 }
 
@@ -32,6 +33,7 @@ export interface FinancialEntryListItem extends CompanyScope {
   categoryId: string;
   costCenterId: string | null;
   competenceMonth: string;
+  plannedAccountId: string | null;
   installmentNumber: number;
   installmentCount: number;
   dueDate: string;
