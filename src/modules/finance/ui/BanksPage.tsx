@@ -36,9 +36,9 @@ const bankInstitutionOptions = [
 function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function monthKey(date = new Date()): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
-function monthRange(key = monthKey()) { const [year, month] = key.split('-').map(Number); const last = new Date(year, month, 0).getDate(); return { start: `${key}-01`, end: `${key}-${String(last).padStart(2, '0')}` }; }
-function monthLabel(key: string): string { const [year, month] = key.split('-'); return `${month}/${year}`; }
-function shiftMonth(key: string, delta: number): string { const [year, month] = key.split('-').map(Number); const date = new Date(year, month - 1 + delta, 1); return monthKey(date); }
+function monthRange(value = monthKey()) { const parts = value.split('-'); const year = Number(parts[0] ?? 0); const month = Number(parts[1] ?? 1); const last = new Date(year, month, 0).getDate(); return { start: `${value}-01`, end: `${value}-${String(last).padStart(2, '0')}` }; }
+function monthLabel(value: string): string { const parts = value.split('-'); return `${parts[1] ?? ''}/${parts[0] ?? ''}`; }
+function shiftMonth(value: string, delta: number): string { const parts = value.split('-'); const year = Number(parts[0] ?? 0); const month = Number(parts[1] ?? 1); return monthKey(new Date(year, month - 1 + delta, 1)); }
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
 function money(value: string): number { return Number(value.replace(',', '.')); }
 function key(prefix: string): string { return `${prefix}:${crypto.randomUUID()}`; }
