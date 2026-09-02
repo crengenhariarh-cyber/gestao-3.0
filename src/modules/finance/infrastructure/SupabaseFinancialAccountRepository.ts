@@ -81,7 +81,7 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
     }));
   }
 
-  async updateMovement(input: CompanyScope & { movementId: string; movementOn: string; amount: number; description: string | null }): Promise<void> {
+  async updateMovement(input: CompanyScope & { movementId: string; movementOn: string; direction: FinancialAccountMovement['direction']; amount: number; description: string | null }): Promise<void> {
     const { error } = await this.client.rpc('update_bank_movement', {
       p_tenant_id: input.tenantId,
       p_company_id: input.companyId,
@@ -89,6 +89,7 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
       p_movement_on: input.movementOn,
       p_amount: input.amount,
       p_description: input.description,
+      p_direction: input.direction,
     });
     if (error) throw error;
   }
