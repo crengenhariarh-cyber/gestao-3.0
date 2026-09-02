@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { FinancialAccountBalance, FinancialAccountMovement } from '../domain/accounts';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
@@ -44,8 +44,9 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [extractLoading, setExtractLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tenantId = companies[0]?.tenantId ?? '';
+  const companyKey = companies.map((company) => `${company.tenantId}:${company.id}`).sort().join('|');
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -60,9 +61,9 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     } finally {
       setLoading(false);
     }
-  }
+  }, [repositories, companyKey]);
 
-  useEffect(() => { void load(); }, [companies]);
+  useEffect(() => { void load(); }, [load]);
 
   async function reorder(orderedIds: readonly string[]) {
     if (!tenantId || orderedIds.length < 2) return;
