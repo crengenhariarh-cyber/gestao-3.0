@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CompanyScope, HrOperationalSnapshot, RecordPayrollEventInput } from '../application/HrOperationsRepository';
+import type { CompanyScope, CreateEmployeeBundleInput, EmployeeProfileInput, HrOperationalSnapshot, RecordPayrollEventInput } from '../application/HrOperationsRepository';
 import { getHrOperationsRepository } from '../infrastructure/createHrRepositories';
 
 export interface HrOperationsState {
@@ -48,8 +48,8 @@ export function useHrOperations(scope: CompanyScope, competenceMonth: string) {
     state,
     reload,
     clearFeedback: () => setState((current) => ({ ...current, errorMessage: null, successMessage: null })),
-    createEmployee: (input: { fullName: string; hiredOn: string; jobTitle: string; baseSalary: number; costCenterId?: string | null; allocationPercent?: number }) => execute(() => repository.createEmployeeBundle({ ...scope, ...input }), 'Colaborador cadastrado com sucesso.'),
-    updateEmployeeProfile: (employmentContractId: string, fullName: string, jobTitle: string) => execute(() => repository.updateEmployeeProfile(scope, employmentContractId, fullName, jobTitle), 'Cadastro do colaborador atualizado com sucesso.'),
+    createEmployee: (input: Omit<CreateEmployeeBundleInput, keyof CompanyScope>) => execute(() => repository.createEmployeeBundle({ ...scope, ...input }), 'Colaborador cadastrado com sucesso.'),
+    updateEmployeeProfile: (employmentContractId: string, input: EmployeeProfileInput) => execute(() => repository.updateEmployeeProfile(scope, employmentContractId, input), 'Cadastro do colaborador atualizado com sucesso.'),
     changeSalary: (employmentContractId: string, effectiveFrom: string, baseSalary: number) => execute(() => repository.changeSalary(scope, employmentContractId, effectiveFrom, baseSalary), 'Salário atualizado com sucesso.'),
     changeAllocation: (employmentContractId: string, effectiveFrom: string, costCenterId: string, allocationPercent: number) => execute(() => repository.changeAllocation(scope, employmentContractId, effectiveFrom, costCenterId, allocationPercent), 'Alocação atualizada com sucesso.'),
     terminateContract: (employmentContractId: string, terminatedOn: string) => execute(() => repository.terminateContract(scope, employmentContractId, terminatedOn), 'Vínculo encerrado com sucesso.'),
