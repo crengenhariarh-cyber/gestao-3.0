@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
-import type { CardStatementBalance, CreditCard, CreditCardLimit } from '../domain/cards';
+import type { CardStatementBalance, CardStatementItem, CreditCard, CreditCardLimit } from '../domain/cards';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
@@ -16,6 +16,9 @@ type ListedCard = CreditCardLimit & { companyName: string; lastFour: string | nu
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
+function monthKey(date = new Date()): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`; }
+function monthLabel(value: string): string { return value.slice(0, 7).split('-').reverse().join('/'); }
+function dateLabel(value: string): string { return value.split('-').reverse().join('/'); }
 function cardVisual(name: string): { tone: CardTone; mark: string; institution: string } {
   const raw = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleUpperCase('pt-BR');
   if (raw.includes('NUBANK') || raw.includes('NU ')) return { tone: 'nubank', mark: 'nu', institution: 'Nubank' };
@@ -36,11 +39,14 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   const uniqueCompanies = useMemo(() => [...new Map(companies.map((company) => [company.id, company])).values()], [companies]);
   const [cards, setCards] = useState<readonly ListedCard[]>([]);
   const [selected, setSelected] = useState<ListedCard | null>(null);
+  const [statementItems, setStatementItems] = useState<readonly CardStatementItem[]>([]);
   const [statements, setStatements] = useState<readonly CardStatementBalance[]>([]);
+  const [selectedStatementMonth, setSelectedStatementMonth] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tenantId = uniqueCompanies[0]?.tenantId ?? '';
+  const currentMonth = monthKey();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,16 +91,41 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   async function openDetails(item: ListedCard) {
     setSelected(item);
     setDetailsLoading(true);
+    setStatementItems([]);
+    setStatements([]);
+    setSelectedStatementMonth('');
     try {
-      const items = await repositories.cards.listStatements({ tenantId: item.tenantId, companyId: item.companyId }, item.cardId);
-      setStatements(items);
+      const scope = { tenantId: item.tenantId, companyId: item.companyId };
+      const [items, closed] = await Promise.all([
+        repositories.cards.listStatementItems(scope, item.cardId),
+        repositories.cards.listStatements(scope, item.cardId),
+      ]);
+      setStatementItems(items);
+      setStatements(closed);
+      const closedMonths = new Set(closed.map((statement) => statement.statementMonth));
+      const availableMonths = [...new Set(items.map((line) => line.statementMonth))]
+        .filter((month) => month <= currentMonth && (month === currentMonth || closedMonths.has(month)))
+        .sort((a, b) => b.localeCompare(a));
+      setSelectedStatementMonth(availableMonths.includes(currentMonth) ? currentMonth : availableMonths[0] ?? '');
     } catch {
+      setStatementItems([]);
       setStatements([]);
       setError('Não foi possível carregar as faturas deste cartão.');
     } finally {
       setDetailsLoading(false);
     }
   }
+
+  const selectableMonths = useMemo(() => {
+    const closedMonths = new Set(statements.map((statement) => statement.statementMonth));
+    return [...new Set(statementItems.map((line) => line.statementMonth))]
+      .filter((month) => month <= currentMonth && (month === currentMonth || closedMonths.has(month)))
+      .sort((a, b) => b.localeCompare(a));
+  }, [statementItems, statements, currentMonth]);
+
+  const selectedItems = useMemo(() => statementItems.filter((item) => item.statementMonth === selectedStatementMonth), [statementItems, selectedStatementMonth]);
+  const selectedClosedStatement = useMemo(() => statements.find((statement) => statement.statementMonth === selectedStatementMonth) ?? null, [statements, selectedStatementMonth]);
+  const selectedTotal = selectedClosedStatement?.statementAmount ?? selectedItems.reduce((sum, item) => sum + item.amount, 0);
 
   if (loading) return <LoadingState label="Carregando cartões…" />;
   if (cards.length === 0) return <><PageHeader title="Cartões"/><EmptyState title="Nenhum cartão" message="Não há cartões ativos para exibir." /></>;
@@ -118,7 +149,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
         const visual = cardVisual(item.name);
         return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`} data-sort-group="credit-card-global" data-sort-tenant={tenantId} data-sort-id={item.cardId}>
           <SortableHandle itemId={item.cardId} tenantId={tenantId} group="credit-card-global" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorder} />
-          <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir detalhes de ${item.name}`}>
+          <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir faturas de ${item.name}`}>
             <span className="bank-brand__mark" aria-hidden="true">{visual.mark}</span>
             <span className="cards-page__identity"><strong>{item.name}</strong><small>{item.lastFour ? `Final ${item.lastFour}` : visual.institution}</small>{item.dueDay > 0 && <small>Vence dia {item.dueDay}</small>}</span>
             <span className="cards-page__limits">
@@ -132,15 +163,33 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
       })}
     </div>
 
-    <Dialog open={selected !== null} title={selected?.name ?? 'Cartão'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={() => setSelected(null)} onBack={() => setSelected(null)}>
+    <Dialog open={selected !== null} title={selected ? `Faturas · ${selected.name}` : 'Faturas'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={() => setSelected(null)} onBack={() => setSelected(null)}>
       {selected && <div className="cards-page__details">
-        <div className="cards-page__summary cards-page__summary--dialog">
-          <Card><span>Limite</span><strong>{currency.format(selected.creditLimit)}</strong></Card>
-          <Card><span>Utilizado</span><strong className="cards-page__used">{currency.format(selected.committedAmount)}</strong></Card>
-          <Card><span>Disponível</span><strong className="cards-page__available">{currency.format(selected.availableLimit)}</strong></Card>
-        </div>
-        <h3>Faturas</h3>
-        {detailsLoading ? <LoadingState label="Carregando faturas…" /> : statements.length === 0 ? <p className="ui-muted">Nenhuma fatura encontrada.</p> : <div className="cards-page__statements">{statements.map((statement) => <div key={statement.statementId}><span><strong>{statement.statementMonth.slice(0, 7).split('-').reverse().join('/')}</strong><small>Vence {statement.dueDate.split('-').reverse().join('/')}</small></span><span><strong>{currency.format(statement.statementAmount)}</strong><small>{statement.paymentStatus === 'paid' ? 'Paga' : statement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</small></span></div>)}</div>}
+        {detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui fatura atual ou fatura fechada com lançamentos." /> : <>
+          <div className="cards-page__statement-filter">
+            <label htmlFor="card-statement-month">Fatura</label>
+            <select id="card-statement-month" value={selectedStatementMonth} onChange={(event) => setSelectedStatementMonth(event.target.value)}>
+              {selectableMonths.map((month) => <option key={month} value={month}>{month === currentMonth ? `Fatura atual · ${monthLabel(month)}` : `${monthLabel(month)} · fechada`}</option>)}
+            </select>
+          </div>
+
+          <div className="cards-page__invoice-head">
+            <span><small>{selectedStatementMonth === currentMonth && !selectedClosedStatement ? 'Fatura atual' : 'Fatura fechada'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span>
+            <span><small>Total da fatura</small><strong>{currency.format(selectedTotal)}</strong></span>
+            {selectedClosedStatement?.dueDate && <span><small>Vencimento</small><strong>{dateLabel(selectedClosedStatement.dueDate)}</strong></span>}
+            {selectedClosedStatement && <span><small>Status</small><strong>{selectedClosedStatement.paymentStatus === 'paid' ? 'Paga' : selectedClosedStatement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</strong></span>}
+          </div>
+
+          <div className="cards-page__invoice-lines" aria-label={`Lançamentos da fatura ${monthLabel(selectedStatementMonth)}`}>
+            {selectedItems.map((item) => <div key={`${item.transactionId}-${item.installmentNumber}`} className="cards-page__invoice-line">
+              <span className="cards-page__invoice-description">
+                <strong>{item.description}</strong>
+                <small>{dateLabel(item.purchaseDate)}{item.counterpartyName ? ` · ${item.counterpartyName}` : ''}{item.installmentCount > 1 ? ` · Parcela ${item.installmentLabel}` : ''}</small>
+              </span>
+              <strong className="cards-page__invoice-value">{currency.format(item.amount)}</strong>
+            </div>)}
+          </div>
+        </>}
       </div>}
     </Dialog>
   </div>;
