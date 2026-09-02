@@ -25,6 +25,10 @@ const bankInstitutionOptions = [
   { value: 'santander', label: 'Santander' }, { value: 'caixa', label: 'Caixa' }, { value: 'sicoob', label: 'Sicoob' },
   { value: 'bradesco', label: 'Bradesco' }, { value: 'bb', label: 'Banco do Brasil' }, { value: 'sicredi', label: 'Sicredi' }, { value: 'c6', label: 'C6 Bank' },
 ];
+const movementDirectionOptions = [
+  { value: 'inflow', label: 'Entrada' },
+  { value: 'outflow', label: 'Saída' },
+];
 function bankVisual(value: string | null, fallbackName: string): { tone: BankTone; mark: string; bank: string } {
   const raw = `${value ?? ''} ${fallbackName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleUpperCase('pt-BR');
   if (raw.includes('NUBANK')) return { tone: 'nubank', mark: 'nu', bank: 'Nubank' };
@@ -58,7 +62,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [editForm, setEditForm] = useState({ companyId: '', sourceCompanyId: '', name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', status: 'active' as RegistryStatus });
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
   const [selectedMovement, setSelectedMovement] = useState<FinancialAccountMovement | null>(null);
-  const [movementForm, setMovementForm] = useState({ date: '', description: '', amount: '' });
+  const [movementForm, setMovementForm] = useState({ date: '', description: '', direction: 'outflow' as FinancialAccountMovement['direction'], amount: '' });
   const [loading, setLoading] = useState(true);
   const [extractLoading, setExtractLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -143,7 +147,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
 
   function openMovementEdit(item: FinancialAccountMovement) {
     setSelectedMovement(item);
-    setMovementForm({ date: item.movementOn, description: item.description ?? '', amount: String(item.amount) });
+    setMovementForm({ date: item.movementOn, description: item.description ?? '', direction: item.direction, amount: String(item.amount) });
     setDialog('movementEdit');
   }
 
@@ -214,6 +218,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
         companyId: selectedMovement.companyId,
         movementId: selectedMovement.id,
         movementOn: movementForm.date,
+        direction: movementForm.direction,
         amount: money(movementForm.amount),
         description: movementForm.description || null,
       });
@@ -309,6 +314,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     <Dialog open={dialog === 'movementEdit' && selectedMovement !== null} title="Editar movimentação" loading={saving} onClose={() => setDialog('extract')} onBack={() => setDialog('extract')} footer={<><Button variant="secondary" onClick={() => setDialog('extract')}>Cancelar</Button><Button onClick={() => { void saveMovement(); }}>Salvar</Button></>}>
       <div className="finance-form-grid">
         <Input label="Data" type="date" value={movementForm.date} onChange={(event) => setMovementForm((current) => ({ ...current, date: event.target.value }))} required />
+        <Select label="Tipo da movimentação" value={movementForm.direction} onChange={(event) => setMovementForm((current) => ({ ...current, direction: event.target.value as FinancialAccountMovement['direction'] }))} options={movementDirectionOptions} disabled={selectedMovement?.sourceType === 'card_statement_payment' || selectedMovement?.sourceType === 'transfer' || selectedMovement?.sourceType === 'financial_transfer'} />
         <Input label="Descrição" value={movementForm.description} onChange={(event) => setMovementForm((current) => ({ ...current, description: event.target.value }))} />
         <Input label="Valor" type="number" min="0.01" step="0.01" value={movementForm.amount} onChange={(event) => setMovementForm((current) => ({ ...current, amount: event.target.value }))} required />
       </div>
