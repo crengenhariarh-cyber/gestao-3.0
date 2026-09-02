@@ -20,7 +20,7 @@ import './banks-page.css';
 import '../../home/ui/bank-brand.css';
 
 interface BanksPageProps { company: CompanySummary; showHeader?: boolean; }
-type DialogKind = 'account' | 'transfer' | 'plan' | 'extract' | null;
+type DialogKind = 'account' | 'accountDelete' | 'transfer' | 'plan' | 'extract' | null;
 type ExtractTab = 'realized' | 'forecast';
 type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 
@@ -60,6 +60,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const [startDate, setStartDate] = useState(initialRange.start);
   const [endDate, setEndDate] = useState(initialRange.end);
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [menuAccountId, setMenuAccountId] = useState<string | null>(null);
   const [extractTab, setExtractTab] = useState<ExtractTab>('realized');
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
   const [movementsLoading, setMovementsLoading] = useState(true);
@@ -127,16 +128,18 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const entryOptions = [{ value: '', label: 'Selecione…' }, ...uniqueOpenEntries.map((item) => ({ value: item.entryId, label: `${item.description} · ${item.entryType === 'income' ? 'Receber' : 'Pagar'}` }))];
 
   function closeDialog() { setDialog(null); operations.clearFeedback(); }
-  function openExtract(accountId: string) { setSelectedAccountId(accountId); setExtractTab('realized'); operations.clearFeedback(); setDialog('extract'); }
-  function openNewAccount() { setAccountForm({ id: '', name: '', accountType: 'bank', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
+  function openExtract(accountId: string) { setMenuAccountId(null); setSelectedAccountId(accountId); setExtractTab('realized'); operations.clearFeedback(); setDialog('extract'); }
+  function openNewAccount() { setMenuAccountId(null); setAccountForm({ id: '', name: '', accountType: 'bank', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
   function openEditAccount(accountId: string) {
+    setMenuAccountId(null);
     const account = (references?.accounts ?? []).find((item) => item.id === accountId);
     if (!account) return;
     setAccountForm({ id: account.id, name: account.name, accountType: account.accountType, openingBalance: String(account.openingBalance), status: account.status });
     operations.clearFeedback();
     setDialog('account');
   }
-  function openTransfer(accountId = effectiveAccountId) { setTransferForm({ fromAccountId: accountId, toAccountId: '', transferOn: today(), amount: '', notes: '' }); operations.clearFeedback(); setDialog('transfer'); }
+  function openDeleteAccount(accountId: string) { setMenuAccountId(null); setSelectedAccountId(accountId); operations.clearFeedback(); setDialog('accountDelete'); }
+  function openTransfer(accountId = effectiveAccountId) { setMenuAccountId(null); setTransferForm({ fromAccountId: accountId, toAccountId: '', transferOn: today(), amount: '', notes: '' }); operations.clearFeedback(); setDialog('transfer'); }
   function openPlan(item?: FinancialEntryListItem) { setPlanForm({ entryId: item?.entryId ?? '', plannedAccountId: item?.plannedAccountId ?? effectiveAccountId }); operations.clearFeedback(); setDialog('plan'); }
   async function reorderAccounts(orderedIds: readonly string[]) {
     try {
@@ -155,6 +158,15 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
       await refreshAll();
     } catch { /* feedback padronizado permanece no modal */ }
   }
+  async function deleteAccount() {
+    const account = (references?.accounts ?? []).find((item) => item.id === selectedAccountId);
+    if (!account) return;
+    try {
+      await operations.updateAccount({ id: account.id, name: account.name, accountType: account.accountType, status: 'inactive' });
+      setSelectedAccountId('');
+      await refreshAll();
+    } catch { /* feedback padronizado permanece no modal */ }
+  }
   async function saveTransfer() {
     try {
       await operations.transfer({ fromAccountId: transferForm.fromAccountId, toAccountId: transferForm.toAccountId, transferOn: transferForm.transferOn, amount: money(transferForm.amount), idempotencyKey: key('bank-transfer'), notes: transferForm.notes || null });
@@ -170,7 +182,6 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
 
   return <section className={`finance-overview banks-page${showHeader ? '' : ' banks-page--embedded'}`} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}>
     {showHeader && <PageHeader id="banks-title" title="Bancos" actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')}>Nova transferência</Button></div>} />}
-
     {orderError && <Feedback tone="danger" title="Ordem não salva" message={orderError} />}
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
@@ -178,13 +189,17 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
     {activeBalances.length === 0 ? null : <div className="banks-page__accounts">
       {activeBalances.map((item) => {
         const brand = bankVisual(item.bankInstitution, item.name);
-        return <Button key={item.accountId} variant="tertiary" className={`banks-page__account-card bank-brand bank-brand--${brand.tone}`} data-sort-group="bank-account" data-sort-tenant={scope.tenantId} data-sort-id={item.accountId} onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
+        return <div key={item.accountId} className={`banks-page__account-wrap bank-brand bank-brand--${brand.tone}`} data-sort-group="bank-account" data-sort-tenant={scope.tenantId} data-sort-id={item.accountId}>
           <SortableHandle itemId={item.accountId} tenantId={scope.tenantId} group="bank-account" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorderAccounts} />
-          {brand.mark && <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>}
-          <span className="banks-page__account-copy"><strong>{item.name}</strong><small>{brand.bank}</small></span>
-          <strong className="banks-page__account-balance">{currency.format(item.currentBalance)}</strong>
-          <small className="banks-page__account-hint">Toque para abrir o extrato ›</small>
-        </Button>;
+          <button type="button" className="banks-page__menu-trigger" aria-label={`Ações de ${item.name}`} aria-expanded={menuAccountId===item.accountId} onClick={()=>setMenuAccountId(menuAccountId===item.accountId?null:item.accountId)}>⋯</button>
+          {menuAccountId===item.accountId&&<div className="banks-page__menu" role="menu"><button type="button" onClick={()=>openEditAccount(item.accountId)}>Editar</button><button type="button" className="is-danger" onClick={()=>openDeleteAccount(item.accountId)}>Excluir</button></div>}
+          <Button variant="tertiary" className="banks-page__account-card" onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
+            {brand.mark && <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>}
+            <span className="banks-page__account-copy"><strong>{item.name}</strong><small>{brand.bank}</small></span>
+            <strong className="banks-page__account-balance">{currency.format(item.currentBalance)}</strong>
+            <small className="banks-page__account-hint">Toque para abrir o extrato ›</small>
+          </Button>
+        </div>;
       })}
     </div>}
 
@@ -209,6 +224,11 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
     <Dialog open={dialog === 'account'} title={accountForm.id ? 'Editar banco' : 'Novo banco'} loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveAccount(); }}>
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
       <div className="finance-form-grid"><Input label="Nome da conta" value={accountForm.name} onChange={(event) => setAccountForm((current) => ({ ...current, name: event.target.value }))} required /><Select label="Tipo" value={accountForm.accountType} onChange={(event) => setAccountForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />{!accountForm.id && <Input label="Saldo inicial" type="number" step="0.01" value={accountForm.openingBalance} onChange={(event) => setAccountForm((current) => ({ ...current, openingBalance: event.target.value }))} />}{accountForm.id && <Select label="Status" value={accountForm.status} onChange={(event) => setAccountForm((current) => ({ ...current, status: event.target.value as RegistryStatus }))} options={[{ value: 'active', label: 'Ativa' }, { value: 'inactive', label: 'Inativa' }]} />}</div>
+    </Dialog>
+
+    <Dialog open={dialog === 'accountDelete'} title="Excluir banco" loading={operations.state.busy} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button variant="danger" onClick={()=>{void deleteAccount();}}>Excluir banco</Button></>}>
+      {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível excluir" message={operations.state.errorMessage} />}
+      <p>O banco será desativado para preservar o extrato e o histórico financeiro já registrado.</p>
     </Dialog>
 
     <Dialog open={dialog === 'transfer'} title="Nova transferência" loading={operations.state.busy} confirmLabel="Transferir" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveTransfer(); }}>
