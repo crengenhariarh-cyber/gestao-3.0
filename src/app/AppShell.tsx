@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-d
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { AllBanksList } from '../modules/finance/ui/AllBanksList';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
+import { CardsPage } from '../modules/finance/ui/CardsPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
 import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
@@ -26,7 +27,7 @@ const navigation = [
 const quickNavigation = [
   { to: '/', label: 'Início', icon: 'home', end: true },
   { to: '/bancos', label: 'Bancos', icon: 'bank' },
-  { to: '/financeiro?tab=cartoes', label: 'Cartões', icon: 'card' },
+  { to: '/cartoes', label: 'Cartões', icon: 'card' },
 ] as const;
 
 const COMPANY_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
@@ -92,7 +93,7 @@ export function AppShell({ session }: AppShellProps) {
     ...companies.map((company) => ({ value: company.id, label: companyLabel(company) })),
   ];
   const selectedCompanies = allCompaniesSelected ? companies : activeCompany ? [activeCompany] : [];
-  const activeMobileItem = entryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/financeiro' && searchParams.get('tab') === 'cartoes' ? 'Cartões' : null;
+  const activeMobileItem = entryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/cartoes' ? 'Cartões' : null;
 
   const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
@@ -127,6 +128,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany}/> : allCompaniesBanks}/>
+          <Route path="/cartoes" element={<CardsPage companies={selectedCompanies}/>}/>
           <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
