@@ -71,4 +71,6 @@ begin
 end;
 $function$;
 
+revoke execute on function public.transfer_hr_employee_company(uuid,uuid,uuid,uuid,date,uuid,numeric) from public;
+revoke execute on function public.transfer_hr_employee_company(uuid,uuid,uuid,uuid,date,uuid,numeric) from anon;
 grant execute on function public.transfer_hr_employee_company(uuid,uuid,uuid,uuid,date,uuid,numeric) to authenticated;
