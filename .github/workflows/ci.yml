@@ -46,7 +46,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: production
     steps:
       - name: Checkout
@@ -71,8 +71,31 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || (echo "Missing secret: CLOUDFLARE_API_TOKEN" && exit 1)
           test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "Missing secret: CLOUDFLARE_ACCOUNT_ID" && exit 1)
 
+      - name: Validate Cloudflare session
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+        run: npx --yes wrangler@4 whoami
+
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@latest deploy
+          WRANGLER_SEND_METRICS: "false"
+        shell: bash
+        run: |
+          set -o pipefail
+          max_attempts=3
+          attempt=1
+          until npx --yes wrangler@4 deploy; do
+            exit_code=$?
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "Cloudflare deploy failed after ${max_attempts} attempts."
+              exit "$exit_code"
+            fi
+            wait_seconds=$((attempt * 20))
+            echo "Cloudflare deploy attempt ${attempt} failed; retrying in ${wait_seconds}s..."
+            sleep "$wait_seconds"
+            attempt=$((attempt + 1))
+          done
