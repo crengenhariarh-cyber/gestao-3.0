@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FinancialAccountMovement } from '../domain/accounts';
 import type { FinancialEntryListItem } from '../domain/entries';
-import type { FinancialAccountType, RegistryStatus } from '../domain/registries';
+import type { FinancialAccountType, FinancialBankInstitution, RegistryStatus } from '../domain/registries';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
@@ -25,6 +25,13 @@ type ExtractTab = 'realized' | 'forecast';
 type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const bankInstitutionOptions = [
+  { value: '', label: 'Selecione…' },
+  { value: 'itau', label: 'Itaú' }, { value: 'nubank', label: 'Nubank' }, { value: 'inter', label: 'Inter' },
+  { value: 'santander', label: 'Santander' }, { value: 'caixa', label: 'Caixa' }, { value: 'sicoob', label: 'Sicoob' },
+  { value: 'bradesco', label: 'Bradesco' }, { value: 'bb', label: 'Banco do Brasil' }, { value: 'sicredi', label: 'Sicredi' }, { value: 'c6', label: 'C6 Bank' },
+];
+function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function monthRange() {
   const date = new Date();
@@ -67,7 +74,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const [movementsError, setMovementsError] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
-  const [accountForm, setAccountForm] = useState({ id: '', name: '', accountType: 'bank' as FinancialAccountType, openingBalance: '0', status: 'active' as RegistryStatus });
+  const [accountForm, setAccountForm] = useState({ id: '', name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', openingBalance: '0', status: 'active' as RegistryStatus });
   const [transferForm, setTransferForm] = useState({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
   const [planForm, setPlanForm] = useState({ entryId: '', plannedAccountId: '' });
   const overview = useFinanceOverview(scope, refreshToken);
@@ -129,12 +136,12 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
 
   function closeDialog() { setDialog(null); operations.clearFeedback(); }
   function openExtract(accountId: string) { setMenuAccountId(null); setSelectedAccountId(accountId); setExtractTab('realized'); operations.clearFeedback(); setDialog('extract'); }
-  function openNewAccount() { setMenuAccountId(null); setAccountForm({ id: '', name: '', accountType: 'bank', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
+  function openNewAccount() { setMenuAccountId(null); setAccountForm({ id: '', name: '', accountType: 'bank', bankInstitution: '', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
   function openEditAccount(accountId: string) {
     setMenuAccountId(null);
     const account = (references?.accounts ?? []).find((item) => item.id === accountId);
     if (!account) return;
-    setAccountForm({ id: account.id, name: account.name, accountType: account.accountType, openingBalance: String(account.openingBalance), status: account.status });
+    setAccountForm({ id: account.id, name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', openingBalance: String(account.openingBalance), status: account.status });
     operations.clearFeedback();
     setDialog('account');
   }
@@ -153,8 +160,8 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   async function refreshAll() { await operations.loadReferences(); setRefreshToken((value) => value + 1); closeDialog(); }
   async function saveAccount() {
     try {
-      if (accountForm.id) await operations.updateAccount({ id: accountForm.id, name: accountForm.name, accountType: accountForm.accountType, status: accountForm.status });
-      else await operations.createAccount({ name: accountForm.name, accountType: accountForm.accountType, openingBalance: money(accountForm.openingBalance) });
+      if (accountForm.id) await operations.updateAccount({ id: accountForm.id, name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, status: accountForm.status });
+      else await operations.createAccount({ name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, openingBalance: money(accountForm.openingBalance) });
       await refreshAll();
     } catch { /* feedback padronizado permanece no modal */ }
   }
@@ -162,7 +169,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
     const account = (references?.accounts ?? []).find((item) => item.id === selectedAccountId);
     if (!account) return;
     try {
-      await operations.updateAccount({ id: account.id, name: account.name, accountType: account.accountType, status: 'inactive' });
+      await operations.updateAccount({ id: account.id, name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution, status: 'inactive' });
       setSelectedAccountId('');
       await refreshAll();
     } catch { /* feedback padronizado permanece no modal */ }
@@ -221,9 +228,16 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
       </div>}
     </Dialog>
 
-    <Dialog open={dialog === 'account'} title={accountForm.id ? 'Editar banco' : 'Novo banco'} loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveAccount(); }}>
+    <Dialog open={dialog === 'account'} title={accountForm.id ? 'Editar banco' : 'Novo banco'} description={companyName(company)} loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveAccount(); }}>
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
-      <div className="finance-form-grid"><Input label="Nome da conta" value={accountForm.name} onChange={(event) => setAccountForm((current) => ({ ...current, name: event.target.value }))} required /><Select label="Tipo" value={accountForm.accountType} onChange={(event) => setAccountForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />{!accountForm.id && <Input label="Saldo inicial" type="number" step="0.01" value={accountForm.openingBalance} onChange={(event) => setAccountForm((current) => ({ ...current, openingBalance: event.target.value }))} />}{accountForm.id && <Select label="Status" value={accountForm.status} onChange={(event) => setAccountForm((current) => ({ ...current, status: event.target.value as RegistryStatus }))} options={[{ value: 'active', label: 'Ativa' }, { value: 'inactive', label: 'Inativa' }]} />}</div>
+      <div className="finance-form-grid">
+        <Select label="Empresa" value={company.id} disabled options={[{ value: company.id, label: companyName(company) }]} />
+        <Input label="Nome da conta" value={accountForm.name} onChange={(event) => setAccountForm((current) => ({ ...current, name: event.target.value }))} required />
+        <Select label="Instituição" value={accountForm.bankInstitution} onChange={(event) => setAccountForm((current) => ({ ...current, bankInstitution: event.target.value as FinancialBankInstitution | '' }))} options={bankInstitutionOptions} required />
+        <Select label="Tipo" value={accountForm.accountType} onChange={(event) => setAccountForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />
+        <Select label="Status" value={accountForm.status} disabled={!accountForm.id} onChange={(event) => setAccountForm((current) => ({ ...current, status: event.target.value as RegistryStatus }))} options={[{ value: 'active', label: 'Ativa' }, { value: 'inactive', label: 'Inativa' }]} />
+        {!accountForm.id && <Input label="Saldo inicial da conta" type="number" step="0.01" value={accountForm.openingBalance} onChange={(event) => setAccountForm((current) => ({ ...current, openingBalance: event.target.value }))} />}
+      </div>
     </Dialog>
 
     <Dialog open={dialog === 'accountDelete'} title="Excluir banco" loading={operations.state.busy} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button variant="danger" onClick={()=>{void deleteAccount();}}>Excluir banco</Button></>}>
