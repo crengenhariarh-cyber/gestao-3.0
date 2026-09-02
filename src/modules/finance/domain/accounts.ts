@@ -12,6 +12,7 @@ export interface FinancialAccountBalance extends CompanyScope {
   openingBalance: number;
   movementTotal: number;
   currentBalance: number;
+  sortOrder: number;
 }
 
 export interface FinancialAccountMovement extends CompanyScope {
