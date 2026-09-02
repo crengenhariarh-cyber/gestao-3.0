@@ -27,6 +27,11 @@ function costCenter(row: CostCenterRow): CostCenter {
 function account(row: AccountRow): FinancialAccount {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, accountType: row.account_type, bankInstitution: row.bank_institution, openingBalance: Number(row.opening_balance), status: row.status };
 }
+function firstRow<T>(value: unknown): T {
+  const row = Array.isArray(value) ? value[0] : value;
+  if (!row || typeof row !== 'object') throw new Error('operation returned an invalid result');
+  return row as T;
+}
 
 export class SupabaseFinanceRegistryRepository implements FinanceRegistryRepository {
   constructor(private readonly client: SupabaseClient) {}
@@ -94,8 +99,22 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     const name = raw.name.trim();
     if (!name) throw new Error('name is required');
     const sourceCompanyId = raw.sourceCompanyId ?? raw.companyId;
+    if (sourceCompanyId !== raw.companyId) {
+      const { data, error } = await this.client.rpc('reassign_financial_account_company', {
+        p_tenant_id: raw.tenantId,
+        p_account_id: raw.id,
+        p_source_company_id: sourceCompanyId,
+        p_target_company_id: raw.companyId,
+        p_name: name,
+        p_account_type: raw.accountType,
+        p_bank_institution: raw.bankInstitution ?? '',
+        p_status: raw.status,
+      });
+      if (error) throw error;
+      return account(firstRow<AccountRow>(data));
+    }
     const { data, error } = await this.client.from('financial_accounts')
-      .update({ company_id: raw.companyId, name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
+      .update({ name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
       .eq('tenant_id', raw.tenantId).eq('company_id', sourceCompanyId).eq('id', raw.id)
       .select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').single();
     if (error) throw error;
