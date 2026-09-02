@@ -30,7 +30,7 @@ const actualInstallmentId = (item: HomeEntry) => item.sourceKind === 'financial_
 
 function parseCardItem(item: HomeEntry) {
   const match = /^card:([0-9a-f-]{36}):(\d{4}-\d{2}-\d{2})$/i.exec(item.installmentId);
-  return match ? { cardId: match[1], statementMonth: match[2] } : null;
+  return match ? { cardId: match[1]!, statementMonth: match[2]! } : null;
 }
 
 export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: PlanningPaymentsDialogProps) {
