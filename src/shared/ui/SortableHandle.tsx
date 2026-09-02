@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import './sortable.css';
 
 interface SortableHandleProps {
   itemId: string;
