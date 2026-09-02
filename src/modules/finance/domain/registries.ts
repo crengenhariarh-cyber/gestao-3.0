@@ -1,6 +1,7 @@
 export type RegistryStatus = 'active' | 'inactive';
 export type FinancialCategoryKind = 'income' | 'expense' | 'both';
 export type FinancialAccountType = 'bank' | 'cash' | 'other';
+export type FinancialBankInstitution = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6';
 
 export interface CompanyScope {
   tenantId: string;
@@ -25,6 +26,7 @@ export interface FinancialAccount extends CompanyScope {
   id: string;
   name: string;
   accountType: FinancialAccountType;
+  bankInstitution: FinancialBankInstitution | null;
   openingBalance: number;
   status: RegistryStatus;
 }
@@ -56,6 +58,7 @@ export interface UpdateCostCenter extends CompanyScope {
 export interface CreateFinancialAccount extends CompanyScope {
   name: string;
   accountType: FinancialAccountType;
+  bankInstitution?: FinancialBankInstitution | null;
   openingBalance?: number;
 }
 
@@ -63,5 +66,6 @@ export interface UpdateFinancialAccount extends CompanyScope {
   id: string;
   name: string;
   accountType: FinancialAccountType;
+  bankInstitution?: FinancialBankInstitution | null;
   status: RegistryStatus;
 }
