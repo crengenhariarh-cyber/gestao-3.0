@@ -127,7 +127,9 @@ export async function transferEmployeeCompany(input: {
     p_target_cost_center_id: input.targetCostCenterId ?? null,
     p_allocation_percent: input.allocationPercent ?? 100,
   }) as { data: unknown; error: unknown };
-  if (error) throw error;
+  if (error !== null && error !== undefined) {
+    throw error instanceof Error ? error : new Error(typeof error === 'string' ? error : 'Falha ao transferir colaborador entre empresas.');
+  }
   const row: unknown = Array.isArray(rawData) ? rawData[0] : rawData;
   if (!isTransferResultRow(row)) throw new Error('A transferência foi concluída sem retornar o novo vínculo.');
   return row.new_contract_id;
