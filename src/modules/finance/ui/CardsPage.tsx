@@ -143,68 +143,29 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     setSaving(true);
     setError(null);
     try {
-      await repositories.cards.updateCard({
-        tenantId: selected.tenantId,
-        companyId: selected.companyId,
-        id: selected.cardId,
-        name: editForm.name,
-        lastFour: editForm.lastFour || null,
-        creditLimit: money(editForm.creditLimit),
-        closingDay: Number(editForm.closingDay),
-        dueDay: Number(editForm.dueDay),
-        defaultPaymentAccountId: editForm.defaultPaymentAccountId || null,
-        status: editForm.status,
-      });
-      setDialog(null);
-      setSelected(null);
-      await load();
-      window.dispatchEvent(new Event('finance-card-order-changed'));
-    } catch {
-      setError('Não foi possível salvar as alterações do cartão.');
-    } finally {
-      setSaving(false);
-    }
+      await repositories.cards.updateCard({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.cardId, name: editForm.name, lastFour: editForm.lastFour || null, creditLimit: money(editForm.creditLimit), closingDay: Number(editForm.closingDay), dueDay: Number(editForm.dueDay), defaultPaymentAccountId: editForm.defaultPaymentAccountId || null, status: editForm.status });
+      setDialog(null); setSelected(null); await load(); window.dispatchEvent(new Event('finance-card-order-changed'));
+    } catch { setError('Não foi possível salvar as alterações do cartão.'); }
+    finally { setSaving(false); }
   }
 
   async function confirmDelete() {
     if (!selected) return;
-    setSaving(true);
-    setError(null);
+    setSaving(true); setError(null);
     try {
-      await repositories.cards.updateCard({
-        tenantId: selected.tenantId,
-        companyId: selected.companyId,
-        id: selected.cardId,
-        name: selected.name,
-        lastFour: selected.lastFour,
-        creditLimit: selected.creditLimit,
-        closingDay: selected.closingDay,
-        dueDay: selected.dueDay,
-        defaultPaymentAccountId: selected.defaultPaymentAccountId,
-        status: 'inactive',
-      });
-      setDialog(null);
-      setSelected(null);
-      await load();
-      window.dispatchEvent(new Event('finance-card-order-changed'));
-    } catch {
-      setError('Não foi possível excluir o cartão.');
-    } finally {
-      setSaving(false);
-    }
+      await repositories.cards.updateCard({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.cardId, name: selected.name, lastFour: selected.lastFour, creditLimit: selected.creditLimit, closingDay: selected.closingDay, dueDay: selected.dueDay, defaultPaymentAccountId: selected.defaultPaymentAccountId, status: 'inactive' });
+      setDialog(null); setSelected(null); await load(); window.dispatchEvent(new Event('finance-card-order-changed'));
+    } catch { setError('Não foi possível excluir o cartão.'); }
+    finally { setSaving(false); }
   }
 
-  const selectableMonths = useMemo(() => [...new Set(statementItems.map((line) => line.statementMonth))]
-    .filter((month) => month <= currentMonth)
-    .sort((a, b) => b.localeCompare(a)), [statementItems, currentMonth]);
-
+  const selectableMonths = useMemo(() => [...new Set(statementItems.map((line) => line.statementMonth))].filter((month) => month <= currentMonth).sort((a, b) => b.localeCompare(a)), [statementItems, currentMonth]);
   const selectedItems = useMemo(() => statementItems.filter((item) => item.statementMonth === selectedStatementMonth), [statementItems, selectedStatementMonth]);
   const selectedClosedStatement = useMemo(() => statements.find((statement) => statement.statementMonth === selectedStatementMonth) ?? null, [statements, selectedStatementMonth]);
   const selectedTotal = selectedClosedStatement?.statementAmount ?? selectedItems.reduce((sum, item) => sum + item.amount, 0);
 
   if (loading) return <LoadingState label="Carregando cartões…" />;
   if (cards.length === 0) return <><PageHeader title="Cartões"/><EmptyState title="Nenhum cartão" message="Não há cartões ativos para exibir." /></>;
-
   const totalLimit = cards.reduce((sum, item) => sum + item.creditLimit, 0);
   const totalUsed = cards.reduce((sum, item) => sum + item.committedAmount, 0);
   const totalAvailable = cards.reduce((sum, item) => sum + item.availableLimit, 0);
@@ -212,66 +173,15 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   return <div className="cards-page">
     <PageHeader title="Cartões" />
     {error && <Feedback tone="danger" title="Cartões" message={error} />}
-
-    <div className="cards-page__summary" aria-label="Resumo dos cartões">
-      <Card><span>Limite total</span><strong>{currency.format(totalLimit)}</strong></Card>
-      <Card><span>Utilizado</span><strong className="cards-page__used">{currency.format(totalUsed)}</strong></Card>
-      <Card><span>Disponível</span><strong className="cards-page__available">{currency.format(totalAvailable)}</strong></Card>
-    </div>
-
-    <div className="cards-page__list" aria-label="Cartões">
-      {cards.map((item) => {
-        const visual = cardVisual(item.name);
-        return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`} data-sort-group="credit-card-global" data-sort-tenant={tenantId} data-sort-id={item.cardId}>
-          <SortableHandle itemId={item.cardId} tenantId={tenantId} group="credit-card-global" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorder} />
-          <button type="button" className="cards-page__menu-trigger" aria-label={`Ações de ${item.name}`} aria-expanded={menuCardId===item.cardId} onClick={(event)=>{event.stopPropagation();setMenuCardId(menuCardId===item.cardId?null:item.cardId);}}>⋯</button>
-          {menuCardId===item.cardId&&<div className="cards-page__menu" role="menu"><button type="button" onClick={()=>openEdit(item)}>Editar</button><button type="button" className="is-danger" onClick={()=>openDelete(item)}>Excluir</button></div>}
-          <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir faturas de ${item.name}`}>
-            <span className="bank-brand__mark" aria-hidden="true">{visual.mark}</span>
-            <span className="cards-page__identity"><strong>{item.name}</strong><small>{item.lastFour ? `Final ${item.lastFour}` : visual.institution}</small>{item.dueDay > 0 && <small>Vence dia {item.dueDay}</small>}</span>
-            <span className="cards-page__limits">
-              <span><small>Limite</small><strong>{currency.format(item.creditLimit)}</strong></span>
-              <span><small>Utilizado</small><strong className="cards-page__used">{currency.format(item.committedAmount)}</strong></span>
-              <span><small>Disponível</small><strong className="cards-page__available">{currency.format(item.availableLimit)}</strong></span>
-            </span>
-            <span className="cards-page__chevron" aria-hidden="true">›</span>
-          </Button>
-        </div>;
-      })}
-    </div>
-
-    <Dialog open={dialog === 'details' && selected !== null} title={selected ? `Faturas · ${selected.name}` : 'Faturas'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={() => {setSelected(null);setDialog(null);}} onBack={() => {setSelected(null);setDialog(null);}}>
-      {selected && <div className="cards-page__details">
-        {detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui faturas com lançamentos." /> : <>
-          <div className="cards-page__statement-filter">
-            <label htmlFor="card-statement-month">Fatura</label>
-            <select id="card-statement-month" value={selectedStatementMonth} onChange={(event) => setSelectedStatementMonth(event.target.value)}>
-              {selectableMonths.map((month) => {
-                const closedStatement = statements.find((statement) => statement.statementMonth === month);
-                const label = month === currentMonth ? 'Fatura atual' : closedStatement ? 'Fatura fechada' : 'Fatura anterior';
-                return <option key={month} value={month}>{`${label} · ${monthLabel(month)}`}</option>;
-              })}
-            </select>
-          </div>
-          <div className="cards-page__invoice-head"><span><small>{selectedStatementMonth === currentMonth ? 'Fatura atual' : selectedClosedStatement ? 'Fatura fechada' : 'Fatura anterior'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span><span><small>Total da fatura</small><strong>{currency.format(selectedTotal)}</strong></span>{selectedClosedStatement?.dueDate && <span><small>Vencimento</small><strong>{dateLabel(selectedClosedStatement.dueDate)}</strong></span>}{selectedClosedStatement && <span><small>Status</small><strong>{selectedClosedStatement.paymentStatus === 'paid' ? 'Paga' : selectedClosedStatement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</strong></span>}</div>
-          <div className="cards-page__invoice-lines" aria-label={`Lançamentos da fatura ${monthLabel(selectedStatementMonth)}`}>{selectedItems.map((item) => <div key={`${item.transactionId}-${item.installmentNumber}`} className="cards-page__invoice-line"><span className="cards-page__invoice-description"><strong>{item.description}</strong><small>{dateLabel(item.purchaseDate)}{item.counterpartyName ? ` · ${item.counterpartyName}` : ''}{item.installmentCount > 1 ? ` · Parcela ${item.installmentLabel}` : ''}</small></span><strong className="cards-page__invoice-value">{currency.format(item.amount)}</strong></div>)}</div>
-        </>}
-      </div>}
-    </Dialog>
-
-    <Dialog open={dialog==='edit'&&selected!==null} title="Editar cartão" onClose={()=>{setDialog(null);setSelected(null);}} onBack={()=>{setDialog(null);setSelected(null);}} loading={saving} footer={<><Button variant="secondary" onClick={()=>{setDialog(null);setSelected(null);}}>Cancelar</Button><Button onClick={()=>{void saveEdit();}}>Salvar alterações</Button></>}>
-      <div className="finance-form-grid">
-        <Input label="Nome do cartão" value={editForm.name} onChange={(e)=>setEditForm(v=>({...v,name:e.target.value}))}/>
-        <Input label="Final do cartão" value={editForm.lastFour} maxLength={4} onChange={(e)=>setEditForm(v=>({...v,lastFour:e.target.value.replace(/\D/g,'').slice(0,4)}))}/>
-        <Input label="Limite de crédito" inputMode="decimal" value={editForm.creditLimit} onChange={(e)=>setEditForm(v=>({...v,creditLimit:e.target.value}))}/>
-        <Input label="Dia de fechamento" type="number" min={1} max={31} value={editForm.closingDay} onChange={(e)=>setEditForm(v=>({...v,closingDay:e.target.value}))}/>
-        <Input label="Dia de vencimento" type="number" min={1} max={31} value={editForm.dueDay} onChange={(e)=>setEditForm(v=>({...v,dueDay:e.target.value}))}/>
-        <Select label="Status" value={editForm.status} onChange={(e)=>setEditForm(v=>({...v,status:e.target.value==='inactive'?'inactive':'active'}))} options={[{value:'active',label:'Ativo'},{value:'inactive',label:'Inativo'}]}/>
-      </div>
-    </Dialog>
-
-    <Dialog open={dialog==='delete'&&selected!==null} title="Excluir cartão" onClose={()=>{setDialog(null);setSelected(null);}} onBack={()=>{setDialog(null);setSelected(null);}} loading={saving} footer={<><Button variant="secondary" onClick={()=>{setDialog(null);setSelected(null);}}>Cancelar</Button><Button variant="danger" onClick={()=>{void confirmDelete();}}>Excluir cartão</Button></>}>
-      <p>Tem certeza que deseja excluir <strong>{selected?.name}</strong>? O cartão será desativado para preservar o histórico financeiro e as faturas já registradas.</p>
-    </Dialog>
+    <div className="cards-page__summary" aria-label="Resumo dos cartões"><Card><span>Limite total</span><strong>{currency.format(totalLimit)}</strong></Card><Card><span>Utilizado</span><strong className="cards-page__used">{currency.format(totalUsed)}</strong></Card><Card><span>Disponível</span><strong className="cards-page__available">{currency.format(totalAvailable)}</strong></Card></div>
+    <div className="cards-page__list" aria-label="Cartões">{cards.map((item) => { const visual = cardVisual(item.name); return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`} data-sort-group="credit-card-global" data-sort-tenant={tenantId} data-sort-id={item.cardId}>
+      <SortableHandle itemId={item.cardId} tenantId={tenantId} group="credit-card-global" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorder} />
+      <button type="button" className="cards-page__menu-trigger" aria-label={`Ações de ${item.name}`} aria-expanded={menuCardId===item.cardId} onClick={(event)=>{event.stopPropagation();setMenuCardId(menuCardId===item.cardId?null:item.cardId);}}>⋯</button>
+      {menuCardId===item.cardId&&<div className="cards-page__menu" role="menu"><button type="button" onClick={()=>openEdit(item)}>Editar</button><button type="button" className="is-danger" onClick={()=>openDelete(item)}>Excluir</button></div>}
+      <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir faturas de ${item.name}`}><span className="bank-brand__mark" aria-hidden="true">{visual.mark}</span><span className="cards-page__identity"><strong>{item.name}</strong><small>{item.lastFour ? `Final ${item.lastFour}` : visual.institution}</small>{item.dueDay > 0 && <small>Vence dia {item.dueDay}</small>}</span><span className="cards-page__limits"><span><small>Limite</small><strong>{currency.format(item.creditLimit)}</strong></span><span><small>Utilizado</small><strong className="cards-page__used">{currency.format(item.committedAmount)}</strong></span><span><small>Disponível</small><strong className="cards-page__available">{currency.format(item.availableLimit)}</strong></span></span><span className="cards-page__chevron" aria-hidden="true">›</span></Button>
+    </div>; })}</div>
+    <Dialog open={dialog === 'details' && selected !== null} title={selected ? `Faturas · ${selected.name}` : 'Faturas'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={() => {setSelected(null);setDialog(null);}} onBack={() => {setSelected(null);setDialog(null);}}>{selected && <div className="cards-page__details">{detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui faturas com lançamentos." /> : <><div className="cards-page__statement-filter"><label htmlFor="card-statement-month">Fatura</label><select id="card-statement-month" value={selectedStatementMonth} onChange={(event) => setSelectedStatementMonth(event.target.value)}>{selectableMonths.map((month) => { const closedStatement = statements.find((statement) => statement.statementMonth === month); const label = month === currentMonth ? 'Fatura atual' : closedStatement ? 'Fatura fechada' : 'Fatura anterior'; return <option key={month} value={month}>{`${label} · ${monthLabel(month)}`}</option>; })}</select></div><div className="cards-page__invoice-head"><span><small>{selectedStatementMonth === currentMonth ? 'Fatura atual' : selectedClosedStatement ? 'Fatura fechada' : 'Fatura anterior'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span><span><small>Total da fatura</small><strong>{currency.format(selectedTotal)}</strong></span>{selectedClosedStatement?.dueDate && <span><small>Vencimento</small><strong>{dateLabel(selectedClosedStatement.dueDate)}</strong></span>}{selectedClosedStatement && <span><small>Status</small><strong>{selectedClosedStatement.paymentStatus === 'paid' ? 'Paga' : selectedClosedStatement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</strong></span>}</div><div className="cards-page__invoice-lines">{selectedItems.map((item) => <div key={`${item.transactionId}-${item.installmentNumber}`} className="cards-page__invoice-line"><span className="cards-page__invoice-description"><strong>{item.description}</strong><small>{dateLabel(item.purchaseDate)}{item.counterpartyName ? ` · ${item.counterpartyName}` : ''}{item.installmentCount > 1 ? ` · Parcela ${item.installmentLabel}` : ''}</small></span><strong className="cards-page__invoice-value">{currency.format(item.amount)}</strong></div>)}</div></>}</div>}</Dialog>
+    <Dialog open={dialog==='edit'&&selected!==null} title="Editar cartão" onClose={()=>{setDialog(null);setSelected(null);}} onBack={()=>{setDialog(null);setSelected(null);}} loading={saving} footer={<><Button variant="secondary" onClick={()=>{setDialog(null);setSelected(null);}}>Cancelar</Button><Button onClick={()=>{void saveEdit();}}>Salvar alterações</Button></>}><div className="finance-form-grid"><Input label="Nome do cartão" value={editForm.name} onChange={(e)=>setEditForm(v=>({...v,name:e.target.value}))}/><Input label="Final do cartão" value={editForm.lastFour} maxLength={4} onChange={(e)=>setEditForm(v=>({...v,lastFour:e.target.value.replace(/\D/g,'').slice(0,4)}))}/><Input label="Limite de crédito" inputMode="decimal" value={editForm.creditLimit} onChange={(e)=>setEditForm(v=>({...v,creditLimit:e.target.value}))}/><Input label="Dia de fechamento" type="number" min={1} max={31} value={editForm.closingDay} onChange={(e)=>setEditForm(v=>({...v,closingDay:e.target.value}))}/><Input label="Dia de vencimento" type="number" min={1} max={31} value={editForm.dueDay} onChange={(e)=>setEditForm(v=>({...v,dueDay:e.target.value}))}/><Select label="Status" value={editForm.status} onChange={(e)=>setEditForm(v=>({...v,status:e.target.value==='inactive'?'inactive':'active'}))} options={[{value:'active',label:'Ativo'},{value:'inactive',label:'Inativo'}]}/></div></Dialog>
+    <Dialog open={dialog==='delete'&&selected!==null} title="Excluir cartão" onClose={()=>{setDialog(null);setSelected(null);}} onBack={()=>{setDialog(null);setSelected(null);}} loading={saving} footer={<><Button variant="secondary" onClick={()=>{setDialog(null);setSelected(null);}}>Cancelar</Button><Button variant="danger" onClick={()=>{void confirmDelete();}}>Excluir cartão</Button></>}><p>Tem certeza que deseja excluir <strong>{selected?.name}</strong>? O cartão será desativado para preservar o histórico financeiro e as faturas já registradas.</p></Dialog>
   </div>;
 }
