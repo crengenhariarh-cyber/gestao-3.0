@@ -1,6 +1,8 @@
 begin;
 
-create or replace view public.finance_planning_items
+drop view if exists public.finance_planning_items;
+
+create view public.finance_planning_items
 with (security_invoker = true)
 as
 select
