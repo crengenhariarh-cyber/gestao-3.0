@@ -51,7 +51,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [selected, setSelected] = useState<ListedAccount | null>(null);
   const [dialog, setDialog] = useState<AccountDialog>(null);
   const [menuAccountId, setMenuAccountId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', status: 'active' as RegistryStatus });
+  const [editForm, setEditForm] = useState({ companyId: '', sourceCompanyId: '', name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', status: 'active' as RegistryStatus });
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [extractLoading, setExtractLoading] = useState(false);
@@ -77,6 +77,11 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   }, [companies, repositories]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const refresh = () => { void load(); };
+    window.addEventListener('finance-bank-order-changed', refresh);
+    return () => window.removeEventListener('finance-bank-order-changed', refresh);
+  }, [load]);
 
   async function reorder(orderedIds: readonly string[]) {
     if (!tenantId || orderedIds.length < 2) return;
@@ -110,7 +115,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   function openEdit(account: ListedAccount) {
     setMenuAccountId(null);
     setSelected(account);
-    setEditForm({ name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', status: account.status });
+    setEditForm({ companyId: account.companyId, sourceCompanyId: account.companyId, name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', status: account.status });
     setDialog('edit');
   }
 
@@ -127,10 +132,12 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
 
   async function saveEdit() {
     if (!selected) return;
+    const targetCompany = companies.find((company) => company.id === editForm.companyId);
+    if (!targetCompany) return;
     setSaving(true);
     setError(null);
     try {
-      await repositories.registries.updateAccount({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.accountId, name: editForm.name, accountType: editForm.accountType, bankInstitution: editForm.bankInstitution || null, status: editForm.status });
+      await repositories.registries.updateAccount({ tenantId: targetCompany.tenantId, companyId: targetCompany.id, sourceCompanyId: editForm.sourceCompanyId, id: selected.accountId, name: editForm.name, accountType: editForm.accountType, bankInstitution: editForm.bankInstitution || null, status: editForm.status });
       closeDialog();
       await load();
       window.dispatchEvent(new Event('finance-bank-order-changed'));
@@ -183,9 +190,9 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
       {extractLoading ? <LoadingState label="Carregando extrato…" /> : movements.length === 0 ? <p className="ui-muted">Nenhuma movimentação neste mês.</p> : <div className="all-banks-list__extract">{movements.map((item) => <div key={item.id}><span>{item.movementOn.split('-').reverse().join('/')}</span><strong>{item.description || 'Movimentação'}</strong><b>{item.direction === 'inflow' ? '+' : '-'} {currency.format(item.amount)}</b></div>)}</div>}
     </Dialog>
 
-    <Dialog open={dialog === 'edit' && selected !== null} title="Editar banco" description={selected ? selected.companyName : undefined} loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={() => { void saveEdit(); }}>Salvar alterações</Button></>}>
+    <Dialog open={dialog === 'edit' && selected !== null} title="Editar banco" description="Empresa e dados cadastrais podem ser alterados." loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={() => { void saveEdit(); }}>Salvar alterações</Button></>}>
       <div className="finance-form-grid">
-        <Select label="Empresa" value={selected?.companyId ?? ''} disabled options={companies.map((company) => ({ value: company.id, label: companyName(company) }))} />
+        <Select label="Empresa" value={editForm.companyId} onChange={(event) => setEditForm((current) => ({ ...current, companyId: event.target.value }))} options={companies.map((company) => ({ value: company.id, label: companyName(company) }))} required />
         <Input label="Nome da conta" value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} required />
         <Select label="Instituição" value={editForm.bankInstitution} onChange={(event) => setEditForm((current) => ({ ...current, bankInstitution: event.target.value as FinancialBankInstitution | '' }))} options={bankInstitutionOptions} />
         <Select label="Tipo" value={editForm.accountType} onChange={(event) => setEditForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />
