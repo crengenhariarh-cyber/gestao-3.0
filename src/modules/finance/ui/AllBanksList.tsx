@@ -16,7 +16,7 @@ import './statement-view.css';
 
 type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 type ListedAccount = FinancialAccountBalance & { companyName: string };
-type AccountDialog = 'extract' | 'edit' | 'delete' | null;
+type AccountDialog = 'extract' | 'edit' | 'delete' | 'movementEdit' | 'movementDelete' | null;
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const bankInstitutionOptions = [
@@ -47,6 +47,7 @@ function monthRange() {
 }
 function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
 function csvCell(value: string | number): string { return `"${String(value).replaceAll('"', '""')}"`; }
+function money(value: string): number { return Number(value.replace(',', '.')); }
 
 export function AllBanksList({ companies }: { companies: readonly CompanySummary[] }) {
   const repositories = useMemo(() => getFinanceRepositories(), []);
@@ -56,6 +57,8 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [menuAccountId, setMenuAccountId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ companyId: '', sourceCompanyId: '', name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', status: 'active' as RegistryStatus });
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
+  const [selectedMovement, setSelectedMovement] = useState<FinancialAccountMovement | null>(null);
+  const [movementForm, setMovementForm] = useState({ date: '', description: '', amount: '' });
   const [loading, setLoading] = useState(true);
   const [extractLoading, setExtractLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -99,14 +102,24 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     }
   }
 
+  async function refreshExtract(account: ListedAccount) {
+    const scope = { tenantId: account.tenantId, companyId: account.companyId };
+    const [balances, items] = await Promise.all([
+      repositories.accounts.listBalances(scope),
+      repositories.accounts.listMovements(scope, currentPeriod.start, currentPeriod.end),
+    ]);
+    const balance = balances.find((item) => item.accountId === account.accountId);
+    if (balance) setSelected({ ...balance, companyName: account.companyName });
+    setMovements(items.filter((item) => item.accountId === account.accountId).sort((a, b) => `${b.movementOn}:${b.id}`.localeCompare(`${a.movementOn}:${a.id}`)));
+  }
+
   async function openExtract(account: ListedAccount) {
     setMenuAccountId(null);
     setSelected(account);
     setDialog('extract');
     setExtractLoading(true);
     try {
-      const items = await repositories.accounts.listMovements({ tenantId: account.tenantId, companyId: account.companyId }, currentPeriod.start, currentPeriod.end);
-      setMovements(items.filter((item) => item.accountId === account.accountId).sort((a, b) => `${b.movementOn}:${b.id}`.localeCompare(`${a.movementOn}:${a.id}`)));
+      await refreshExtract(account);
     } catch {
       setMovements([]);
       setError('Não foi possível carregar o extrato desta conta.');
@@ -128,9 +141,21 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     setDialog('delete');
   }
 
+  function openMovementEdit(item: FinancialAccountMovement) {
+    setSelectedMovement(item);
+    setMovementForm({ date: item.movementOn, description: item.description ?? '', amount: String(item.amount) });
+    setDialog('movementEdit');
+  }
+
+  function openMovementDelete(item: FinancialAccountMovement) {
+    setSelectedMovement(item);
+    setDialog('movementDelete');
+  }
+
   function closeDialog() {
     setDialog(null);
     setSelected(null);
+    setSelectedMovement(null);
   }
 
   function exportCsv() {
@@ -174,6 +199,51 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
       window.dispatchEvent(new Event('finance-bank-order-changed'));
     } catch {
       setError('Não foi possível excluir o banco.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveMovement() {
+    if (!selected || !selectedMovement) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await repositories.accounts.updateMovement({
+        tenantId: selectedMovement.tenantId,
+        companyId: selectedMovement.companyId,
+        movementId: selectedMovement.id,
+        movementOn: movementForm.date,
+        amount: money(movementForm.amount),
+        description: movementForm.description || null,
+      });
+      const account = selected;
+      setSelectedMovement(null);
+      setDialog('extract');
+      await refreshExtract(account);
+      await load();
+      window.dispatchEvent(new Event('finance-bank-order-changed'));
+    } catch {
+      setError('Não foi possível editar esta movimentação.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteMovement() {
+    if (!selected || !selectedMovement) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await repositories.accounts.deleteMovement({ tenantId: selectedMovement.tenantId, companyId: selectedMovement.companyId, movementId: selectedMovement.id });
+      const account = selected;
+      setSelectedMovement(null);
+      setDialog('extract');
+      await refreshExtract(account);
+      await load();
+      window.dispatchEvent(new Event('finance-bank-order-changed'));
+    } catch {
+      setError('Não foi possível excluir esta movimentação.');
     } finally {
       setSaving(false);
     }
@@ -224,6 +294,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
             <div className={`statement-view__icon statement-view__icon--${item.direction}`}>{item.direction === 'inflow' ? '↑' : '↓'}</div>
             <div className="statement-view__copy"><strong>{item.description || 'Movimentação'}</strong><span>{item.movementOn.split('-').reverse().join('/')} · {item.direction === 'inflow' ? 'Entrada' : 'Saída'}</span></div>
             <strong className={item.direction === 'inflow' ? 'statement-view__positive' : 'statement-view__negative'}>{item.direction === 'inflow' ? '+' : '-'} {currency.format(item.amount)}</strong>
+            <div className="statement-view__actions"><Button variant="tertiary" size="sm" aria-label="Editar movimentação" onClick={() => openMovementEdit(item)}>✎</Button><Button variant="tertiary" size="sm" className="is-danger" aria-label="Excluir movimentação" onClick={() => openMovementDelete(item)}>⌫</Button></div>
           </div>)}</div>}
           <div className="statement-view__footer-actions">
             <Button variant="secondary" onClick={() => openEdit(selected)}>Editar banco</Button>
@@ -233,6 +304,18 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
           </div>
         </>}
       </div>}
+    </Dialog>
+
+    <Dialog open={dialog === 'movementEdit' && selectedMovement !== null} title="Editar movimentação" loading={saving} onClose={() => setDialog('extract')} onBack={() => setDialog('extract')} footer={<><Button variant="secondary" onClick={() => setDialog('extract')}>Cancelar</Button><Button onClick={() => { void saveMovement(); }}>Salvar</Button></>}>
+      <div className="finance-form-grid">
+        <Input label="Data" type="date" value={movementForm.date} onChange={(event) => setMovementForm((current) => ({ ...current, date: event.target.value }))} required />
+        <Input label="Descrição" value={movementForm.description} onChange={(event) => setMovementForm((current) => ({ ...current, description: event.target.value }))} />
+        <Input label="Valor" type="number" min="0.01" step="0.01" value={movementForm.amount} onChange={(event) => setMovementForm((current) => ({ ...current, amount: event.target.value }))} required />
+      </div>
+    </Dialog>
+
+    <Dialog open={dialog === 'movementDelete' && selectedMovement !== null} title="Excluir movimentação" loading={saving} onClose={() => setDialog('extract')} onBack={() => setDialog('extract')} footer={<><Button variant="secondary" onClick={() => setDialog('extract')}>Cancelar</Button><Button variant="danger" onClick={() => { void deleteMovement(); }}>Excluir movimentação</Button></>}>
+      <p>Excluir esta movimentação atualizará automaticamente o saldo da conta e o histórico financeiro relacionado.</p>
     </Dialog>
 
     <Dialog open={dialog === 'edit' && selected !== null} title="Editar banco" description="Empresa e dados cadastrais podem ser alterados." loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={() => { void saveEdit(); }}>Salvar alterações</Button></>}>
