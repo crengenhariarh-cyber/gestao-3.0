@@ -19,6 +19,8 @@ interface PlanningPaymentsDialogProps {
 }
 
 type ActionKind = 'payment' | 'edit' | 'delete' | null;
+type PaymentMode = 'total' | 'partial';
+type PaymentSummary = { original: number; paid: number; remaining: number };
 
 const finance = getFinanceRepositories();
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -44,6 +46,9 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('total');
+  const [paymentSummary, setPaymentSummary] = useState<PaymentSummary>({ original: 0, paid: 0, remaining: 0 });
+  const [overpayConfirm, setOverpayConfirm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ accountId: '', settledOn: today(), amount: '', notes: '' });
   const [editForm, setEditForm] = useState({ description: '', dueDate: today(), totalAmount: '', installmentCount: 1 });
 
@@ -52,8 +57,11 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   const selectedItems = expenses.filter(item => selected.includes(`${item.companyId}|${item.installmentId}`));
   const selectedTotal = selectedItems.reduce((total, item) => total + item.amount, 0);
   const allSelected = expenses.length > 0 && expenses.every(item => selected.includes(`${item.companyId}|${item.installmentId}`));
+  const paymentAmount = Number(paymentForm.amount) || 0;
+  const remainingAfter = Math.max(paymentSummary.remaining - paymentAmount, 0);
+  const overpayAmount = Math.max(paymentAmount - paymentSummary.remaining, 0);
 
-  function closeAction() { setAction(null); setTarget(null); setLoadedEntry(null); setError(null); }
+  function closeAction() { setAction(null); setTarget(null); setLoadedEntry(null); setError(null); setOverpayConfirm(false); }
   function toggle(item: HomeEntry) {
     const key = `${item.companyId}|${item.installmentId}`;
     setSelected(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key]);
@@ -61,38 +69,64 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   function toggleAll() {
     setSelected(current => allSelected ? current.filter(value => !keys.includes(value)) : [...new Set([...current, ...keys])]);
   }
+  function choosePaymentMode(mode: PaymentMode) {
+    setPaymentMode(mode);
+    if (mode === 'total') setPaymentForm(current => ({ ...current, amount: String(paymentSummary.remaining) }));
+  }
 
   async function openPayment(item: HomeEntry) {
-    setBusy(true); setError(null); setSuccess(null); setTarget(item);
+    setBusy(true); setError(null); setSuccess(null); setTarget(item); setPaymentMode('total');
     try {
       const scope = { tenantId: item.tenantId, companyId: item.companyId };
-      const accountList = (await finance.registries.listAccounts(scope)).filter(account => account.status === 'active');
+      const accountPromise = finance.registries.listAccounts(scope);
+      let summary: PaymentSummary;
+      let preferredAccountId = '';
+      if (item.sourceKind === 'financial_installment') {
+        const balances = await finance.settlements.listBalances(scope);
+        const balance = balances.find(entry => entry.installmentId === actualInstallmentId(item));
+        summary = balance ? { original: balance.installmentAmount, paid: balance.settledAmount, remaining: balance.remainingAmount } : { original: item.amount, paid: 0, remaining: item.amount };
+      } else {
+        const card = parseCardItem(item);
+        if (!card) throw new Error('Fatura inválida');
+        const [statements, cards] = await Promise.all([finance.cards.listStatements(scope, card.cardId), finance.cards.listCards(scope)]);
+        const statement = statements.find(entry => entry.statementMonth === card.statementMonth);
+        summary = statement ? { original: statement.statementAmount, paid: statement.paidAmount, remaining: statement.remainingAmount } : { original: item.amount, paid: 0, remaining: item.amount };
+        preferredAccountId = cards.find(entry => entry.id === card.cardId)?.defaultPaymentAccountId ?? '';
+      }
+      const accountList = (await accountPromise).filter(account => account.status === 'active');
       setAccounts(accountList);
-      setPaymentForm({ accountId: '', settledOn: today(), amount: String(item.amount), notes: '' });
+      setPaymentSummary(summary);
+      setPaymentForm({ accountId: accountList.some(account => account.id === preferredAccountId) ? preferredAccountId : '', settledOn: today(), amount: String(summary.remaining), notes: '' });
       setAction('payment');
-    } catch { setError('Não foi possível carregar as contas disponíveis para pagamento.'); }
+    } catch { setError('Não foi possível carregar os dados do pagamento.'); }
     finally { setBusy(false); }
   }
 
-  async function savePayment() {
-    if (!target || !paymentForm.accountId || Number(paymentForm.amount) <= 0) return;
-    setBusy(true); setError(null); setSuccess(null);
+  async function performPayment() {
+    if (!target || !paymentForm.accountId || paymentAmount <= 0) return;
+    setBusy(true); setError(null); setSuccess(null); setOverpayConfirm(false);
     try {
       const scope = { tenantId: target.tenantId, companyId: target.companyId };
       if (target.sourceKind === 'financial_installment') {
-        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: Number(paymentForm.amount), idempotencyKey: actionKey('planning-payment'), notes: paymentForm.notes || null });
+        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey('planning-payment'), notes: paymentForm.notes || null });
       } else {
         const card = parseCardItem(target);
         if (!card) throw new Error('Fatura inválida');
         const existing = (await finance.cards.listStatements(scope, card.cardId)).find(statement => statement.statementMonth === card.statementMonth);
         const statement = existing ?? await finance.cards.closeStatement({ ...scope, cardId: card.cardId, statementMonth: card.statementMonth });
-        await finance.cards.recordStatementPayment({ ...scope, statementId: statement.statementId, accountId: paymentForm.accountId, paidOn: paymentForm.settledOn, amount: Number(paymentForm.amount), idempotencyKey: actionKey('planning-card-payment'), notes: paymentForm.notes || null });
+        await finance.cards.recordStatementPayment({ ...scope, statementId: statement.statementId, accountId: paymentForm.accountId, paidOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey('planning-card-payment'), notes: paymentForm.notes || null });
       }
-      setSuccess('Pagamento registrado. O planejamento e o saldo serão atualizados.');
+      setSuccess(`Pagamento de ${money(paymentAmount)} registrado com sucesso.`);
       setSelected(current => current.filter(value => value !== `${target.companyId}|${target.installmentId}`));
       closeAction(); onChanged();
     } catch { setError('Não foi possível registrar o pagamento. Nenhuma segunda baixa foi criada.'); }
     finally { setBusy(false); }
+  }
+
+  function requestPayment() {
+    if (!target || !paymentForm.accountId || paymentAmount <= 0) return;
+    if (paymentAmount > paymentSummary.remaining + 0.005) { setOverpayConfirm(true); return; }
+    void performPayment();
   }
 
   async function openEdit(item: HomeEntry) {
@@ -173,9 +207,21 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
       </div>
     </Dialog>
 
-    <Dialog open={action === 'payment'} title={target?.sourceKind === 'card_statement' ? 'Pagar fatura' : 'Registrar pagamento'} description={target ? `${target.description} · ${money(target.amount)}` : undefined} loading={busy} confirmLabel="Pagar" onClose={closeAction} onBack={closeAction} onConfirm={() => { void savePayment(); }}>
-      {error && <Feedback tone="danger" title="Não foi possível pagar" message={error} />}
-      <div className="planning-payments__filters"><Select label="Conta" value={paymentForm.accountId} onChange={event => setPaymentForm(current => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /><Input label="Data" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor" type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={event => setPaymentForm(current => ({ ...current, amount: event.target.value }))} required /><Input label="Observação" value={paymentForm.notes} onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))} /></div>
+    <Dialog open={action === 'payment'} title="Registrar pagamento" description={target ? `${target.description}${target.sourceKind === 'card_statement' ? ' · FATURA DE CARTÃO' : ''}` : undefined} loading={busy} confirmLabel="Confirmar pagamento" onClose={closeAction} onBack={closeAction} onConfirm={requestPayment}>
+      <div className="payment-app">
+        {error && <Feedback tone="danger" title="Não foi possível pagar" message={error} />}
+        <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{target?.description ?? 'Pagamento'}</strong><span>{target?.sourceKind === 'card_statement' ? 'FATURA DE CARTÃO' : target?.installmentCount && target.installmentCount > 1 ? `PARCELA ${target.installmentNumber}/${target.installmentCount}` : 'DESPESA'}</span></div></div>
+        <div className="payment-app__totals"><div><span>Total original</span><strong>{money(paymentSummary.original)}</strong></div><div><span>Já pago</span><strong>{money(paymentSummary.paid)}</strong></div><div><span>Restante</span><strong>{money(paymentSummary.remaining)}</strong></div></div>
+        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>Pagamento total</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>Pagamento parcial</strong><small>Pagar parte ou informar outro valor</small></span></Button></div>
+        <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={event => setPaymentForm(current => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /></div>
+        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor efetivamente pago" type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={event => setPaymentForm(current => ({ ...current, amount: event.target.value }))} required /></div>
+        <Input label="Observação" value={paymentForm.notes} onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
+        <div className={`payment-app__result ${overpayAmount > 0 ? 'is-warning' : ''}`.trim()}><span>{overpayAmount > 0 ? 'Valor acima do restante' : 'Saldo restante após confirmar'}</span><strong>{overpayAmount > 0 ? `+ ${money(overpayAmount)}` : money(remainingAfter)}</strong></div>
+      </div>
+    </Dialog>
+
+    <Dialog open={overpayConfirm} title="Confirmar valor acima da despesa" description={target ? `Você informou ${money(paymentAmount)}, mas o saldo restante de ${target.description} é ${money(paymentSummary.remaining)}.` : undefined} loading={busy} confirmLabel="Sim, pagar este valor" onClose={() => setOverpayConfirm(false)} onBack={() => setOverpayConfirm(false)} onConfirm={() => { void performPayment(); }}>
+      <div className="payment-app__warning"><strong>Diferença de {money(overpayAmount)}</strong><span>O valor integral informado será descontado da conta bancária. A despesa ficará quitada e o excedente ficará registrado como valor efetivamente pago.</span></div>
     </Dialog>
 
     <Dialog open={action === 'edit'} title="Editar lançamento" description={loadedEntry && loadedEntry.installmentCount > 1 ? `Este lançamento possui ${loadedEntry.installmentCount} parcelas; a edição é da série.` : 'Edite sem sair do planejamento.'} loading={busy} confirmLabel="Salvar" onClose={closeAction} onBack={closeAction} onConfirm={() => { void saveEdit(); }}>
