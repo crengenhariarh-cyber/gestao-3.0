@@ -7,7 +7,6 @@ import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { PageHeader } from '../../../shared/ui/PageHeader';
-import { SortableHandle } from '../../../shared/ui/SortableHandle';
 import '../../home/ui/bank-brand.css';
 import './cards-page.css';
 
@@ -40,7 +39,6 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const tenantId = uniqueCompanies[0]?.tenantId ?? '';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,9 +51,10 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
           repositories.cards.listCards(scope),
         ]);
         const byId = new Map<string, CreditCard>(registered.map((item) => [item.id, item]));
-        return limits.map((item) => {
+        return limits.flatMap((item) => {
           const card = byId.get(item.cardId);
-          return { ...item, companyName: companyName(company), lastFour: card?.lastFour ?? null, dueDay: card?.dueDay ?? 0 };
+          if (!card || card.status !== 'active') return [];
+          return [{ ...item, companyName: companyName(company), lastFour: card.lastFour ?? null, dueDay: card.dueDay ?? 0 }];
         });
       }));
       const uniqueCards = [...new Map(groups.flat().map((item) => [item.cardId, item])).values()];
@@ -68,18 +67,6 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   }, [repositories.cards, uniqueCompanies]);
 
   useEffect(() => { void load(); }, [load]);
-
-  async function reorder(orderedIds: readonly string[]) {
-    if (!tenantId || orderedIds.length < 2) return;
-    try {
-      setError(null);
-      await repositories.cards.reorder(tenantId, orderedIds);
-      await load();
-      window.dispatchEvent(new Event('finance-card-order-changed'));
-    } catch {
-      setError('Não foi possível salvar a nova ordem dos cartões.');
-    }
-  }
 
   async function openDetails(item: ListedCard) {
     setSelected(item);
@@ -106,11 +93,6 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     <PageHeader title="Cartões" />
     {error && <Feedback tone="danger" title="Cartões" message={error} />}
 
-    <div className="cards-page__reorder-tip" role="note">
-      <span className="cards-page__reorder-icon" aria-hidden="true">i</span>
-      <span><strong>Ordene como quiser</strong><small>Segure o ícone ⋮⋮ e arraste para reorganizar a ordem dos cartões.</small></span>
-    </div>
-
     <div className="cards-page__summary" aria-label="Resumo dos cartões">
       <Card><span>Limite total</span><strong>{currency.format(totalLimit)}</strong></Card>
       <Card><span>Utilizado</span><strong className="cards-page__used">{currency.format(totalUsed)}</strong></Card>
@@ -120,8 +102,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     <div className="cards-page__list" aria-label="Cartões">
       {cards.map((item) => {
         const visual = cardVisual(item.name);
-        return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`} data-sort-group="credit-card-global" data-sort-tenant={tenantId} data-sort-id={item.cardId}>
-          <SortableHandle itemId={item.cardId} tenantId={tenantId} group="credit-card-global" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorder} />
+        return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`}>
           <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir detalhes de ${item.name}`}>
             <span className="bank-brand__mark" aria-hidden="true">{visual.mark}</span>
             <span className="cards-page__identity"><strong>{item.name}</strong><small>{item.lastFour ? `Final ${item.lastFour}` : visual.institution}</small>{item.dueDay > 0 && <small>Vence dia {item.dueDay}</small>}</span>
