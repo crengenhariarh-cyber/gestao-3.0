@@ -19,7 +19,7 @@ import './finance.css';
 import './banks-page.css';
 import '../../home/ui/bank-brand.css';
 
-interface BanksPageProps { company: CompanySummary; showHeader?: boolean; }
+interface BanksPageProps { company: CompanySummary; companies?: readonly CompanySummary[]; showHeader?: boolean; }
 type DialogKind = 'account' | 'accountDelete' | 'transfer' | 'plan' | 'extract' | null;
 type ExtractTab = 'realized' | 'forecast';
 type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
@@ -59,7 +59,8 @@ function bankVisual(value: string | null, fallbackName: string): { tone: BankTon
   return { tone: 'generic', mark: '', bank: 'Banco' };
 }
 
-export function BanksPage({ company, showHeader = true }: BanksPageProps) {
+export function BanksPage({ company, companies = [company], showHeader = true }: BanksPageProps) {
+  const availableCompanies = useMemo(() => [...new Map(companies.map((item) => [item.id, item])).values()], [companies]);
   const scope = useMemo(() => ({ tenantId: company.tenantId, companyId: company.id }), [company.id, company.tenantId]);
   const repositories = useMemo(() => getFinanceRepositories(), []);
   const initialRange = useMemo(() => monthRange(), []);
@@ -74,7 +75,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const [movementsError, setMovementsError] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
-  const [accountForm, setAccountForm] = useState({ id: '', name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', openingBalance: '0', status: 'active' as RegistryStatus });
+  const [accountForm, setAccountForm] = useState({ id: '', companyId: company.id, sourceCompanyId: company.id, name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', openingBalance: '0', status: 'active' as RegistryStatus });
   const [transferForm, setTransferForm] = useState({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
   const [planForm, setPlanForm] = useState({ entryId: '', plannedAccountId: '' });
   const overview = useFinanceOverview(scope, refreshToken);
@@ -131,17 +132,18 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const periodOutflow = accountMovements.filter((item) => item.direction === 'outflow').reduce((sum, item) => sum + item.amount, 0);
   const accountOptions = [{ value: '', label: 'Selecione…' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))];
   const plannedAccountOptions = [{ value: '', label: 'Sem conta prevista' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))];
+  const companyOptions = availableCompanies.map((item) => ({ value: item.id, label: companyName(item) }));
   const uniqueOpenEntries = Array.from(new Map(openEntries.map((item) => [item.entryId, item])).values());
   const entryOptions = [{ value: '', label: 'Selecione…' }, ...uniqueOpenEntries.map((item) => ({ value: item.entryId, label: `${item.description} · ${item.entryType === 'income' ? 'Receber' : 'Pagar'}` }))];
 
   function closeDialog() { setDialog(null); operations.clearFeedback(); }
   function openExtract(accountId: string) { setMenuAccountId(null); setSelectedAccountId(accountId); setExtractTab('realized'); operations.clearFeedback(); setDialog('extract'); }
-  function openNewAccount() { setMenuAccountId(null); setAccountForm({ id: '', name: '', accountType: 'bank', bankInstitution: '', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
+  function openNewAccount() { setMenuAccountId(null); setAccountForm({ id: '', companyId: company.id, sourceCompanyId: company.id, name: '', accountType: 'bank', bankInstitution: '', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
   function openEditAccount(accountId: string) {
     setMenuAccountId(null);
     const account = (references?.accounts ?? []).find((item) => item.id === accountId);
     if (!account) return;
-    setAccountForm({ id: account.id, name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', openingBalance: String(account.openingBalance), status: account.status });
+    setAccountForm({ id: account.id, companyId: account.companyId, sourceCompanyId: account.companyId, name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', openingBalance: String(account.openingBalance), status: account.status });
     operations.clearFeedback();
     setDialog('account');
   }
@@ -159,9 +161,12 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   }
   async function refreshAll() { await operations.loadReferences(); setRefreshToken((value) => value + 1); closeDialog(); }
   async function saveAccount() {
+    const targetCompany = availableCompanies.find((item) => item.id === accountForm.companyId);
+    if (!targetCompany) return;
     try {
-      if (accountForm.id) await operations.updateAccount({ id: accountForm.id, name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, status: accountForm.status });
-      else await operations.createAccount({ name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, openingBalance: money(accountForm.openingBalance) });
+      if (accountForm.id) await repositories.registries.updateAccount({ tenantId: targetCompany.tenantId, companyId: targetCompany.id, sourceCompanyId: accountForm.sourceCompanyId, id: accountForm.id, name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, status: accountForm.status });
+      else await repositories.registries.createAccount({ tenantId: targetCompany.tenantId, companyId: targetCompany.id, name: accountForm.name, accountType: accountForm.accountType, bankInstitution: accountForm.bankInstitution || null, openingBalance: money(accountForm.openingBalance) });
+      window.dispatchEvent(new Event('finance-bank-order-changed'));
       await refreshAll();
     } catch { /* feedback padronizado permanece no modal */ }
   }
@@ -228,10 +233,10 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
       </div>}
     </Dialog>
 
-    <Dialog open={dialog === 'account'} title={accountForm.id ? 'Editar banco' : 'Novo banco'} description={companyName(company)} loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveAccount(); }}>
+    <Dialog open={dialog === 'account'} title={accountForm.id ? 'Editar banco' : 'Novo banco'} description="Selecione a empresa responsável por esta conta." loading={operations.state.busy} confirmLabel="Salvar" onClose={closeDialog} onBack={closeDialog} onConfirm={() => { void saveAccount(); }}>
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
       <div className="finance-form-grid">
-        <Select label="Empresa" value={company.id} disabled options={[{ value: company.id, label: companyName(company) }]} />
+        <Select label="Empresa" value={accountForm.companyId} onChange={(event) => setAccountForm((current) => ({ ...current, companyId: event.target.value }))} options={companyOptions} required />
         <Input label="Nome da conta" value={accountForm.name} onChange={(event) => setAccountForm((current) => ({ ...current, name: event.target.value }))} required />
         <Select label="Instituição" value={accountForm.bankInstitution} onChange={(event) => setAccountForm((current) => ({ ...current, bankInstitution: event.target.value as FinancialBankInstitution | '' }))} options={bankInstitutionOptions} required />
         <Select label="Tipo" value={accountForm.accountType} onChange={(event) => setAccountForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />
