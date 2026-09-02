@@ -17,7 +17,7 @@ import './cards-page.css';
 type CardTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 type ListedCard = CreditCardLimit & { companyName: string; bankInstitution: FinancialBankInstitution | null; lastFour: string | null; dueDay: number; closingDay: number; defaultPaymentAccountId: string | null; status: CreditCard['status'] };
 type CardDialog = 'details' | 'create' | 'edit' | 'delete' | null;
-type CardForm = { companyId: string; name: string; bankInstitution: FinancialBankInstitution | ''; creditLimit: string; closingDay: string; dueDay: string; status: CreditCard['status']; lastFour: string; defaultPaymentAccountId: string };
+type CardForm = { companyId: string; sourceCompanyId: string; name: string; bankInstitution: FinancialBankInstitution | ''; creditLimit: string; closingDay: string; dueDay: string; status: CreditCard['status']; lastFour: string; defaultPaymentAccountId: string };
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const bankInstitutionOptions = [
@@ -46,14 +46,16 @@ function cardVisual(institution: FinancialBankInstitution | null, name: string):
   return { tone: 'generic', mark: 'CARD', institution: 'Cartão' };
 }
 
-export function CardsPage({ companies }: { companies: readonly CompanySummary[] }) {
+export function CardsPage({ companies, availableCompanies = companies }: { companies: readonly CompanySummary[]; availableCompanies?: readonly CompanySummary[] }) {
   const repositories = useMemo(() => getFinanceRepositories(), []);
   const uniqueCompanies = useMemo(() => [...new Map(companies.map((company) => [company.id, company])).values()], [companies]);
+  const formCompanies = useMemo(() => [...new Map(availableCompanies.map((company) => [company.id, company])).values()], [availableCompanies]);
+  const defaultCompanyId = uniqueCompanies[0]?.id ?? formCompanies[0]?.id ?? '';
   const [cards, setCards] = useState<readonly ListedCard[]>([]);
   const [selected, setSelected] = useState<ListedCard | null>(null);
   const [dialog, setDialog] = useState<CardDialog>(null);
   const [menuCardId, setMenuCardId] = useState<string | null>(null);
-  const [cardForm, setCardForm] = useState<CardForm>({ companyId: uniqueCompanies[0]?.id ?? '', name: '', bankInstitution: '', creditLimit: '', closingDay: '10', dueDay: '20', status: 'active', lastFour: '', defaultPaymentAccountId: '' });
+  const [cardForm, setCardForm] = useState<CardForm>({ companyId: defaultCompanyId, sourceCompanyId: defaultCompanyId, name: '', bankInstitution: '', creditLimit: '', closingDay: '10', dueDay: '20', status: 'active', lastFour: '', defaultPaymentAccountId: '' });
   const [statementItems, setStatementItems] = useState<readonly CardStatementItem[]>([]);
   const [statements, setStatements] = useState<readonly CardStatementBalance[]>([]);
   const [selectedStatementMonth, setSelectedStatementMonth] = useState('');
@@ -61,7 +63,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const tenantId = uniqueCompanies[0]?.tenantId ?? '';
+  const tenantId = formCompanies[0]?.tenantId ?? uniqueCompanies[0]?.tenantId ?? '';
   const currentMonth = monthKey();
 
   const load = useCallback(async () => {
@@ -107,7 +109,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   function openCreate() {
     setMenuCardId(null);
     setSelected(null);
-    setCardForm({ companyId: uniqueCompanies[0]?.id ?? '', name: '', bankInstitution: '', creditLimit: '', closingDay: '10', dueDay: '20', status: 'active', lastFour: '', defaultPaymentAccountId: '' });
+    setCardForm({ companyId: defaultCompanyId, sourceCompanyId: defaultCompanyId, name: '', bankInstitution: '', creditLimit: '', closingDay: '10', dueDay: '20', status: 'active', lastFour: '', defaultPaymentAccountId: '' });
     setDialog('create');
   }
 
@@ -141,7 +143,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   function openEdit(item: ListedCard) {
     setMenuCardId(null);
     setSelected(item);
-    setCardForm({ companyId: item.companyId, name: item.name, bankInstitution: item.bankInstitution ?? '', creditLimit: String(item.creditLimit), closingDay: String(item.closingDay || 1), dueDay: String(item.dueDay || 1), status: item.status, lastFour: item.lastFour ?? '', defaultPaymentAccountId: item.defaultPaymentAccountId ?? '' });
+    setCardForm({ companyId: item.companyId, sourceCompanyId: item.companyId, name: item.name, bankInstitution: item.bankInstitution ?? '', creditLimit: String(item.creditLimit), closingDay: String(item.closingDay || 1), dueDay: String(item.dueDay || 1), status: item.status, lastFour: item.lastFour ?? '', defaultPaymentAccountId: item.defaultPaymentAccountId ?? '' });
     setDialog('edit');
   }
 
@@ -154,7 +156,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   function closeDialog() { setDialog(null); setSelected(null); }
 
   async function saveCreate() {
-    const company = uniqueCompanies.find((item) => item.id === cardForm.companyId);
+    const company = formCompanies.find((item) => item.id === cardForm.companyId);
     if (!company) return;
     setSaving(true); setError(null);
     try {
@@ -166,9 +168,11 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
 
   async function saveEdit() {
     if (!selected) return;
+    const company = formCompanies.find((item) => item.id === cardForm.companyId);
+    if (!company) return;
     setSaving(true); setError(null);
     try {
-      await repositories.cards.updateCard({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.cardId, name: cardForm.name, bankInstitution: cardForm.bankInstitution || null, lastFour: cardForm.lastFour || null, creditLimit: money(cardForm.creditLimit), closingDay: Number(cardForm.closingDay), dueDay: Number(cardForm.dueDay), defaultPaymentAccountId: cardForm.defaultPaymentAccountId || null, status: cardForm.status });
+      await repositories.cards.updateCard({ tenantId: company.tenantId, companyId: company.id, sourceCompanyId: cardForm.sourceCompanyId, id: selected.cardId, name: cardForm.name, bankInstitution: cardForm.bankInstitution || null, lastFour: cardForm.lastFour || null, creditLimit: money(cardForm.creditLimit), closingDay: Number(cardForm.closingDay), dueDay: Number(cardForm.dueDay), defaultPaymentAccountId: cardForm.companyId === cardForm.sourceCompanyId ? cardForm.defaultPaymentAccountId || null : null, status: cardForm.status });
       closeDialog(); await load(); window.dispatchEvent(new Event('finance-card-order-changed'));
     } catch { setError('Não foi possível salvar as alterações do cartão.'); }
     finally { setSaving(false); }
@@ -188,14 +192,14 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   const selectedItems = useMemo(() => statementItems.filter((item) => item.statementMonth === selectedStatementMonth), [statementItems, selectedStatementMonth]);
   const selectedClosedStatement = useMemo(() => statements.find((statement) => statement.statementMonth === selectedStatementMonth) ?? null, [statements, selectedStatementMonth]);
   const selectedTotal = selectedClosedStatement?.statementAmount ?? selectedItems.reduce((sum, item) => sum + item.amount, 0);
-  const companyOptions = uniqueCompanies.map((company) => ({ value: company.id, label: companyName(company) }));
+  const companyOptions = formCompanies.map((company) => ({ value: company.id, label: companyName(company) }));
 
   if (loading) return <LoadingState label="Carregando cartões…" />;
   const totalLimit = cards.reduce((sum, item) => sum + item.creditLimit, 0);
   const totalUsed = cards.reduce((sum, item) => sum + item.committedAmount, 0);
   const totalAvailable = cards.reduce((sum, item) => sum + item.availableLimit, 0);
   const cardFormFields = <div className="finance-form-grid">
-    <Select label="Empresa" value={cardForm.companyId} disabled={dialog === 'edit'} onChange={(event) => setCardForm((current) => ({ ...current, companyId: event.target.value }))} options={companyOptions} required />
+    <Select label="Empresa" value={cardForm.companyId} onChange={(event) => setCardForm((current) => ({ ...current, companyId: event.target.value }))} options={companyOptions} required />
     <Input label="Nome do cartão" value={cardForm.name} onChange={(event) => setCardForm((current) => ({ ...current, name: event.target.value }))} required />
     <Select label="Instituição" value={cardForm.bankInstitution} onChange={(event) => setCardForm((current) => ({ ...current, bankInstitution: event.target.value as FinancialBankInstitution | '' }))} options={bankInstitutionOptions} required />
     <Select label="Tipo" value="card" disabled options={[{ value: 'card', label: 'Cartão' }]} />
@@ -221,7 +225,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     <Dialog open={dialog === 'details' && selected !== null} title={selected ? `Faturas · ${selected.name}` : 'Faturas'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={closeDialog} onBack={closeDialog}>{selected && <div className="cards-page__details">{detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui faturas com lançamentos." /> : <><div className="cards-page__statement-filter"><Select label="Fatura" value={selectedStatementMonth} onChange={(event) => setSelectedStatementMonth(event.target.value)} options={selectableMonths.map((month) => { const closedStatement = statements.find((statement) => statement.statementMonth === month); const label = month === currentMonth ? 'Fatura atual' : closedStatement ? 'Fatura fechada' : 'Fatura anterior'; return { value: month, label: `${label} · ${monthLabel(month)}` }; })} /></div><div className="cards-page__invoice-head"><span><small>{selectedStatementMonth === currentMonth ? 'Fatura atual' : selectedClosedStatement ? 'Fatura fechada' : 'Fatura anterior'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span><span><small>Total da fatura</small><strong>{currency.format(selectedTotal)}</strong></span>{selectedClosedStatement?.dueDate && <span><small>Vencimento</small><strong>{dateLabel(selectedClosedStatement.dueDate)}</strong></span>}{selectedClosedStatement && <span><small>Status</small><strong>{selectedClosedStatement.paymentStatus === 'paid' ? 'Paga' : selectedClosedStatement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</strong></span>}</div><div className="cards-page__invoice-lines">{selectedItems.map((item) => <div key={`${item.transactionId}-${item.installmentNumber}`} className="cards-page__invoice-line"><span className="cards-page__invoice-description"><strong>{item.description}</strong><small>{dateLabel(item.purchaseDate)}{item.counterpartyName ? ` · ${item.counterpartyName}` : ''}{item.installmentCount > 1 ? ` · Parcela ${item.installmentLabel}` : ''}</small></span><strong className="cards-page__invoice-value">{currency.format(item.amount)}</strong></div>)}</div></>}</div>}</Dialog>
 
     <Dialog open={dialog === 'create'} title="Novo cartão" description="Cadastre somente os dados do cartão." onClose={closeDialog} onBack={closeDialog} loading={saving} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={()=>{void saveCreate();}}>Salvar cartão</Button></>}>{cardFormFields}</Dialog>
-    <Dialog open={dialog === 'edit' && selected !== null} title="Editar cartão" description={selected?.companyName} onClose={closeDialog} onBack={closeDialog} loading={saving} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={()=>{void saveEdit();}}>Salvar alterações</Button></>}>{cardFormFields}</Dialog>
+    <Dialog open={dialog === 'edit' && selected !== null} title="Editar cartão" description="Empresa, instituição e dados da fatura podem ser alterados." onClose={closeDialog} onBack={closeDialog} loading={saving} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={()=>{void saveEdit();}}>Salvar alterações</Button></>}>{cardFormFields}</Dialog>
     <Dialog open={dialog === 'delete' && selected !== null} title="Excluir cartão" onClose={closeDialog} onBack={closeDialog} loading={saving} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button variant="danger" onClick={()=>{void confirmDelete();}}>Excluir cartão</Button></>}><p>Tem certeza que deseja excluir <strong>{selected?.name}</strong>? O cartão será desativado para preservar o histórico financeiro e as faturas já registradas.</p></Dialog>
   </div>;
 }
