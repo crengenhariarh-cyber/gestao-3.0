@@ -6,7 +6,9 @@ import { getHrBudgetRepository, getHrOperationsRepository } from '../infrastruct
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
 import { Input } from '../../../shared/ui/Input';
+import { SearchableSelect, type SearchableSelectOption } from '../../../shared/ui/SearchableSelect';
 import { Select } from '../../../shared/ui/Select';
+import { Tabs } from '../../../shared/ui/Tabs';
 import { currentHrCompetence } from './useHrBudgetOverview';
 import './hr-workspace.css';
 
@@ -20,7 +22,7 @@ type CompanyData = {
 
 const ALL_HR_COMPANIES = '__all_hr_companies__';
 
-const tabs: Array<{ id: HrWorkspaceTab; label: string; icon: typeof BarChart3 }> = [
+const tabDefinitions: Array<{ id: HrWorkspaceTab; label: string; icon: typeof BarChart3 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'colaboradores', label: 'Colaboradores', icon: UsersRound },
   { id: 'epis', label: 'EPIs', icon: HardHat },
@@ -43,6 +45,19 @@ function companyLabel(company: CompanySummary): string {
   if (raw.includes('PR-HIST') || /(^|\s)PR(\s|$)/.test(raw)) return 'PR';
   if (raw.includes('CR-HIST') || /(^|\s)CR(\s|$)/.test(raw)) return 'CR';
   return company.tradeName ?? company.legalName;
+}
+
+function normalizeSearch(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim();
+}
+
+function smartMatches(values: Array<string | null | undefined>, query: string): boolean {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return true;
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  const searchable = normalizeSearch(values.filter(Boolean).join(' '));
+  const words = searchable.split(/\s+/).filter(Boolean);
+  return tokens.every((token) => words.some((word) => word.startsWith(token)) || searchable.includes(token));
 }
 
 export function HrWorkspacePage({ companies, initialCompanyId }: { companies: readonly CompanySummary[]; initialCompanyId?: string }) {
@@ -89,8 +104,7 @@ export function HrWorkspacePage({ companies, initialCompanyId }: { companies: re
   const activeEmployees = employees.filter((item) => item.contractStatus === 'active');
   const filteredEmployees = employees.filter((item) => {
     if (employeeStatus !== 'all' && item.contractStatus !== employeeStatus) return false;
-    const q = employeeSearch.trim().toLocaleLowerCase('pt-BR');
-    return !q || [item.fullName, item.jobTitle, item.costCenterName, item.cpf, item.sector, item.companyName].some((value) => value?.toLocaleLowerCase('pt-BR').includes(q));
+    return smartMatches([item.fullName, item.jobTitle, item.costCenterName, item.cpf, item.sector, item.companyName], employeeSearch);
   });
   const salaryPlanned = companyData.reduce((total, item) => total + item.overview.salaryProjection.reduce((sum, row) => sum + row.plannedSalary, 0), 0);
   const salaryRealized = companyData.reduce((total, item) => total + item.overview.salaryProjection.reduce((sum, row) => sum + row.realizedSalary, 0), 0);
@@ -106,23 +120,24 @@ export function HrWorkspacePage({ companies, initialCompanyId }: { companies: re
     ? [{ value: '', label: 'Selecione a empresa' }, ...companies.map((company) => ({ value: company.id, label: companyLabel(company) }))]
     : companies.filter((company) => company.id === companyFilter).map((company) => ({ value: company.id, label: companyLabel(company) }));
   const commonCompetence = <Input label="Competência" type="month" value={competence} onChange={(event) => setCompetence(event.target.value)} />;
-  const employeeOptions = [{ value: '', label: 'Selecione o colaborador' }, ...activeEmployees.map((item) => ({ value: item.employmentContractId, label: companyFilter === ALL_HR_COMPANIES ? `${item.fullName} · ${item.companyName}` : item.fullName }))];
   const scopeLabel = companyFilter === ALL_HR_COMPANIES ? 'Todas as empresas' : companyLabel(companies.find((item) => item.id === companyFilter) ?? companies[0]!);
+  const tabItems = tabDefinitions.map(({ id, label, icon: Icon }) => ({ id, label, icon: <Icon size={16}/> }));
+  const employeeOptions: SearchableSelectOption[] = activeEmployees.map((item) => ({
+    value: item.employmentContractId,
+    label: companyFilter === ALL_HR_COMPANIES ? `${item.fullName} · ${item.companyName}` : item.fullName,
+    keywords: [item.fullName, item.companyName, item.jobTitle, item.costCenterName ?? '', item.cpf ?? '', item.sector ?? ''],
+  }));
+  const employeePicker = (label = 'Colaborador') => <SearchableSelect label={label} options={employeeOptions} placeholder="Digite o nome do colaborador" />;
 
   return <section className="hr-workspace">
-    <Card className="hr-workspace__hero" title="RH" actions={<Button onClick={() => setTab('colaboradores')}>＋ Novo colaborador</Button>} />
-
-    <Card>
-      <div className="hr-workspace__filters">
+    <Card className="hr-workspace__hero" title="RH" actions={<Button size="sm" onClick={() => setTab('colaboradores')}>＋ Novo colaborador</Button>}>
+      <div className="hr-workspace__top-filters">
         <Select label="Empresa" value={companyFilter} options={companyOptions} onChange={(event) => setCompanyFilter(event.target.value)} />
         <Input label="Competência" type="month" value={competence} onChange={(event) => setCompetence(event.target.value)} />
       </div>
-      <span className="ui-muted">Visão atual: {scopeLabel}</span>
     </Card>
 
-    <nav className="hr-workspace__tabs" aria-label="Módulos do RH">
-      {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}><Icon size={20}/><span>{label}</span></button>)}
-    </nav>
+    <Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as HrWorkspaceTab)} ariaLabel="Módulos do RH" />
 
     {loading && <Card><p className="ui-muted">Carregando dados do RH...</p></Card>}
     {errorMessage && <Card><p>{errorMessage}</p></Card>}
@@ -134,24 +149,24 @@ export function HrWorkspacePage({ companies, initialCompanyId }: { companies: re
 
     {!loading && !errorMessage && tab === 'colaboradores' && <div className="hr-workspace__content">
       <Card title="Colaboradores"><div className="hr-workspace__kpis hr-workspace__kpis--small"><Card title="Total"><strong>{employees.length}</strong></Card><Card title="Ativos"><strong>{activeEmployees.length}</strong></Card><Card title="Obras"><strong>{works}</strong></Card><Card title="Banco de horas"><strong>{bankHours}</strong></Card></div></Card>
-      <Card><div className="hr-workspace__filters"><Input label="Buscar" placeholder="Pesquisar nome, CPF, empresa ou obra" value={employeeSearch} onChange={(event) => setEmployeeSearch(event.target.value)} /><Select label="Status" value={employeeStatus} onChange={(event) => setEmployeeStatus(event.target.value)} options={[{ value: 'active', label: 'Ativos' }, { value: 'terminated', label: 'Desligados' }, { value: 'all', label: 'Todos' }]} /></div>{filteredEmployees.length === 0 ? <p className="ui-muted">Nenhum colaborador encontrado.</p> : <div className="hr-workspace__list">{filteredEmployees.map((item) => <div key={`${item.companyId}:${item.employmentContractId}`}><div><strong>{item.fullName}</strong><span>{item.companyName} · {item.jobTitle} · {item.costCenterName ?? 'Sem obra'}</span></div><div><strong>{money.format(item.baseSalary)}</strong><span>{item.contractStatus === 'active' ? 'Ativo' : 'Desligado'}</span></div></div>)}</div>}</Card>
+      <Card><div className="hr-workspace__filters"><Input label="Buscar colaborador" placeholder="Digite nome, CPF, empresa ou obra" value={employeeSearch} onChange={(event) => setEmployeeSearch(event.target.value)} /><Select label="Status" value={employeeStatus} onChange={(event) => setEmployeeStatus(event.target.value)} options={[{ value: 'active', label: 'Ativos' }, { value: 'terminated', label: 'Desligados' }, { value: 'all', label: 'Todos' }]} /></div>{filteredEmployees.length === 0 ? <p className="ui-muted">Nenhum colaborador encontrado.</p> : <div className="hr-workspace__list">{filteredEmployees.map((item) => <div key={`${item.companyId}:${item.employmentContractId}`}><div><strong>{item.fullName}</strong><span>{item.companyName} · {item.jobTitle} · {item.costCenterName ?? 'Sem obra'}</span></div><div><strong>{money.format(item.baseSalary)}</strong><span>{item.contractStatus === 'active' ? 'Ativo' : 'Desligado'}</span></div></div>)}</div>}</Card>
     </div>}
 
-    {!loading && !errorMessage && tab === 'epis' && <div className="hr-workspace__content"><div className="hr-workspace__quick-three"><Card title="Histórico de entregas"><Clock3/></Card><Card title="Cadastro de EPIs"><HardHat/></Card><Card title="Fichas de EPIs"><FolderUp/></Card></div><Card title="Entrega de EPI"><div className="hr-workspace__form"><Select label="Empresa" options={actionCompanyOptions}/><Select label="Colaborador" options={employeeOptions}/><Input label="EPI" placeholder="Selecione ou informe o EPI"/><Input label="Quantidade" type="number" min="1" defaultValue="1"/><Input label="Data da entrega" type="date" defaultValue={new Date().toISOString().slice(0,10)}/><Button>Registrar entrega</Button></div></Card></div>}
+    {!loading && !errorMessage && tab === 'epis' && <div className="hr-workspace__content"><div className="hr-workspace__quick-three"><Card title="Histórico de entregas"><Clock3/></Card><Card title="Cadastro de EPIs"><HardHat/></Card><Card title="Fichas de EPIs"><FolderUp/></Card></div><Card title="Entrega de EPI"><div className="hr-workspace__form"><Select label="Empresa" options={actionCompanyOptions}/>{employeePicker()}<Input label="EPI" placeholder="Selecione ou informe o EPI"/><Input label="Quantidade" type="number" min="1" defaultValue="1"/><Input label="Data da entrega" type="date" defaultValue={new Date().toISOString().slice(0,10)}/><Button>Registrar entrega</Button></div></Card></div>}
 
     {!loading && !errorMessage && tab === 'compliance' && <div className="hr-workspace__content"><Card title="Saúde, segurança e férias" actions={<Button>＋ Novo registro</Button>}><div className="hr-workspace__segment"><Button variant="secondary">ASO</Button><Button variant="secondary">NRs e treinamentos</Button><Button variant="secondary">Férias</Button></div><div className="hr-workspace__empty">Nenhum registro nesta área.</div></Card></div>}
 
-    {!loading && !errorMessage && tab === 'salarios' && <div className="hr-workspace__content"><Card title="Salário e Contas a Pagar"><div className="hr-workspace__form">{commonCompetence}<Select label="Empresa" options={actionCompanyOptions}/><Select label="Colaborador" options={employeeOptions}/><Input label="Salário / valor" value={salaryPlanned ? String(salaryPlanned) : ''} readOnly/><div className="hr-workspace__actions"><Button>Gerar pagamento</Button><Button variant="secondary">Configurar encargos</Button></div></div></Card></div>}
+    {!loading && !errorMessage && tab === 'salarios' && <div className="hr-workspace__content"><Card title="Salário e Contas a Pagar"><div className="hr-workspace__form">{commonCompetence}<Select label="Empresa" options={actionCompanyOptions}/>{employeePicker()}<Input label="Salário / valor" value={salaryPlanned ? String(salaryPlanned) : ''} readOnly/><div className="hr-workspace__actions"><Button>Gerar pagamento</Button><Button variant="secondary">Configurar encargos</Button></div></div></Card></div>}
 
-    {!loading && !errorMessage && tab === 'presenca' && <div className="hr-workspace__content"><Card title="Presença e ponto" actions={<Button variant="secondary">Registrados</Button>}><div className="hr-workspace__form"><Input label="Data" type="date" defaultValue={new Date().toISOString().slice(0,10)}/><Button>Marcar todos presentes</Button><Button variant="secondary">PDF empresa</Button><Select label="Relatório individual" options={employeeOptions}/></div></Card></div>}
+    {!loading && !errorMessage && tab === 'presenca' && <div className="hr-workspace__content"><Card title="Presença e ponto" actions={<Button variant="secondary">Registrados</Button>}><div className="hr-workspace__form"><Input label="Data" type="date" defaultValue={new Date().toISOString().slice(0,10)}/><Button>Marcar todos presentes</Button><Button variant="secondary">PDF empresa</Button>{employeePicker('Relatório individual')}</div></Card></div>}
 
-    {!loading && !errorMessage && tab === 'banco_horas' && <div className="hr-workspace__content"><Card title="Banco de horas"><div className="hr-workspace__form">{commonCompetence}<Select label="Empresa" options={actionCompanyOptions}/><Input label="Buscar colaborador" placeholder="Digite a inicial ou parte do nome"/><Select label="Colaborador" options={employeeOptions}/><div className="hr-workspace__actions"><Button>Registrar movimento</Button><Button variant="secondary">Fechar competência</Button></div></div></Card></div>}
+    {!loading && !errorMessage && tab === 'banco_horas' && <div className="hr-workspace__content"><Card title="Banco de horas"><div className="hr-workspace__form">{commonCompetence}<Select label="Empresa" options={actionCompanyOptions}/>{employeePicker()}<div className="hr-workspace__actions"><Button>Registrar movimento</Button><Button variant="secondary">Fechar competência</Button></div></div></Card></div>}
 
-    {!loading && !errorMessage && tab === 'fechamento' && <div className="hr-workspace__content"><Card title="Fechamento quinzenal"><div className="hr-workspace__form">{commonCompetence}<Select label="Quinzena" options={[{ value: '1', label: '1ª quinzena' }, { value: '2', label: '2ª quinzena' }]}/><Select label="Empresa" options={actionCompanyOptions}/><Select label="Colaborador" options={employeeOptions}/><div className="hr-workspace__actions"><Button>Apurar</Button><Button variant="secondary">Fechar quinzena</Button></div></div></Card></div>}
+    {!loading && !errorMessage && tab === 'fechamento' && <div className="hr-workspace__content"><Card title="Fechamento quinzenal"><div className="hr-workspace__form">{commonCompetence}<Select label="Quinzena" options={[{ value: '1', label: '1ª quinzena' }, { value: '2', label: '2ª quinzena' }]}/><Select label="Empresa" options={actionCompanyOptions}/>{employeePicker()}<div className="hr-workspace__actions"><Button>Apurar</Button><Button variant="secondary">Fechar quinzena</Button></div></div></Card></div>}
 
     {!loading && !errorMessage && tab === 'relatorios' && <div className="hr-workspace__content"><Card title="Relatórios do RH"><div className="hr-workspace__form"><Select label="Modelo" options={[{ value: 'detalhado', label: 'Relatório detalhado por colaborador' }, { value: 'consolidado', label: 'Consolidado por empresa' }, { value: 'banco', label: 'Banco de horas' }]}/><Input label="Competência inicial" type="month" value={competence} onChange={(event) => setCompetence(event.target.value)}/><Input label="Competência final" type="month" value={competence} readOnly/><Button>Gerar relatório</Button></div></Card></div>}
 
-    {!loading && !errorMessage && tab === 'recibos' && <div className="hr-workspace__content"><Card title="Recibos" description="Selecione empresa, colaborador e verbas para gerar ou imprimir."><div className="hr-workspace__form">{commonCompetence}<Select label="Quinzena" options={[{ value: 'all', label: 'Todas' }, { value: '1', label: '1ª quinzena' }, { value: '2', label: '2ª quinzena' }]}/><Select label="Empresa" options={actionCompanyOptions}/><Select label="Colaborador" options={employeeOptions}/><div className="hr-workspace__actions"><Button>Gerar recibo</Button><Button variant="secondary">Imprimir</Button></div></div></Card></div>}
+    {!loading && !errorMessage && tab === 'recibos' && <div className="hr-workspace__content"><Card title="Recibos" description="Selecione empresa, colaborador e verbas para gerar ou imprimir."><div className="hr-workspace__form">{commonCompetence}<Select label="Quinzena" options={[{ value: 'all', label: 'Todas' }, { value: '1', label: '1ª quinzena' }, { value: '2', label: '2ª quinzena' }]}/><Select label="Empresa" options={actionCompanyOptions}/>{employeePicker()}<div className="hr-workspace__actions"><Button>Gerar recibo</Button><Button variant="secondary">Imprimir</Button></div></div></Card></div>}
 
     {!loading && !errorMessage && tab === 'importacoes' && <div className="hr-workspace__content"><Card title="Importação" description="Modelos CSV separados por ponto e vírgula."><div className="hr-workspace__upload"><label>Importar colaboradores<input type="file" accept=".csv,text/csv"/></label><label>Importar fechamento quinzenal<input type="file" accept=".csv,text/csv"/></label><label>Importar banco de horas<input type="file" accept=".csv,text/csv"/></label></div></Card></div>}
 
