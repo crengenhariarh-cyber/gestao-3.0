@@ -48,7 +48,7 @@ function bankVisual(value: string | null, fallbackName: string): { tone: BankTon
   if (raw.includes('BANCO DO BRASIL') || /(^|\s)BB(\s|$)/.test(raw)) return { tone: 'bb', mark: 'BB', bank: 'Banco do Brasil' };
   if (raw.includes('SICREDI')) return { tone: 'sicredi', mark: 'Sicredi', bank: 'Sicredi' };
   if (raw.includes('C6')) return { tone: 'c6', mark: 'C6', bank: 'C6 Bank' };
-  return { tone: 'generic', mark: '▥', bank: 'Banco' };
+  return { tone: 'generic', mark: '', bank: 'Banco' };
 }
 
 export function BanksPage({ company, showHeader = true }: BanksPageProps) {
@@ -152,7 +152,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   }
 
   return <section className={`finance-overview banks-page${showHeader ? '' : ' banks-page--embedded'}`} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}>
-    {showHeader && <PageHeader id="banks-title" title="Bancos" actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')} disabled={activeAccounts.length < 2}>Nova transferência</Button></div>} />}
+    {showHeader && <PageHeader id="banks-title" title="Bancos" actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')}>Nova transferência</Button></div>} />}
 
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
