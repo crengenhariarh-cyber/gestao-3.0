@@ -66,6 +66,22 @@ export interface CardInstallment extends CompanyScope {
   amount: number;
 }
 
+export interface CardStatementItem extends CompanyScope {
+  cardId: string;
+  transactionId: string;
+  purchaseDate: string;
+  description: string;
+  counterpartyName: string | null;
+  installmentNumber: number;
+  installmentCount: number;
+  installmentLabel: string;
+  statementMonth: string;
+  amount: number;
+  statementId: string | null;
+  dueDate: string | null;
+  statementStatus: 'open_statement' | 'pending' | 'partial' | 'paid';
+}
+
 export interface CardStatementBalance extends CompanyScope {
   statementId: string;
   cardId: string;
