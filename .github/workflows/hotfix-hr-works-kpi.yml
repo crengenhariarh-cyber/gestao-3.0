@@ -1,0 +1,31 @@
+name: HR works KPI hotfix
+on:
+  push:
+    paths:
+      - '.github/workflows/hotfix-hr-works-kpi.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count effective works without duplicating same work across companies
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/modules/hr/ui/HrWorkspacePage.tsx')
+          s=p.read_text()
+          old="const works=new Set(activeEmployees.map(i=>`${i.companyId}:${i.costCenterId??''}`).filter(i=>!i.endsWith(':'))).size;"
+          new="const works=new Set(activeEmployees.map(i=>normalizeSearch(i.costCenterName??'')).filter(Boolean)).size;"
+          if old not in s:
+              raise SystemExit('works KPI target not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit hotfix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/modules/hr/ui/HrWorkspacePage.tsx
+          git commit -m 'fix(hr): count effective works by competence'
+          git push
