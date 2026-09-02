@@ -9,6 +9,7 @@ export interface CreditCard extends CompanyScope {
   dueDay: number;
   defaultPaymentAccountId: string | null;
   status: RegistryStatus;
+  sortOrder: number;
 }
 
 export interface CreateCreditCard extends CompanyScope {
@@ -31,6 +32,7 @@ export interface CreditCardLimit extends CompanyScope {
   creditLimit: number;
   committedAmount: number;
   availableLimit: number;
+  sortOrder: number;
 }
 
 export interface CreateCardPurchase extends CompanyScope {
