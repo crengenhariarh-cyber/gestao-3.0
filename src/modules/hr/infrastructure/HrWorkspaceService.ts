@@ -26,6 +26,13 @@ type AttendanceDbRow = {
   notes: string | null;
 };
 
+type TransferResultRow = { new_contract_id: string };
+
+function isTransferResultRow(value: unknown): value is TransferResultRow {
+  if (typeof value !== 'object' || value === null || !('new_contract_id' in value)) return false;
+  return typeof (value as Record<string, unknown>).new_contract_id === 'string';
+}
+
 export async function listAttendanceForDate(scopes: readonly { tenantId: string; companyId: string }[], attendanceDate: string): Promise<AttendanceRecord[]> {
   if (scopes.length === 0) return [];
   const client = getSupabaseClient();
@@ -121,8 +128,8 @@ export async function transferEmployeeCompany(input: {
     p_allocation_percent: input.allocationPercent ?? 100,
   });
   if (result.error) throw result.error;
-  const row = Array.isArray(result.data) ? result.data[0] : result.data;
-  const newContractId = row && typeof row === 'object' && 'new_contract_id' in row ? String(row.new_contract_id) : '';
-  if (!newContractId) throw new Error('A transferência foi concluída sem retornar o novo vínculo.');
-  return newContractId;
+  const data = result.data as unknown;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isTransferResultRow(row)) throw new Error('A transferência foi concluída sem retornar o novo vínculo.');
+  return row.new_contract_id;
 }
