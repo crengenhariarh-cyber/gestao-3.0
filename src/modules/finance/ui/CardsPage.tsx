@@ -102,9 +102,8 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
       ]);
       setStatementItems(items);
       setStatements(closed);
-      const closedMonths = new Set(closed.map((statement) => statement.statementMonth));
       const availableMonths = [...new Set(items.map((line) => line.statementMonth))]
-        .filter((month) => month <= currentMonth && (month === currentMonth || closedMonths.has(month)))
+        .filter((month) => month <= currentMonth)
         .sort((a, b) => b.localeCompare(a));
       setSelectedStatementMonth(availableMonths.includes(currentMonth) ? currentMonth : availableMonths[0] ?? '');
     } catch {
@@ -116,12 +115,9 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     }
   }
 
-  const selectableMonths = useMemo(() => {
-    const closedMonths = new Set(statements.map((statement) => statement.statementMonth));
-    return [...new Set(statementItems.map((line) => line.statementMonth))]
-      .filter((month) => month <= currentMonth && (month === currentMonth || closedMonths.has(month)))
-      .sort((a, b) => b.localeCompare(a));
-  }, [statementItems, statements, currentMonth]);
+  const selectableMonths = useMemo(() => [...new Set(statementItems.map((line) => line.statementMonth))]
+    .filter((month) => month <= currentMonth)
+    .sort((a, b) => b.localeCompare(a)), [statementItems, currentMonth]);
 
   const selectedItems = useMemo(() => statementItems.filter((item) => item.statementMonth === selectedStatementMonth), [statementItems, selectedStatementMonth]);
   const selectedClosedStatement = useMemo(() => statements.find((statement) => statement.statementMonth === selectedStatementMonth) ?? null, [statements, selectedStatementMonth]);
@@ -165,16 +161,20 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
 
     <Dialog open={selected !== null} title={selected ? `Faturas · ${selected.name}` : 'Faturas'} description={selected?.lastFour ? `Final ${selected.lastFour}` : undefined} onClose={() => setSelected(null)} onBack={() => setSelected(null)}>
       {selected && <div className="cards-page__details">
-        {detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui fatura atual ou fatura fechada com lançamentos." /> : <>
+        {detailsLoading ? <LoadingState label="Carregando faturas…" /> : selectableMonths.length === 0 ? <EmptyState title="Nenhuma fatura" message="Este cartão não possui faturas com lançamentos." /> : <>
           <div className="cards-page__statement-filter">
             <label htmlFor="card-statement-month">Fatura</label>
             <select id="card-statement-month" value={selectedStatementMonth} onChange={(event) => setSelectedStatementMonth(event.target.value)}>
-              {selectableMonths.map((month) => <option key={month} value={month}>{month === currentMonth ? `Fatura atual · ${monthLabel(month)}` : `${monthLabel(month)} · fechada`}</option>)}
+              {selectableMonths.map((month) => {
+                const closedStatement = statements.find((statement) => statement.statementMonth === month);
+                const label = month === currentMonth ? 'Fatura atual' : closedStatement ? 'Fatura fechada' : 'Fatura anterior';
+                return <option key={month} value={month}>{`${label} · ${monthLabel(month)}`}</option>;
+              })}
             </select>
           </div>
 
           <div className="cards-page__invoice-head">
-            <span><small>{selectedStatementMonth === currentMonth && !selectedClosedStatement ? 'Fatura atual' : 'Fatura fechada'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span>
+            <span><small>{selectedStatementMonth === currentMonth ? 'Fatura atual' : selectedClosedStatement ? 'Fatura fechada' : 'Fatura anterior'}</small><strong>{monthLabel(selectedStatementMonth)}</strong></span>
             <span><small>Total da fatura</small><strong>{currency.format(selectedTotal)}</strong></span>
             {selectedClosedStatement?.dueDate && <span><small>Vencimento</small><strong>{dateLabel(selectedClosedStatement.dueDate)}</strong></span>}
             {selectedClosedStatement && <span><small>Status</small><strong>{selectedClosedStatement.paymentStatus === 'paid' ? 'Paga' : selectedClosedStatement.paymentStatus === 'partial' ? 'Parcial' : 'Pendente'}</strong></span>}
