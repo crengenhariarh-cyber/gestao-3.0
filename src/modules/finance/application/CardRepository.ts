@@ -25,6 +25,8 @@ export interface CardRepository {
   listStatementItems(scope: CompanyScope, cardId: string): Promise<readonly CardStatementItem[]>;
   listStatements(scope: CompanyScope, cardId?: string): Promise<readonly CardStatementBalance[]>;
   createPurchase(input: CreateCardPurchase): Promise<CreatedCardPurchase>;
+  updatePurchase(input: CompanyScope & { transactionId: string; purchaseDate: string; description: string; totalAmount: number }): Promise<void>;
+  deletePurchase(input: CompanyScope & { transactionId: string }): Promise<void>;
   closeStatement(input: CloseCardStatement): Promise<ClosedCardStatement>;
   recordStatementPayment(input: RecordCardStatementPayment): Promise<RecordedCardStatementPayment>;
 }
