@@ -14,7 +14,7 @@ type BalanceRow = {
   account_id: string; tenant_id: string; company_id: string; name: string;
   account_type: FinancialAccountBalance['accountType']; bank_institution: FinancialAccountBalance['bankInstitution']; status: FinancialAccountBalance['status'];
   opening_balance: number | string; movement_total: number | string; current_balance: number | string;
-  include_in_dashboard: boolean;
+  include_in_dashboard: boolean; sort_order: number;
 };
 
 type MovementRow = {
@@ -43,8 +43,9 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
 
   async listBalances(scope: CompanyScope): Promise<readonly FinancialAccountBalance[]> {
     const { data, error } = await this.client.from('financial_account_balances')
-      .select('account_id,tenant_id,company_id,name,account_type,bank_institution,status,opening_balance,movement_total,current_balance,include_in_dashboard')
-      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name')
+      .select('account_id,tenant_id,company_id,name,account_type,bank_institution,status,opening_balance,movement_total,current_balance,include_in_dashboard,sort_order')
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId)
+      .order('sort_order', { ascending: true }).order('name')
       .returns<BalanceRow[]>();
     if (error) throw error;
     return data.map((row) => ({
@@ -52,8 +53,17 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
       name: row.name, accountType: row.account_type, bankInstitution: row.bank_institution, status: row.status,
       includeInDashboard: row.include_in_dashboard,
       openingBalance: Number(row.opening_balance), movementTotal: Number(row.movement_total),
-      currentBalance: Number(row.current_balance),
+      currentBalance: Number(row.current_balance), sortOrder: Number(row.sort_order),
     }));
+  }
+
+  async reorder(tenantId: string, orderedIds: readonly string[]): Promise<void> {
+    if (orderedIds.length < 2) return;
+    const { error } = await this.client.rpc('reorder_financial_accounts', {
+      p_tenant_id: tenantId,
+      p_ordered_ids: [...orderedIds],
+    });
+    if (error) throw error;
   }
 
   async listMovements(scope: CompanyScope, from: string, to: string): Promise<readonly FinancialAccountMovement[]> {
