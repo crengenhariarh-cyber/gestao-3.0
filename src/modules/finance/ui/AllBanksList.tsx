@@ -4,6 +4,7 @@ import type { FinancialAccountBalance, FinancialAccountMovement } from '../domai
 import type { FinancialAccountType, FinancialBankInstitution, RegistryStatus } from '../domain/registries';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 import { Button } from '../../../shared/ui/Button';
+import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
@@ -11,6 +12,7 @@ import { Select } from '../../../shared/ui/Select';
 import { SortableHandle } from '../../../shared/ui/SortableHandle';
 import '../../home/ui/bank-brand.css';
 import './all-banks-list.css';
+import './statement-view.css';
 
 type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 type ListedAccount = FinancialAccountBalance & { companyName: string };
@@ -41,9 +43,10 @@ function monthRange() {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
-  return { start: `${y}-${m}-01`, end: `${y}-${m}-${String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0')}` };
+  return { start: `${y}-${m}-01`, end: `${y}-${m}-${String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`, label: `${m}/${y}` };
 }
 function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
+function csvCell(value: string | number): string { return `"${String(value).replaceAll('"', '""')}"`; }
 
 export function AllBanksList({ companies }: { companies: readonly CompanySummary[] }) {
   const repositories = useMemo(() => getFinanceRepositories(), []);
@@ -58,6 +61,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tenantId = companies[0]?.tenantId ?? '';
+  const currentPeriod = monthRange();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,9 +104,8 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     setSelected(account);
     setDialog('extract');
     setExtractLoading(true);
-    const range = monthRange();
     try {
-      const items = await repositories.accounts.listMovements({ tenantId: account.tenantId, companyId: account.companyId }, range.start, range.end);
+      const items = await repositories.accounts.listMovements({ tenantId: account.tenantId, companyId: account.companyId }, currentPeriod.start, currentPeriod.end);
       setMovements(items.filter((item) => item.accountId === account.accountId).sort((a, b) => `${b.movementOn}:${b.id}`.localeCompare(`${a.movementOn}:${a.id}`)));
     } catch {
       setMovements([]);
@@ -128,6 +131,18 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   function closeDialog() {
     setDialog(null);
     setSelected(null);
+  }
+
+  function exportCsv() {
+    if (!selected) return;
+    const rows = [['Data','Descrição','Tipo','Valor'], ...movements.map((item) => [item.movementOn.split('-').reverse().join('/'), item.description || 'Movimentação', item.direction === 'inflow' ? 'Entrada' : 'Saída', (item.direction === 'inflow' ? item.amount : -item.amount).toFixed(2)])];
+    const csv = '\ufeff' + rows.map((row) => row.map(csvCell).join(';')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `extrato-${selected.name}-${currentPeriod.label.replace('/', '-')}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   async function saveEdit() {
@@ -167,7 +182,11 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   if (loading) return <LoadingState label="Carregando bancos…" />;
   if (accounts.length === 0) return <EmptyState title="Nenhuma conta" message="Não há contas bancárias ativas para exibir." />;
 
-  return <>
+  const periodInflow = movements.filter((item) => item.direction === 'inflow').reduce((sum, item) => sum + item.amount, 0);
+  const periodOutflow = movements.filter((item) => item.direction === 'outflow').reduce((sum, item) => sum + item.amount, 0);
+  const selectedBrand = selected ? bankVisual(selected.bankInstitution, selected.name) : null;
+
+  return <div className="all-banks-list-shell">
     {error && <Feedback tone="danger" title="Bancos" message={error} />}
     <div className="all-banks-list" aria-label="Contas bancárias de todas as empresas">
       {accounts.map((item) => {
@@ -187,7 +206,28 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     </div>
 
     <Dialog open={dialog === 'extract' && selected !== null} title={selected?.name ?? 'Extrato'} description={selected ? `Saldo ${currency.format(selected.currentBalance)}` : undefined} onClose={closeDialog} onBack={closeDialog}>
-      {extractLoading ? <LoadingState label="Carregando extrato…" /> : movements.length === 0 ? <p className="ui-muted">Nenhuma movimentação neste mês.</p> : <div className="all-banks-list__extract">{movements.map((item) => <div key={item.id}><span>{item.movementOn.split('-').reverse().join('/')}</span><strong>{item.description || 'Movimentação'}</strong><b>{item.direction === 'inflow' ? '+' : '-'} {currency.format(item.amount)}</b></div>)}</div>}
+      {selected && <div className="statement-view statement-print-surface statement-print-surface--bank">
+        {extractLoading ? <LoadingState label="Carregando extrato…" /> : <>
+          <div className="statement-view__hero">
+            <div><strong>{selected.name}</strong><span>{selectedBrand?.bank}</span><span>{selected.companyName}</span></div>
+            <div><small>Saldo atual</small><strong>{currency.format(selected.currentBalance)}</strong></div>
+            <div><small>Entradas no mês</small><strong className="statement-view__positive">{currency.format(periodInflow)}</strong></div>
+            <div><small>Saídas no mês</small><strong className="statement-view__negative">{currency.format(periodOutflow)}</strong></div>
+          </div>
+          <div className="statement-view__period-label">Período · {currentPeriod.label}</div>
+          <div className="statement-view__totals statement-view__totals--bank">
+            <Card title="Entradas"><strong>{currency.format(periodInflow)}</strong></Card>
+            <Card title="Saídas"><strong>{currency.format(periodOutflow)}</strong></Card>
+            <Card title="Saldo atual"><strong>{currency.format(selected.currentBalance)}</strong></Card>
+          </div>
+          {movements.length === 0 ? <EmptyState title="Nenhuma movimentação" message="Não há movimentações neste período." /> : <div className="statement-view__list">{movements.map((item) => <div key={item.id} className="statement-view__row">
+            <div className={`statement-view__icon statement-view__icon--${item.direction}`}>{item.direction === 'inflow' ? '↑' : '↓'}</div>
+            <div className="statement-view__copy"><strong>{item.description || 'Movimentação'}</strong><span>{item.movementOn.split('-').reverse().join('/')} · {item.direction === 'inflow' ? 'Entrada' : 'Saída'}</span></div>
+            <strong className={item.direction === 'inflow' ? 'statement-view__positive' : 'statement-view__negative'}>{item.direction === 'inflow' ? '+' : '-'} {currency.format(item.amount)}</strong>
+          </div>)}</div>}
+          <div className="statement-view__footer-actions"><Button variant="secondary" onClick={exportCsv}>Baixar extrato (Excel)</Button><Button onClick={() => window.print()}>Imprimir</Button></div>
+        </>}
+      </div>}
     </Dialog>
 
     <Dialog open={dialog === 'edit' && selected !== null} title="Editar banco" description="Empresa e dados cadastrais podem ser alterados." loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={() => { void saveEdit(); }}>Salvar alterações</Button></>}>
@@ -203,5 +243,5 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     <Dialog open={dialog === 'delete' && selected !== null} title="Excluir banco" description={selected ? selected.companyName : undefined} loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button variant="danger" onClick={() => { void confirmDelete(); }}>Excluir banco</Button></>}>
       <p>O banco será desativado para preservar o extrato e todo o histórico financeiro já registrado.</p>
     </Dialog>
-  </>;
+  </div>;
 }
