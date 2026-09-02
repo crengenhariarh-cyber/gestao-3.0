@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { CardStatementBalance, CreditCard, CreditCardLimit } from '../domain/cards';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
+import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback';
@@ -115,7 +116,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
         const visual = cardVisual(item.name);
         return <div key={item.cardId} className={`cards-page__item bank-brand bank-brand--${visual.tone}`} data-sort-group="credit-card-global" data-sort-tenant={tenantId} data-sort-id={item.cardId}>
           <SortableHandle itemId={item.cardId} tenantId={tenantId} group="credit-card-global" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorder} />
-          <button type="button" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir detalhes de ${item.name}`}>
+          <Button variant="tertiary" className="cards-page__card" onClick={() => { void openDetails(item); }} aria-label={`Abrir detalhes de ${item.name}`}>
             <span className="bank-brand__mark" aria-hidden="true">{visual.mark}</span>
             <span className="cards-page__identity"><strong>{item.name}</strong><small>{item.lastFour ? `Final ${item.lastFour}` : visual.institution}</small>{item.dueDay > 0 && <small>Vence dia {item.dueDay}</small>}</span>
             <span className="cards-page__limits">
@@ -124,7 +125,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
               <span><small>Disponível</small><strong className="cards-page__available">{currency.format(item.availableLimit)}</strong></span>
             </span>
             <span className="cards-page__chevron" aria-hidden="true">›</span>
-          </button>
+          </Button>
         </div>;
       })}
     </div>
