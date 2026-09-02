@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
-import type { PayrollEventRow } from '../application/HrOperationsRepository';
+import type { EmploymentType, HrEmployeeRow, PayrollEventRow } from '../application/HrOperationsRepository';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
@@ -16,15 +16,31 @@ import './hr.css';
 
 interface HrBudgetPageProps { company: CompanySummary; }
 type ModalKind = 'employee' | 'employeeEdit' | 'salary' | 'allocation' | 'terminate' | 'event' | 'voidEvent' | 'closePayroll' | 'statutory' | 'reopen' | 'financeConfig' | 'payables' | 'budgetPlan' | 'budgetLimit' | null;
-type HrTab = 'rh' | 'folha' | 'orcamento';
+type HrTab = 'dashboard' | 'colaboradores' | 'folha' | 'planejamento';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const eventLabels: Record<PayrollEventRow['eventKind'], string> = { benefit: 'Benefício', advance: 'Adiantamento', overtime: 'Hora extra', absence: 'Falta', dsr: 'DSR', adjustment_earning: 'Ajuste crédito', adjustment_deduction: 'Ajuste desconto' };
+const employmentTypeOptions = [
+  { value: 'clt', label: 'CLT' }, { value: 'pj', label: 'PJ' }, { value: 'autonomo', label: 'Autônomo' },
+  { value: 'temporario', label: 'Temporário' }, { value: 'estagio', label: 'Estágio' }, { value: 'prestador', label: 'Prestador' }, { value: 'outro', label: 'Outro' },
+];
+const employmentTypeLabel = new Map(employmentTypeOptions.map((item) => [item.value, item.label]));
 function sum(values: readonly number[]): number { return values.reduce((total, value) => total + value, 0); }
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function numberValue(value: string, fallback = 0): number { const result = Number(value.replace(',', '.')); return Number.isFinite(result) ? result : fallback; }
 function key(prefix: string): string { return `${prefix}:${crypto.randomUUID()}`; }
-function hrTab(value: string | null): HrTab { return value === 'folha' || value === 'orcamento' ? value : 'rh'; }
+function hrTab(value: string | null): HrTab { return value === 'colaboradores' || value === 'folha' || value === 'planejamento' ? value : 'dashboard'; }
+function employeeInitial(item: HrEmployeeRow): Record<string, string> {
+  return {
+    employmentContractId: item.employmentContractId,
+    fullName: item.fullName,
+    jobTitle: item.jobTitle,
+    cpf: item.cpf ?? '', pix: item.pix ?? '', phone: item.phone ?? '', email: item.email ?? '', notes: item.notes ?? '',
+    employmentType: item.employmentType,
+    sector: item.sector ?? '', supervisor: item.supervisor ?? '', weeklyHours: String(item.weeklyHours || 44),
+    bankHoursEnabled: item.bankHoursEnabled ? 'true' : 'false',
+  };
+}
 
 export function HrBudgetPage({ company }: HrBudgetPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,17 +50,24 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [refreshToken, setRefreshToken] = useState(0);
   const [competenceInput, setCompetenceInput] = useState(() => currentHrCompetence().month.slice(0, 7));
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeeStatus, setEmployeeStatus] = useState('active');
   const competenceMonth = `${competenceInput}-01`;
   const scope = useMemo(() => ({ tenantId: company.tenantId, companyId: company.id }), [company.id, company.tenantId]);
   const overview = useHrBudgetOverview(scope, refreshToken, competenceMonth);
   const operations = useHrOperations(scope, competenceMonth);
   const operational = operations.state.data;
-  const tabs = useMemo(() => [{ id: 'rh', label: 'RH' }, { id: 'folha', label: 'Folha' }, { id: 'orcamento', label: 'Orçamento' }], []);
+  const tabs = useMemo(() => [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'colaboradores', label: 'Colaboradores' },
+    { id: 'folha', label: 'Folha' },
+    { id: 'planejamento', label: 'Planejamento' },
+  ], []);
 
   useEffect(() => { setActiveTab(hrTab(requestedTab)); }, [requestedTab]);
   function changeTab(id: string) { const nextTab = hrTab(id); setActiveTab(nextTab); const next = new URLSearchParams(searchParams); next.set('tab', nextTab); setSearchParams(next, { replace: true }); }
 
-  if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando RH e orçamento…" />;
+  if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando RH…" />;
   if (overview.status === 'error' || overview.data === null) return <EmptyState title="RH indisponível" message={overview.errorMessage ?? 'Não foi possível carregar o módulo.'} />;
 
   const { salaryProjection, monthlyBudget, annualBudget } = overview.data;
@@ -57,7 +80,14 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   const annualPlanned = annualCompany?.plannedTotal ?? sum(annualBudget.map((item) => item.plannedTotal));
   const annualRealized = annualCompany?.realizedTotal ?? sum(annualBudget.map((item) => item.realizedTotal));
   const monthlyByCostCenter = monthlyBudget.filter((item) => item.costCenterId !== null);
-  const activeEmployees = (operational?.employees ?? []).filter((item) => item.contractStatus === 'active');
+  const allEmployees = operational?.employees ?? [];
+  const activeEmployees = allEmployees.filter((item) => item.contractStatus === 'active');
+  const filteredEmployees = allEmployees.filter((item) => {
+    if (employeeStatus !== 'all' && item.contractStatus !== employeeStatus) return false;
+    const term = employeeSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!term) return true;
+    return [item.fullName, item.jobTitle, item.costCenterName, item.sector, item.supervisor, item.cpf].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term));
+  });
   const activeCostCenters = (operational?.costCenters ?? []).filter((item) => item.status === 'active');
   const activeCategories = (operational?.categories ?? []).filter((item) => item.status === 'active');
   const activeEvents = (operational?.payrollEvents ?? []).filter((item) => item.status === 'active');
@@ -65,6 +95,7 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   const eventTotal = sum(activeEvents.map((item) => item.amount));
   const closingGrossTotal = sum(closedClosings.map((item) => item.grossAmount));
   const statutoryTotal = sum(closedClosings.map((item) => item.inssAmount + item.irrfAmount + item.fgtsAmount));
+  const bankHoursCount = activeEmployees.filter((item) => item.bankHoursEnabled).length;
   const employeeOptions = [{ value: '', label: 'Selecione…' }, ...activeEmployees.map((item) => ({ value: item.employmentContractId, label: `${item.fullName} · ${item.jobTitle}` }))];
   const closingOptions = [{ value: '', label: 'Selecione…' }, ...closedClosings.map((item) => ({ value: item.id, label: `${item.employeeName} · fechado` }))];
   const eventOptions = [{ value: '', label: 'Selecione…' }, ...activeEvents.map((item) => ({ value: item.id, label: `${item.employeeName} · ${eventLabels[item.eventKind]} · ${currency.format(item.amount)}` }))];
@@ -76,18 +107,35 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   function field(name: string, value: string) { setForm((current) => ({ ...current, [name]: value })); }
   function open(kind: Exclude<ModalKind, null>, initial: Record<string, string> = {}) {
     operations.clearFeedback();
+    const profileDefaults = { fullName: '', jobTitle: '', cpf: '', pix: '', phone: '', email: '', notes: '', employmentType: 'clt', sector: '', supervisor: '', weeklyHours: '44', bankHoursEnabled: 'false' };
     const defaults: Record<Exclude<ModalKind, null>, Record<string, string>> = {
-      employee: { fullName: '', hiredOn: today(), jobTitle: '', baseSalary: '', costCenterId: '', allocationPercent: '100' }, employeeEdit: { employmentContractId: '', fullName: '', jobTitle: '' }, salary: { employmentContractId: '', effectiveFrom: today(), baseSalary: '' }, allocation: { employmentContractId: '', effectiveFrom: today(), costCenterId: '', allocationPercent: '100' }, terminate: { employmentContractId: '', terminatedOn: today() }, event: { employmentContractId: '', costCenterId: '', occurredOn: today(), eventKind: 'advance', amount: '', quantity: '', unitValue: '', description: '' }, voidEvent: { payrollEventId: '', reason: '' }, closePayroll: { employmentContractId: '' }, statutory: { payrollClosingId: '', dependents: '0', deductions: '0' }, reopen: { payrollClosingId: '', reason: '' }, financeConfig: { salaryCategoryId: '', fgtsCategoryId: '', inssCategoryId: '', irrfCategoryId: '' }, payables: { salaryDueDate: today(), fgtsDueDate: today(), inssDueDate: today(), irrfDueDate: today() }, budgetPlan: { costCenterId: '', categoryId: '', amount: '', notes: '' }, budgetLimit: { costCenterId: '', categoryId: '', amount: '', warningPercent: '80', notes: '' }
+      employee: { ...profileDefaults, hiredOn: today(), baseSalary: '', costCenterId: '', allocationPercent: '100' },
+      employeeEdit: { ...profileDefaults, employmentContractId: '' },
+      salary: { employmentContractId: '', effectiveFrom: today(), baseSalary: '' },
+      allocation: { employmentContractId: '', effectiveFrom: today(), costCenterId: '', allocationPercent: '100' },
+      terminate: { employmentContractId: '', terminatedOn: today() },
+      event: { employmentContractId: '', costCenterId: '', occurredOn: today(), eventKind: 'advance', amount: '', quantity: '', unitValue: '', description: '' },
+      voidEvent: { payrollEventId: '', reason: '' }, closePayroll: { employmentContractId: '' }, statutory: { payrollClosingId: '', dependents: '0', deductions: '0' }, reopen: { payrollClosingId: '', reason: '' },
+      financeConfig: { salaryCategoryId: '', fgtsCategoryId: '', inssCategoryId: '', irrfCategoryId: '' },
+      payables: { salaryDueDate: today(), fgtsDueDate: today(), inssDueDate: today(), irrfDueDate: today() },
+      budgetPlan: { costCenterId: '', categoryId: '', amount: '', notes: '' }, budgetLimit: { costCenterId: '', categoryId: '', amount: '', warningPercent: '80', notes: '' },
     };
     setForm({ ...defaults[kind], ...initial }); setModal(kind);
   }
   function close() { setModal(null); operations.clearFeedback(); }
   async function complete(action: () => Promise<unknown>) { await action(); setRefreshToken((value) => value + 1); setModal(null); }
+  function profileInput() {
+    return {
+      fullName: form.fullName ?? '', jobTitle: form.jobTitle ?? '', cpf: form.cpf || null, pix: form.pix || null, phone: form.phone || null,
+      email: form.email || null, notes: form.notes || null, employmentType: (form.employmentType ?? 'clt') as EmploymentType,
+      sector: form.sector || null, supervisor: form.supervisor || null, weeklyHours: numberValue(form.weeklyHours ?? '44', 44), bankHoursEnabled: form.bankHoursEnabled === 'true',
+    };
+  }
   async function submitModal() {
     try {
       switch (modal) {
-        case 'employee': await complete(() => operations.createEmployee({ fullName: form.fullName ?? '', hiredOn: form.hiredOn ?? today(), jobTitle: form.jobTitle ?? '', baseSalary: numberValue(form.baseSalary ?? ''), costCenterId: form.costCenterId || null, allocationPercent: numberValue(form.allocationPercent ?? '100', 100) })); break;
-        case 'employeeEdit': await complete(() => operations.updateEmployeeProfile(form.employmentContractId ?? '', form.fullName ?? '', form.jobTitle ?? '')); break;
+        case 'employee': await complete(() => operations.createEmployee({ ...profileInput(), hiredOn: form.hiredOn ?? today(), baseSalary: numberValue(form.baseSalary ?? ''), costCenterId: form.costCenterId || null, allocationPercent: numberValue(form.allocationPercent ?? '100', 100) })); break;
+        case 'employeeEdit': await complete(() => operations.updateEmployeeProfile(form.employmentContractId ?? '', profileInput())); break;
         case 'salary': await complete(() => operations.changeSalary(form.employmentContractId ?? '', form.effectiveFrom ?? today(), numberValue(form.baseSalary ?? ''))); break;
         case 'allocation': await complete(() => operations.changeAllocation(form.employmentContractId ?? '', form.effectiveFrom ?? today(), form.costCenterId ?? '', numberValue(form.allocationPercent ?? '100', 100))); break;
         case 'terminate': await complete(() => operations.terminateContract(form.employmentContractId ?? '', form.terminatedOn ?? today())); break;
@@ -105,10 +153,25 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
     } catch { /* feedback remains visible in the modal */ }
   }
 
-  const modalTitles: Record<Exclude<ModalKind, null>, string> = { employee: 'Novo colaborador', employeeEdit: 'Editar colaborador', salary: 'Alterar salário', allocation: 'Alterar alocação', terminate: 'Encerrar vínculo', event: 'Evento de folha', voidEvent: 'Estornar evento', closePayroll: 'Fechar folha', statutory: 'Calcular encargos', reopen: 'Reabrir folha', financeConfig: 'Configurar integração financeira', payables: 'Gerar contas a pagar', budgetPlan: 'Planejamento mensal', budgetLimit: 'Limite mensal' };
+  const modalTitles: Record<Exclude<ModalKind, null>, string> = { employee: 'Novo colaborador', employeeEdit: 'Editar colaborador', salary: 'Alterar salário', allocation: 'Alterar obra / alocação', terminate: 'Encerrar vínculo', event: 'Evento de folha', voidEvent: 'Estornar evento', closePayroll: 'Fechar folha', statutory: 'Calcular encargos', reopen: 'Reabrir folha', financeConfig: 'Configurar integração financeira', payables: 'Gerar contas a pagar', budgetPlan: 'Planejamento mensal', budgetLimit: 'Limite mensal' };
+  const profileFields = <>
+    <Input label="Nome completo" value={form.fullName ?? ''} onChange={(e) => field('fullName', e.target.value)} required />
+    <Input label="CPF" value={form.cpf ?? ''} onChange={(e) => field('cpf', e.target.value)} inputMode="numeric" />
+    <Input label="Telefone" value={form.phone ?? ''} onChange={(e) => field('phone', e.target.value)} inputMode="tel" />
+    <Input label="E-mail" type="email" value={form.email ?? ''} onChange={(e) => field('email', e.target.value)} />
+    <Input label="PIX" value={form.pix ?? ''} onChange={(e) => field('pix', e.target.value)} />
+    <Input label="Função" value={form.jobTitle ?? ''} onChange={(e) => field('jobTitle', e.target.value)} required />
+    <Select label="Tipo de vínculo" value={form.employmentType ?? 'clt'} onChange={(e) => field('employmentType', e.target.value)} options={employmentTypeOptions} />
+    <Input label="Setor" value={form.sector ?? ''} onChange={(e) => field('sector', e.target.value)} />
+    <Input label="Encarregado / equipe" value={form.supervisor ?? ''} onChange={(e) => field('supervisor', e.target.value)} />
+    <Input label="Jornada semanal" type="number" min="1" max="60" step="0.5" value={form.weeklyHours ?? '44'} onChange={(e) => field('weeklyHours', e.target.value)} />
+    <Select label="Banco de horas" value={form.bankHoursEnabled ?? 'false'} onChange={(e) => field('bankHoursEnabled', e.target.value)} options={[{ value: 'false', label: 'Não' }, { value: 'true', label: 'Sim' }]} />
+    <Input label="Observações" value={form.notes ?? ''} onChange={(e) => field('notes', e.target.value)} />
+  </>;
+
   let modalContent = null;
-  if (modal === 'employee') modalContent = <div className="hr-form-grid"><Input label="Nome completo" value={form.fullName ?? ''} onChange={(e) => field('fullName', e.target.value)} required /><Input label="Admissão" type="date" value={form.hiredOn ?? today()} onChange={(e) => field('hiredOn', e.target.value)} required /><Input label="Função" value={form.jobTitle ?? ''} onChange={(e) => field('jobTitle', e.target.value)} required /><Input label="Salário bruto" type="number" min="0" step="0.01" value={form.baseSalary ?? ''} onChange={(e) => field('baseSalary', e.target.value)} required /><Select label="Obra / centro de custo" value={form.costCenterId ?? ''} onChange={(e) => field('costCenterId', e.target.value)} options={costCenterOptions} /><Input label="Alocação %" type="number" min="1" max="100" value={form.allocationPercent ?? '100'} onChange={(e) => field('allocationPercent', e.target.value)} /></div>;
-  if (modal === 'employeeEdit') modalContent = <div className="hr-form-grid"><Select label="Colaborador" value={form.employmentContractId ?? ''} onChange={(e) => { const employee = activeEmployees.find((item) => item.employmentContractId === e.target.value); field('employmentContractId', e.target.value); field('fullName', employee?.fullName ?? ''); field('jobTitle', employee?.jobTitle ?? ''); }} options={employeeOptions} required /><Input label="Nome completo" value={form.fullName ?? ''} onChange={(e) => field('fullName', e.target.value)} required /><Input label="Função" value={form.jobTitle ?? ''} onChange={(e) => field('jobTitle', e.target.value)} required /></div>;
+  if (modal === 'employee') modalContent = <div className="hr-form-grid hr-form-grid--employee">{profileFields}<Input label="Admissão" type="date" value={form.hiredOn ?? today()} onChange={(e) => field('hiredOn', e.target.value)} required /><Input label="Salário bruto" type="number" min="0" step="0.01" value={form.baseSalary ?? ''} onChange={(e) => field('baseSalary', e.target.value)} required /><Select label="Obra / centro de custo" value={form.costCenterId ?? ''} onChange={(e) => field('costCenterId', e.target.value)} options={costCenterOptions} /><Input label="Alocação %" type="number" min="1" max="100" value={form.allocationPercent ?? '100'} onChange={(e) => field('allocationPercent', e.target.value)} /></div>;
+  if (modal === 'employeeEdit') modalContent = <div className="hr-form-grid hr-form-grid--employee"><Select label="Colaborador" value={form.employmentContractId ?? ''} onChange={(e) => { const employee = allEmployees.find((item) => item.employmentContractId === e.target.value); setForm((current) => ({ ...current, ...(employee ? employeeInitial(employee) : { employmentContractId: e.target.value }) })); }} options={[{ value: '', label: 'Selecione…' }, ...allEmployees.map((item) => ({ value: item.employmentContractId, label: `${item.fullName} · ${item.jobTitle}` }))]} required />{profileFields}</div>;
   if (modal === 'salary') modalContent = <div className="hr-form-grid"><Select label="Colaborador" value={form.employmentContractId ?? ''} onChange={(e) => field('employmentContractId', e.target.value)} options={employeeOptions} required /><Input label="Vigência" type="date" value={form.effectiveFrom ?? today()} onChange={(e) => field('effectiveFrom', e.target.value)} required /><Input label="Novo salário bruto" type="number" min="0" step="0.01" value={form.baseSalary ?? ''} onChange={(e) => field('baseSalary', e.target.value)} required /></div>;
   if (modal === 'allocation') modalContent = <div className="hr-form-grid"><Select label="Colaborador" value={form.employmentContractId ?? ''} onChange={(e) => field('employmentContractId', e.target.value)} options={employeeOptions} required /><Input label="Vigência" type="date" value={form.effectiveFrom ?? today()} onChange={(e) => field('effectiveFrom', e.target.value)} required /><Select label="Obra / centro de custo" value={form.costCenterId ?? ''} onChange={(e) => field('costCenterId', e.target.value)} options={requiredCostCenterOptions} required /><Input label="Alocação %" type="number" min="1" max="100" value={form.allocationPercent ?? '100'} onChange={(e) => field('allocationPercent', e.target.value)} required /></div>;
   if (modal === 'terminate') modalContent = <div className="hr-form-grid"><Select label="Colaborador" value={form.employmentContractId ?? ''} onChange={(e) => field('employmentContractId', e.target.value)} options={employeeOptions} required /><Input label="Data de desligamento" type="date" value={form.terminatedOn ?? today()} onChange={(e) => field('terminatedOn', e.target.value)} required /></div>;
@@ -123,14 +186,21 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
   if (modal === 'budgetLimit') modalContent = <div className="hr-form-grid"><Select label="Obra / centro de custo" value={form.costCenterId ?? ''} onChange={(e) => field('costCenterId', e.target.value)} options={costCenterOptions} /><Select label="Categoria" value={form.categoryId ?? ''} onChange={(e) => field('categoryId', e.target.value)} options={categoryOptions} /><Input label="Limite" type="number" min="0" step="0.01" value={form.amount ?? ''} onChange={(e) => field('amount', e.target.value)} required /><Input label="Alerta em %" type="number" min="0" max="100" value={form.warningPercent ?? '80'} onChange={(e) => field('warningPercent', e.target.value)} required /><Input label="Observação" value={form.notes ?? ''} onChange={(e) => field('notes', e.target.value)} /></div>;
 
   return <section className="hr-overview" aria-labelledby="hr-title">
-    <PageHeader id="hr-title" eyebrow={`Competência ${competenceMonth.slice(5, 7)}/${competenceMonth.slice(0, 4)}`} title="RH + Orçamento" description="Colaboradores, folha, encargos e orçamento integrados à empresa selecionada." actions={<div className="hr-competence"><Input label="Competência" type="month" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} /></div>} />
-    <Tabs items={tabs} activeId={activeTab} onChange={changeTab} ariaLabel="RH e orçamento" />
+    <PageHeader id="hr-title" eyebrow={`Competência ${competenceMonth.slice(5, 7)}/${competenceMonth.slice(0, 4)}`} title="RH" description="Colaboradores, folha, encargos e planejamento integrados à empresa selecionada." actions={<div className="hr-competence"><Input label="Competência" type="month" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} /></div>} />
+    <Tabs items={tabs} activeId={activeTab} onChange={changeTab} ariaLabel="Módulos do RH" />
     {operations.state.errorMessage && modal === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && modal === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
-    {activeTab === 'rh' && <div className="hr-overview__content hr-panel hr-panel--people" role="tabpanel">
-      <div className="hr-overview__cards"><Card className="hr-kpi-card" title="Salário previsto"><strong className="hr-kpi">{currency.format(plannedSalary)}</strong></Card><Card className="hr-kpi-card hr-kpi-card--primary" title="Salário realizado"><strong className="hr-kpi">{currency.format(realizedSalary)}</strong></Card><Card className="hr-kpi-card" title="Vínculos ativos"><strong className="hr-kpi">{activeEmployees.length}</strong></Card></div>
-      <Card className="hr-primary-card" title="Colaboradores" description="Cadastro, vínculo, salário e alocação" actions={<div className="hr-actions"><Button size="sm" onClick={() => open('employee')}>Novo colaborador</Button><Button size="sm" variant="secondary" onClick={() => open('employeeEdit')}>Editar cadastro</Button><Button size="sm" variant="secondary" onClick={() => open('salary')}>Alterar salário</Button><Button size="sm" variant="secondary" onClick={() => open('allocation')}>Alterar alocação</Button><Button size="sm" variant="secondary" onClick={() => open('terminate')}>Encerrar vínculo</Button></div>}>{!operational || operational.employees.length === 0 ? <p className="ui-muted">Nenhum colaborador cadastrado nesta empresa.</p> : <div className="hr-list hr-list--people">{operational.employees.map((item) => <div className="hr-list__row" key={item.employmentContractId}><div><strong>{item.fullName}</strong><span className="ui-muted">{item.jobTitle} · {item.costCenterName ?? 'Sem centro de custo'} · {item.allocationPercent ?? 0}%</span></div><div className="hr-list__values"><span>{currency.format(item.baseSalary)}</span><span>{item.contractStatus}</span></div></div>)}</div>}</Card>
+    {activeTab === 'dashboard' && <div className="hr-overview__content hr-panel hr-panel--dashboard" role="tabpanel">
+      <div className="hr-overview__cards"><Card className="hr-kpi-card" title="Vínculos ativos"><strong className="hr-kpi">{activeEmployees.length}</strong><span className="ui-muted">{allEmployees.length} cadastrados</span></Card><Card className="hr-kpi-card" title="Salário previsto"><strong className="hr-kpi">{currency.format(plannedSalary)}</strong></Card><Card className="hr-kpi-card hr-kpi-card--primary" title="Salário realizado"><strong className="hr-kpi">{currency.format(realizedSalary)}</strong></Card></div>
+      <div className="hr-dashboard-grid"><Card title="Operação RH" description="Visão rápida da equipe"><dl className="hr-summary hr-summary--compact"><div><dt>Banco de horas</dt><dd>{bankHoursCount}</dd></div><div><dt>Eventos da folha</dt><dd>{activeEvents.length}</dd></div><div><dt>Fechamentos</dt><dd>{closedClosings.length}</dd></div></dl></Card><Card title="Ações rápidas" description="Atalhos para a rotina"><div className="hr-actions hr-actions--start"><Button size="sm" onClick={() => { setActiveTab('colaboradores'); open('employee'); }}>Novo colaborador</Button><Button size="sm" variant="secondary" onClick={() => setActiveTab('folha')}>Ir para folha</Button><Button size="sm" variant="secondary" onClick={() => setActiveTab('planejamento')}>Ir para planejamento</Button></div></Card></div>
+    </div>}
+
+    {activeTab === 'colaboradores' && <div className="hr-overview__content hr-panel hr-panel--people" role="tabpanel">
+      <Card className="hr-primary-card" title="Colaboradores" description="Cadastro completo, vínculo, salário, obra e banco de horas" actions={<div className="hr-actions"><Button size="sm" onClick={() => open('employee')}>Novo colaborador</Button><Button size="sm" variant="secondary" onClick={() => open('salary')}>Alterar salário</Button><Button size="sm" variant="secondary" onClick={() => open('allocation')}>Alterar obra</Button><Button size="sm" variant="secondary" onClick={() => open('terminate')}>Encerrar vínculo</Button></div>}>
+        <div className="hr-employee-toolbar"><Input label="Buscar" placeholder="Nome, função, obra, setor, CPF…" value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} /><Select label="Status" value={employeeStatus} onChange={(e) => setEmployeeStatus(e.target.value)} options={[{ value: 'active', label: 'Ativos' }, { value: 'terminated', label: 'Desligados' }, { value: 'all', label: 'Todos' }]} /></div>
+        {filteredEmployees.length === 0 ? <p className="ui-muted">Nenhum colaborador encontrado.</p> : <div className="hr-list hr-list--people">{filteredEmployees.map((item) => <div className="hr-list__row hr-employee-row" key={item.employmentContractId}><div className="hr-employee-row__main"><strong>{item.fullName}</strong><span className="ui-muted">{item.jobTitle} · {employmentTypeLabel.get(item.employmentType) ?? item.employmentType} · {item.costCenterName ?? 'Sem obra'}{item.sector ? ` · ${item.sector}` : ''}</span><span className="hr-employee-row__meta">Admissão {item.hiredOn.split('-').reverse().join('/')} · {item.weeklyHours}h/semana{item.bankHoursEnabled ? ' · Banco de horas' : ''}</span></div><div className="hr-list__values hr-employee-row__values"><strong>{currency.format(item.baseSalary)}</strong><span className={`hr-status hr-status--${item.contractStatus}`}>{item.contractStatus === 'active' ? 'Ativo' : 'Desligado'}</span><Button size="sm" variant="tertiary" onClick={() => open('employeeEdit', employeeInitial(item))}>Editar</Button></div></div>)}</div>}
+      </Card>
     </div>}
 
     {activeTab === 'folha' && <div className="hr-overview__content hr-panel hr-panel--payroll" role="tabpanel">
@@ -139,7 +209,7 @@ export function HrBudgetPage({ company }: HrBudgetPageProps) {
       <Card className="hr-secondary-card" title="Fechamentos" description="Bruto, INSS, IRRF e FGTS calculados por colaborador">{(operational?.payrollClosings.length ?? 0) === 0 ? <p className="ui-muted">Nenhum fechamento nesta competência.</p> : <div className="hr-list hr-list--closings">{operational?.payrollClosings.map((item) => <div className="hr-list__row" key={item.id}><div><strong>{item.employeeName}</strong><span className="ui-muted">{item.status} · Bruto {currency.format(item.grossAmount)}</span></div><div className="hr-list__values"><span>INSS {currency.format(item.inssAmount)}</span><span>IRRF {currency.format(item.irrfAmount)}</span><span>FGTS {currency.format(item.fgtsAmount)}</span></div></div>)}</div>}</Card>
     </div>}
 
-    {activeTab === 'orcamento' && <div className="hr-overview__content hr-panel hr-panel--budget" role="tabpanel">
+    {activeTab === 'planejamento' && <div className="hr-overview__content hr-panel hr-panel--budget" role="tabpanel">
       <div className="hr-overview__cards"><Card className="hr-kpi-card" title="Planejado no mês"><strong className="hr-kpi">{currency.format(monthlyPlanned)}</strong></Card><Card className="hr-kpi-card" title="Realizado no mês"><strong className="hr-kpi">{currency.format(monthlyRealized)}</strong></Card><Card className="hr-kpi-card hr-kpi-card--primary" title="Disponível no mês"><strong className="hr-kpi">{currency.format(monthlyPlanned - monthlyRealized)}</strong></Card></div>
       <Card className="hr-primary-card" title="Planejamento e limites" description="Manual + salários projetados, por empresa/obra/categoria" actions={<div className="hr-actions"><Button size="sm" onClick={() => open('budgetPlan')}>Planejamento</Button><Button size="sm" variant="secondary" onClick={() => open('budgetLimit')}>Limite</Button></div>}>{monthlyByCostCenter.length === 0 ? <p className="ui-muted">Nenhum orçamento por centro de custo nesta competência.</p> : <div className="hr-list hr-list--budget">{monthlyByCostCenter.map((item) => <div className="hr-list__row" key={item.costCenterId ?? item.costCenterName ?? 'cc'}><strong>{item.costCenterName ?? 'Centro de custo'}</strong><div className="hr-list__values"><span>Prev. {currency.format(item.plannedTotal)}</span><span>Real. {currency.format(item.realizedTotal)}</span><span>Saldo {currency.format(item.varianceAmount)}</span></div></div>)}</div>}</Card>
       <Card className="hr-secondary-card" title="Limites cadastrados" description="Alerta por obra e categoria">{(operational?.budgetLimits.length ?? 0) === 0 ? <p className="ui-muted">Nenhum limite cadastrado para esta competência.</p> : <div className="hr-list hr-list--limits">{operational?.budgetLimits.map((item) => <div className="hr-list__row" key={item.id}><div><strong>{item.costCenterName ?? 'Empresa geral'}</strong><span className="ui-muted">{item.categoryName ?? 'Todas as categorias'} · alerta {item.warningPercent}%</span></div><strong>{currency.format(item.limitAmount)}</strong></div>)}</div>}</Card>
