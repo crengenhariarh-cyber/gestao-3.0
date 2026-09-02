@@ -2,6 +2,7 @@ import type { CompanyScope } from '../domain/registries';
 import type {
   CardInstallment,
   CardStatementBalance,
+  CardStatementItem,
   CloseCardStatement,
   ClosedCardStatement,
   CreateCardPurchase,
@@ -21,6 +22,7 @@ export interface CardRepository {
   reorder(tenantId: string, orderedIds: readonly string[]): Promise<void>;
   listLimits(scope: CompanyScope): Promise<readonly CreditCardLimit[]>;
   listInstallments(scope: CompanyScope, cardId?: string): Promise<readonly CardInstallment[]>;
+  listStatementItems(scope: CompanyScope, cardId: string): Promise<readonly CardStatementItem[]>;
   listStatements(scope: CompanyScope, cardId?: string): Promise<readonly CardStatementBalance[]>;
   createPurchase(input: CreateCardPurchase): Promise<CreatedCardPurchase>;
   closeStatement(input: CloseCardStatement): Promise<ClosedCardStatement>;
