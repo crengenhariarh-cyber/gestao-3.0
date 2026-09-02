@@ -8,7 +8,7 @@ import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
 import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
-import { HrBudgetPage } from '../modules/hr/ui/HrBudgetPage';
+import { HrWorkspacePage } from '../modules/hr/ui/HrWorkspacePage';
 import { ALL_COMPANIES_ID, isAllCompanies } from '../modules/platform/application/companyContext';
 import type { CompanySummary } from '../modules/platform/domain/AccessContext';
 import type { PlatformSession } from '../modules/platform/ui/usePlatformSession';
@@ -98,7 +98,7 @@ export function AppShell({ session }: AppShellProps) {
   const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
   const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks"><section className="app-company-sections--banks__controls" aria-label="Ações de bancos"><BanksPage company={companies[0]!} companies={companies} showHeader /></section><AllBanksList companies={companies}/></div>;
-  const allCompaniesRh = <div>{companies.map((company) => <section key={company.id} aria-label={`RH ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
+  const allCompaniesRh = <div>{companies.map((company) => <section key={company.id} aria-label={`RH ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><HrWorkspacePage company={company}/></section>)}</div>;
   const allCompaniesEngineering = <div>{companies.map((company) => <section key={company.id} aria-label={`Engenharia ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
   return (
@@ -129,7 +129,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
-          <Route path="/rh" element={activeCompany ? <HrBudgetPage company={activeCompany}/> : allCompaniesRh}/>
+          <Route path="/rh" element={activeCompany ? <HrWorkspacePage company={activeCompany}/> : allCompaniesRh}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
