@@ -33,6 +33,12 @@ function isTransferResultRow(value: unknown): value is TransferResultRow {
   return typeof (value as Record<string, unknown>).new_contract_id === 'string';
 }
 
+function addDays(date: string, days: number): string {
+  const value = new Date(`${date}T12:00:00`);
+  value.setDate(value.getDate() + days);
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
 export async function listAttendanceForDate(scopes: readonly { tenantId: string; companyId: string }[], attendanceDate: string): Promise<AttendanceRecord[]> {
   if (scopes.length === 0) return [];
   const client = getSupabaseClient();
@@ -104,6 +110,49 @@ export async function saveAttendanceBatch(inputs: readonly {
     source_system: 'gestao-3.0',
     updated_at: new Date().toISOString(),
   }));
+  const result = await client.from('employee_attendance_daily').upsert(rows, { onConflict: 'tenant_id,company_id,employment_contract_id,attendance_date' });
+  if (result.error) throw result.error;
+}
+
+export async function saveAttendancePeriod(input: {
+  tenantId: string;
+  companyId: string;
+  employmentContractId: string;
+  startDate: string;
+  endDate: string;
+  status: 'medical_certificate' | 'vacation';
+  notes?: string | null;
+}): Promise<void> {
+  if (input.endDate < input.startDate) throw new Error('A data final não pode ser anterior à data inicial.');
+  const rows: Array<{
+    tenant_id: string;
+    company_id: string;
+    employment_contract_id: string;
+    attendance_date: string;
+    status: 'medical_certificate' | 'vacation';
+    check_in: null;
+    check_out: null;
+    notes: string | null;
+    source_system: string;
+    updated_at: string;
+  }> = [];
+  const updatedAt = new Date().toISOString();
+  for (let date = input.startDate; date <= input.endDate; date = addDays(date, 1)) {
+    rows.push({
+      tenant_id: input.tenantId,
+      company_id: input.companyId,
+      employment_contract_id: input.employmentContractId,
+      attendance_date: date,
+      status: input.status,
+      check_in: null,
+      check_out: null,
+      notes: input.notes ?? null,
+      source_system: 'gestao-3.0',
+      updated_at: updatedAt,
+    });
+  }
+  if (rows.length === 0) return;
+  const client = getSupabaseClient();
   const result = await client.from('employee_attendance_daily').upsert(rows, { onConflict: 'tenant_id,company_id,employment_contract_id,attendance_date' });
   if (result.error) throw result.error;
 }
