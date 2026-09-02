@@ -118,7 +118,7 @@ export async function transferEmployeeCompany(input: {
   allocationPercent?: number;
 }): Promise<string> {
   const client = getSupabaseClient();
-  const result = await client.rpc('transfer_hr_employee_company', {
+  const { data: rawData, error } = await client.rpc('transfer_hr_employee_company', {
     p_tenant_id: input.tenantId,
     p_source_company_id: input.sourceCompanyId,
     p_target_company_id: input.targetCompanyId,
@@ -126,10 +126,9 @@ export async function transferEmployeeCompany(input: {
     p_effective_on: input.effectiveOn,
     p_target_cost_center_id: input.targetCostCenterId ?? null,
     p_allocation_percent: input.allocationPercent ?? 100,
-  });
-  if (result.error) throw result.error;
-  const data = result.data as unknown;
-  const row = Array.isArray(data) ? data[0] : data;
+  }) as { data: unknown; error: unknown };
+  if (error) throw error;
+  const row: unknown = Array.isArray(rawData) ? rawData[0] : rawData;
   if (!isTransferResultRow(row)) throw new Error('A transferência foi concluída sem retornar o novo vínculo.');
   return row.new_contract_id;
 }
