@@ -1,3 +1,4 @@
+@import './home-sortable.css';
 .bank-brand{--bank-fg:#0f172a;--bank-accent:#2563eb;--bank-bg:#f8fafc;--bank-bg-2:#eef2f7;--bank-text:#0f172a;--bank-muted:#64748b;--bank-track:rgba(15,23,42,.10)}
 .bank-brand--itau{--bank-fg:#fff;--bank-accent:#ff7a00;--bank-bg:#1f4e9d;--bank-bg-2:#173d7f;--bank-text:#fff;--bank-muted:rgba(255,255,255,.82);--bank-track:rgba(255,255,255,.24)}
 .bank-brand--nubank{--bank-fg:#fff;--bank-accent:#fff;--bank-bg:#820ad1;--bank-bg-2:#6500a7;--bank-text:#fff;--bank-muted:rgba(255,255,255,.84);--bank-track:rgba(255,255,255,.24)}
