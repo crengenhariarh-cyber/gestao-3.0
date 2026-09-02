@@ -191,8 +191,8 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
         const brand = bankVisual(item.bankInstitution, item.name);
         return <div key={item.accountId} className={`banks-page__account-wrap bank-brand bank-brand--${brand.tone}`} data-sort-group="bank-account" data-sort-tenant={scope.tenantId} data-sort-id={item.accountId}>
           <SortableHandle itemId={item.accountId} tenantId={scope.tenantId} group="bank-account" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorderAccounts} />
-          <button type="button" className="banks-page__menu-trigger" aria-label={`Ações de ${item.name}`} aria-expanded={menuAccountId===item.accountId} onClick={()=>setMenuAccountId(menuAccountId===item.accountId?null:item.accountId)}>⋯</button>
-          {menuAccountId===item.accountId&&<div className="banks-page__menu" role="menu"><button type="button" onClick={()=>openEditAccount(item.accountId)}>Editar</button><button type="button" className="is-danger" onClick={()=>openDeleteAccount(item.accountId)}>Excluir</button></div>}
+          <Button variant="tertiary" className="banks-page__menu-trigger" aria-label={`Ações de ${item.name}`} aria-expanded={menuAccountId===item.accountId} onClick={()=>setMenuAccountId(menuAccountId===item.accountId?null:item.accountId)}>⋯</Button>
+          {menuAccountId===item.accountId&&<div className="banks-page__menu" role="menu"><Button variant="tertiary" onClick={()=>openEditAccount(item.accountId)}>Editar</Button><Button variant="tertiary" className="is-danger" onClick={()=>openDeleteAccount(item.accountId)}>Excluir</Button></div>}
           <Button variant="tertiary" className="banks-page__account-card" onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
             {brand.mark && <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>}
             <span className="banks-page__account-copy"><strong>{item.name}</strong><small>{brand.bank}</small></span>
