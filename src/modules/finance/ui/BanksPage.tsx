@@ -10,6 +10,7 @@ import { EmptyState, Feedback, LoadingState } from '../../../shared/ui/Feedback'
 import { Input } from '../../../shared/ui/Input';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
+import { SortableHandle } from '../../../shared/ui/SortableHandle';
 import { Tabs } from '../../../shared/ui/Tabs';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 import { useFinanceOperations } from './useFinanceOperations';
@@ -63,6 +64,7 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
   const [movementsLoading, setMovementsLoading] = useState(true);
   const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [accountForm, setAccountForm] = useState({ id: '', name: '', accountType: 'bank' as FinancialAccountType, openingBalance: '0', status: 'active' as RegistryStatus });
   const [transferForm, setTransferForm] = useState({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
@@ -84,12 +86,18 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
     return () => { cancelled = true; };
   }, [repositories, rangeEnd, rangeStart, refreshToken, scope]);
 
+  useEffect(() => {
+    const refreshOrder = () => setRefreshToken((value) => value + 1);
+    window.addEventListener('finance-bank-order-changed', refreshOrder);
+    return () => window.removeEventListener('finance-bank-order-changed', refreshOrder);
+  }, []);
+
   if (overview.status === 'idle' || overview.status === 'loading') return <LoadingState label="Carregando bancos…" />;
   if (overview.status === 'error') return <EmptyState title="Bancos indisponíveis" message={overview.errorMessage} />;
   if (!overview.data) return <LoadingState label="Carregando bancos…" />;
 
   const data = overview.data;
-  const activeBalances = data.accountBalances.filter((item) => item.status === 'active');
+  const activeBalances = data.accountBalances.filter((item) => item.status === 'active').sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   const activeAccounts = (references?.accounts ?? []).filter((item) => item.status === 'active');
   const selectedBalance = activeBalances.find((item) => item.accountId === selectedAccountId) ?? null;
   const effectiveAccountId = selectedBalance?.accountId ?? '';
@@ -130,6 +138,15 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   }
   function openTransfer(accountId = effectiveAccountId) { setTransferForm({ fromAccountId: accountId, toAccountId: '', transferOn: today(), amount: '', notes: '' }); operations.clearFeedback(); setDialog('transfer'); }
   function openPlan(item?: FinancialEntryListItem) { setPlanForm({ entryId: item?.entryId ?? '', plannedAccountId: item?.plannedAccountId ?? effectiveAccountId }); operations.clearFeedback(); setDialog('plan'); }
+  async function reorderAccounts(orderedIds: readonly string[]) {
+    try {
+      setOrderError(null);
+      await repositories.accounts.reorder(scope.tenantId, orderedIds);
+      window.dispatchEvent(new Event('finance-bank-order-changed'));
+    } catch {
+      setOrderError('Não foi possível salvar a nova ordem das contas.');
+    }
+  }
   async function refreshAll() { await operations.loadReferences(); setRefreshToken((value) => value + 1); closeDialog(); }
   async function saveAccount() {
     try {
@@ -154,14 +171,16 @@ export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   return <section className={`finance-overview banks-page${showHeader ? '' : ' banks-page--embedded'}`} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}>
     {showHeader && <PageHeader id="banks-title" title="Bancos" actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')}>Nova transferência</Button></div>} />}
 
+    {orderError && <Feedback tone="danger" title="Ordem não salva" message={orderError} />}
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
     {activeBalances.length === 0 ? null : <div className="banks-page__accounts">
       {activeBalances.map((item) => {
         const brand = bankVisual(item.bankInstitution, item.name);
-        return <Button key={item.accountId} variant="tertiary" className={`banks-page__account-card bank-brand bank-brand--${brand.tone}`} onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
-          <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>
+        return <Button key={item.accountId} variant="tertiary" className={`banks-page__account-card bank-brand bank-brand--${brand.tone}`} data-sort-group="bank-account" data-sort-tenant={scope.tenantId} data-sort-id={item.accountId} onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
+          <SortableHandle itemId={item.accountId} tenantId={scope.tenantId} group="bank-account" label={`Arrastar ${item.name} para reorganizar`} onReorder={reorderAccounts} />
+          {brand.mark && <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>}
           <span className="banks-page__account-copy"><strong>{item.name}</strong><small>{brand.bank}</small></span>
           <strong className="banks-page__account-balance">{currency.format(item.currentBalance)}</strong>
           <small className="banks-page__account-hint">Toque para abrir o extrato ›</small>
