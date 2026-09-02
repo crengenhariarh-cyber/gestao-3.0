@@ -64,6 +64,7 @@ export interface CreateFinancialAccount extends CompanyScope {
 
 export interface UpdateFinancialAccount extends CompanyScope {
   id: string;
+  sourceCompanyId?: string;
   name: string;
   accountType: FinancialAccountType;
   bankInstitution?: FinancialBankInstitution | null;
