@@ -27,10 +27,10 @@ function costCenter(row: CostCenterRow): CostCenter {
 function account(row: AccountRow): FinancialAccount {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, accountType: row.account_type, bankInstitution: row.bank_institution, openingBalance: Number(row.opening_balance), status: row.status };
 }
-function firstRow<T>(value: unknown): T {
-  const row = Array.isArray(value) ? value[0] : value;
+function firstAccountRow(value: unknown): AccountRow {
+  const row: unknown = Array.isArray(value) ? (value as unknown[])[0] : value;
   if (!row || typeof row !== 'object') throw new Error('operation returned an invalid result');
-  return row as T;
+  return row as AccountRow;
 }
 
 export class SupabaseFinanceRegistryRepository implements FinanceRegistryRepository {
@@ -100,7 +100,7 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     if (!name) throw new Error('name is required');
     const sourceCompanyId = raw.sourceCompanyId ?? raw.companyId;
     if (sourceCompanyId !== raw.companyId) {
-      const { data, error } = await this.client.rpc('reassign_financial_account_company', {
+      const result = await this.client.rpc('reassign_financial_account_company', {
         p_tenant_id: raw.tenantId,
         p_account_id: raw.id,
         p_source_company_id: sourceCompanyId,
@@ -110,8 +110,9 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
         p_bank_institution: raw.bankInstitution ?? '',
         p_status: raw.status,
       });
-      if (error) throw error;
-      return account(firstRow<AccountRow>(data));
+      if (result.error) throw result.error;
+      const rpcData = result.data as unknown;
+      return account(firstAccountRow(rpcData));
     }
     const { data, error } = await this.client.from('financial_accounts')
       .update({ name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
