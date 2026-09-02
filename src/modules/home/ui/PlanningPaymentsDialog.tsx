@@ -7,6 +7,7 @@ import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
+import { MoneyInput } from '../../../shared/ui/MoneyInput';
 import { Select } from '../../../shared/ui/Select';
 import type { HomeEntry } from './useHomeOverview';
 import './planning-payments.css';
@@ -49,7 +50,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('total');
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary>({ original: 0, paid: 0, remaining: 0 });
   const [overpayConfirm, setOverpayConfirm] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ accountId: '', settledOn: today(), amount: '', notes: '' });
+  const [paymentForm, setPaymentForm] = useState({ accountId: '', settledOn: today(), amount: 0, notes: '' });
   const [editForm, setEditForm] = useState({ description: '', dueDate: today(), totalAmount: '', installmentCount: 1 });
 
   const expenses = useMemo(() => entries.filter(item => item.entryType === 'expense' && (!from || item.dueDate >= from) && (!to || item.dueDate <= to)).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description)), [entries, from, to]);
@@ -57,7 +58,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   const selectedItems = expenses.filter(item => selected.includes(`${item.companyId}|${item.installmentId}`));
   const selectedTotal = selectedItems.reduce((total, item) => total + item.amount, 0);
   const allSelected = expenses.length > 0 && expenses.every(item => selected.includes(`${item.companyId}|${item.installmentId}`));
-  const paymentAmount = Number(paymentForm.amount) || 0;
+  const paymentAmount = paymentForm.amount;
   const remainingAfter = Math.max(paymentSummary.remaining - paymentAmount, 0);
   const overpayAmount = Math.max(paymentAmount - paymentSummary.remaining, 0);
 
@@ -71,7 +72,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   }
   function choosePaymentMode(mode: PaymentMode) {
     setPaymentMode(mode);
-    if (mode === 'total') setPaymentForm(current => ({ ...current, amount: String(paymentSummary.remaining) }));
+    if (mode === 'total') setPaymentForm(current => ({ ...current, amount: paymentSummary.remaining }));
   }
 
   async function openPayment(item: HomeEntry) {
@@ -96,7 +97,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
       const accountList = (await accountPromise).filter(account => account.status === 'active');
       setAccounts(accountList);
       setPaymentSummary(summary);
-      setPaymentForm({ accountId: accountList.some(account => account.id === preferredAccountId) ? preferredAccountId : '', settledOn: today(), amount: String(summary.remaining), notes: '' });
+      setPaymentForm({ accountId: accountList.some(account => account.id === preferredAccountId) ? preferredAccountId : '', settledOn: today(), amount: summary.remaining, notes: '' });
       setAction('payment');
     } catch { setError('Não foi possível carregar os dados do pagamento.'); }
     finally { setBusy(false); }
@@ -194,13 +195,14 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
           const key = `${item.companyId}|${item.installmentId}`;
           const isSelected = selected.includes(key);
           const installment = item.sourceKind === 'financial_installment' && item.installmentCount > 1 ? ` · Parcela ${item.installmentNumber}/${item.installmentCount}` : '';
+          const canMaintain = item.sourceKind === 'financial_installment';
           return <Card key={key} className={`${item.dueDate < today() ? 'is-danger ' : ''}${isSelected ? 'planning-item--selected' : ''}`.trim()}>
             <div className="planning-payments__details"><div><span>{item.description}{installment}</span><strong>{money(item.amount)}</strong></div><div><span>{dateLabel(item.dueDate)}</span><strong>{item.companyName}{item.sourceKind === 'card_statement' ? ' · Cartão' : ''}</strong></div></div>
             <div className="planning-payments__actions">
-              <Button size="sm" onClick={() => toggle(item)} aria-pressed={isSelected}>{isSelected ? '✓ Selecionado' : 'Selecionar'}</Button>
-              {item.sourceKind === 'financial_installment' && <Button size="sm" variant="secondary" onClick={() => { void openEdit(item); }}>Editar</Button>}
-              {item.sourceKind === 'financial_installment' && <Button size="sm" variant="tertiary" onClick={() => { void openDelete(item); }}>Excluir</Button>}
-              <Button size="sm" onClick={() => { void openPayment(item); }}>Pagar</Button>
+              <Button size="sm" variant="primary" onClick={() => toggle(item)} aria-pressed={isSelected}>{isSelected ? '✓ Selecionado' : 'Selecionar'}</Button>
+              {canMaintain && <Button size="sm" variant="primary" onClick={() => { void openEdit(item); }}>Editar</Button>}
+              {canMaintain && <Button size="sm" variant="danger" onClick={() => { void openDelete(item); }}>Excluir</Button>}
+              <Button size="sm" variant="success" onClick={() => { void openPayment(item); }}>Pagar</Button>
             </div>
           </Card>;
         })}</div>
@@ -214,7 +216,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
         <div className="payment-app__totals"><div><span>Total original</span><strong>{money(paymentSummary.original)}</strong></div><div><span>Já pago</span><strong>{money(paymentSummary.paid)}</strong></div><div><span>Restante</span><strong>{money(paymentSummary.remaining)}</strong></div></div>
         <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>Pagamento total</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>Pagamento parcial</strong><small>Pagar parte ou informar outro valor</small></span></Button></div>
         <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={event => setPaymentForm(current => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /></div>
-        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor efetivamente pago" type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={event => setPaymentForm(current => ({ ...current, amount: event.target.value }))} required /></div>
+        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label="Valor efetivamente pago" value={paymentForm.amount} onValueChange={amount => setPaymentForm(current => ({ ...current, amount }))} required /></div>
         <Input label="Observação" value={paymentForm.notes} onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
         <div className={`payment-app__result ${overpayAmount > 0 ? 'is-warning' : ''}`.trim()}><span>{overpayAmount > 0 ? 'Valor acima do restante' : 'Saldo restante após confirmar'}</span><strong>{overpayAmount > 0 ? `+ ${money(overpayAmount)}` : money(remainingAfter)}</strong></div>
       </div>
