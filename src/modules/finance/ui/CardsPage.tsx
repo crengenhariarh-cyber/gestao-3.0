@@ -33,19 +33,20 @@ function cardVisual(name: string): { tone: CardTone; mark: string; institution: 
 
 export function CardsPage({ companies }: { companies: readonly CompanySummary[] }) {
   const repositories = useMemo(() => getFinanceRepositories(), []);
+  const uniqueCompanies = useMemo(() => [...new Map(companies.map((company) => [company.id, company])).values()], [companies]);
   const [cards, setCards] = useState<readonly ListedCard[]>([]);
   const [selected, setSelected] = useState<ListedCard | null>(null);
   const [statements, setStatements] = useState<readonly CardStatementBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const tenantId = companies[0]?.tenantId ?? '';
+  const tenantId = uniqueCompanies[0]?.tenantId ?? '';
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const groups = await Promise.all(companies.map(async (company) => {
+      const groups = await Promise.all(uniqueCompanies.map(async (company) => {
         const scope = { tenantId: company.tenantId, companyId: company.id };
         const [limits, registered] = await Promise.all([
           repositories.cards.listLimits(scope),
@@ -57,13 +58,14 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
           return { ...item, companyName: companyName(company), lastFour: card?.lastFour ?? null, dueDay: card?.dueDay ?? 0 };
         });
       }));
-      setCards(groups.flat().sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)));
+      const uniqueCards = [...new Map(groups.flat().map((item) => [item.cardId, item])).values()];
+      setCards(uniqueCards.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)));
     } catch {
       setError('Não foi possível carregar os cartões.');
     } finally {
       setLoading(false);
     }
-  }, [repositories.cards, companies]);
+  }, [repositories.cards, uniqueCompanies]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -103,6 +105,11 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   return <div className="cards-page">
     <PageHeader title="Cartões" />
     {error && <Feedback tone="danger" title="Cartões" message={error} />}
+
+    <div className="cards-page__reorder-tip" role="note">
+      <span className="cards-page__reorder-icon" aria-hidden="true">i</span>
+      <span><strong>Ordene como quiser</strong><small>Segure o ícone ⋮⋮ e arraste para reorganizar a ordem dos cartões.</small></span>
+    </div>
 
     <div className="cards-page__summary" aria-label="Resumo dos cartões">
       <Card><span>Limite total</span><strong>{currency.format(totalLimit)}</strong></Card>
