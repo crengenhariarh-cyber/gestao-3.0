@@ -25,6 +25,7 @@ export interface CreateCreditCard extends CompanyScope {
 
 export interface UpdateCreditCard extends CreateCreditCard {
   id: string;
+  sourceCompanyId?: string;
   status: RegistryStatus;
 }
 
