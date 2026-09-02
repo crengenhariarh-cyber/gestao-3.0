@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getFinanceRepositories } from '../../finance/infrastructure/createFinanceRepositories';
 import type { FinancialEntryListItem } from '../../finance/domain/entries';
 import type { FinancialAccount } from '../../finance/domain/registries';
@@ -12,11 +12,15 @@ import { Select } from '../../../shared/ui/Select';
 import type { HomeEntry } from './useHomeOverview';
 import './planning-payments.css';
 
+export type PlanningDirectAction = { item: HomeEntry; kind: 'payment' | 'edit' | 'delete'; nonce: string };
+
 interface PlanningPaymentsDialogProps {
   open: boolean;
   entries: readonly HomeEntry[];
   onClose: () => void;
   onChanged: () => void;
+  directAction?: PlanningDirectAction | null;
+  onDirectActionConsumed?: () => void;
 }
 
 type ActionKind = 'payment' | 'edit' | 'delete' | null;
@@ -36,7 +40,7 @@ function parseCardItem(item: HomeEntry) {
   return match ? { cardId: match[1]!, statementMonth: match[2]! } : null;
 }
 
-export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: PlanningPaymentsDialogProps) {
+export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, directAction = null, onDirectActionConsumed }: PlanningPaymentsDialogProps) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [selected, setSelected] = useState<readonly string[]>([]);
@@ -61,6 +65,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
   const paymentAmount = paymentForm.amount;
   const remainingAfter = Math.max(paymentSummary.remaining - paymentAmount, 0);
   const overpayAmount = Math.max(paymentAmount - paymentSummary.remaining, 0);
+  const receiving = target?.entryType === 'income';
 
   function closeAction() { setAction(null); setTarget(null); setLoadedEntry(null); setError(null); setOverpayConfirm(false); }
   function toggle(item: HomeEntry) {
@@ -99,7 +104,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
       setPaymentSummary(summary);
       setPaymentForm({ accountId: accountList.some(account => account.id === preferredAccountId) ? preferredAccountId : '', settledOn: today(), amount: summary.remaining, notes: '' });
       setAction('payment');
-    } catch { setError('Não foi possível carregar os dados do pagamento.'); }
+    } catch { setError(item.entryType === 'income' ? 'Não foi possível carregar os dados do recebimento.' : 'Não foi possível carregar os dados do pagamento.'); }
     finally { setBusy(false); }
   }
 
@@ -109,7 +114,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
     try {
       const scope = { tenantId: target.tenantId, companyId: target.companyId };
       if (target.sourceKind === 'financial_installment') {
-        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey('planning-payment'), notes: paymentForm.notes || null });
+        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey(target.entryType === 'income' ? 'summary-receipt' : 'planning-payment'), notes: paymentForm.notes || null });
       } else {
         const card = parseCardItem(target);
         if (!card) throw new Error('Fatura inválida');
@@ -117,10 +122,10 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
         const statement = existing ?? await finance.cards.closeStatement({ ...scope, cardId: card.cardId, statementMonth: card.statementMonth });
         await finance.cards.recordStatementPayment({ ...scope, statementId: statement.statementId, accountId: paymentForm.accountId, paidOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey('planning-card-payment'), notes: paymentForm.notes || null });
       }
-      setSuccess(`Pagamento de ${money(paymentAmount)} registrado com sucesso.`);
+      setSuccess(`${target.entryType === 'income' ? 'Recebimento' : 'Pagamento'} de ${money(paymentAmount)} registrado com sucesso.`);
       setSelected(current => current.filter(value => value !== `${target.companyId}|${target.installmentId}`));
       closeAction(); onChanged();
-    } catch { setError('Não foi possível registrar o pagamento. Nenhuma segunda baixa foi criada.'); }
+    } catch { setError(target.entryType === 'income' ? 'Não foi possível registrar o recebimento. Nenhuma segunda baixa foi criada.' : 'Não foi possível registrar o pagamento. Nenhuma segunda baixa foi criada.'); }
     finally { setBusy(false); }
   }
 
@@ -181,6 +186,16 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
     finally { setBusy(false); }
   }
 
+  useEffect(() => {
+    if (!directAction) return;
+    onDirectActionConsumed?.();
+    if (directAction.kind === 'payment') void openPayment(directAction.item);
+    else if (directAction.kind === 'edit') void openEdit(directAction.item);
+    else void openDelete(directAction.item);
+    // A ação direta é deliberadamente disparada apenas por um novo nonce vindo da Home.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directAction?.nonce]);
+
   const accountOptions = [{ value: '', label: 'Selecione…' }, ...accounts.map(account => ({ value: account.id, label: account.name }))];
 
   return <>
@@ -209,21 +224,21 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged }: Pl
       </div>
     </Dialog>
 
-    <Dialog open={action === 'payment'} title="Registrar pagamento" description={target ? `${target.description}${target.sourceKind === 'card_statement' ? ' · FATURA DE CARTÃO' : ''}` : undefined} loading={busy} confirmLabel="Confirmar pagamento" onClose={closeAction} onBack={closeAction} onConfirm={requestPayment}>
+    <Dialog open={action === 'payment'} title={receiving ? 'Registrar recebimento' : 'Registrar pagamento'} description={target ? `${target.description}${target.sourceKind === 'card_statement' ? ' · FATURA DE CARTÃO' : ''}` : undefined} loading={busy} confirmLabel={receiving ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={closeAction} onBack={closeAction} onConfirm={requestPayment}>
       <div className="payment-app">
-        {error && <Feedback tone="danger" title="Não foi possível pagar" message={error} />}
-        <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{target?.description ?? 'Pagamento'}</strong><span>{target?.sourceKind === 'card_statement' ? 'FATURA DE CARTÃO' : target?.installmentCount && target.installmentCount > 1 ? `PARCELA ${target.installmentNumber}/${target.installmentCount}` : 'DESPESA'}</span></div></div>
-        <div className="payment-app__totals"><div><span>Total original</span><strong>{money(paymentSummary.original)}</strong></div><div><span>Já pago</span><strong>{money(paymentSummary.paid)}</strong></div><div><span>Restante</span><strong>{money(paymentSummary.remaining)}</strong></div></div>
-        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>Pagamento total</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>Pagamento parcial</strong><small>Pagar parte ou informar outro valor</small></span></Button></div>
+        {error && <Feedback tone="danger" title={receiving ? 'Não foi possível receber' : 'Não foi possível pagar'} message={error} />}
+        <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{target?.description ?? (receiving ? 'Recebimento' : 'Pagamento')}</strong><span>{target?.sourceKind === 'card_statement' ? 'FATURA DE CARTÃO' : target?.installmentCount && target.installmentCount > 1 ? `PARCELA ${target.installmentNumber}/${target.installmentCount}` : receiving ? 'RECEITA' : 'DESPESA'}</span></div></div>
+        <div className="payment-app__totals"><div><span>Total original</span><strong>{money(paymentSummary.original)}</strong></div><div><span>{receiving ? 'Já recebido' : 'Já pago'}</span><strong>{money(paymentSummary.paid)}</strong></div><div><span>Restante</span><strong>{money(paymentSummary.remaining)}</strong></div></div>
+        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>{receiving ? 'Recebimento total' : 'Pagamento total'}</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>{receiving ? 'Recebimento parcial' : 'Pagamento parcial'}</strong><small>{receiving ? 'Receber parte ou informar outro valor' : 'Pagar parte ou informar outro valor'}</small></span></Button></div>
         <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={event => setPaymentForm(current => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /></div>
-        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label="Valor efetivamente pago" value={paymentForm.amount} onValueChange={amount => setPaymentForm(current => ({ ...current, amount }))} required /></div>
+        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label={receiving ? 'Valor efetivamente recebido' : 'Valor efetivamente pago'} value={paymentForm.amount} onValueChange={amount => setPaymentForm(current => ({ ...current, amount }))} required /></div>
         <Input label="Observação" value={paymentForm.notes} onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
         <div className={`payment-app__result ${overpayAmount > 0 ? 'is-warning' : ''}`.trim()}><span>{overpayAmount > 0 ? 'Valor acima do restante' : 'Saldo restante após confirmar'}</span><strong>{overpayAmount > 0 ? `+ ${money(overpayAmount)}` : money(remainingAfter)}</strong></div>
       </div>
     </Dialog>
 
-    <Dialog open={overpayConfirm} title="Confirmar valor acima da despesa" description={target ? `Você informou ${money(paymentAmount)}, mas o saldo restante de ${target.description} é ${money(paymentSummary.remaining)}.` : undefined} loading={busy} confirmLabel="Sim, pagar este valor" onClose={() => setOverpayConfirm(false)} onBack={() => setOverpayConfirm(false)} onConfirm={() => { void performPayment(); }}>
-      <div className="payment-app__warning"><strong>Diferença de {money(overpayAmount)}</strong><span>O valor integral informado será descontado da conta bancária. A despesa ficará quitada e o excedente ficará registrado como valor efetivamente pago.</span></div>
+    <Dialog open={overpayConfirm} title={receiving ? 'Confirmar valor acima da receita' : 'Confirmar valor acima da despesa'} description={target ? `Você informou ${money(paymentAmount)}, mas o saldo restante de ${target.description} é ${money(paymentSummary.remaining)}.` : undefined} loading={busy} confirmLabel={receiving ? 'Sim, receber este valor' : 'Sim, pagar este valor'} onClose={() => setOverpayConfirm(false)} onBack={() => setOverpayConfirm(false)} onConfirm={() => { void performPayment(); }}>
+      <div className="payment-app__warning"><strong>Diferença de {money(overpayAmount)}</strong><span>{receiving ? 'O valor integral informado será creditado na conta bancária. A receita ficará quitada e o excedente ficará registrado como valor efetivamente recebido.' : 'O valor integral informado será descontado da conta bancária. A despesa ficará quitada e o excedente ficará registrado como valor efetivamente pago.'}</span></div>
     </Dialog>
 
     <Dialog open={action === 'edit'} title="Editar lançamento" description={loadedEntry && loadedEntry.installmentCount > 1 ? `Este lançamento possui ${loadedEntry.installmentCount} parcelas; a edição é da série.` : 'Edite sem sair do planejamento.'} loading={busy} confirmLabel="Salvar" onClose={closeAction} onBack={closeAction} onConfirm={() => { void saveEdit(); }}>
