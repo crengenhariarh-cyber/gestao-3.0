@@ -16,10 +16,12 @@ import { useFinanceOperations } from './useFinanceOperations';
 import { useFinanceOverview } from './useFinanceOverview';
 import './finance.css';
 import './banks-page.css';
+import '../../home/ui/bank-brand.css';
 
-interface BanksPageProps { company: CompanySummary; }
+interface BanksPageProps { company: CompanySummary; showHeader?: boolean; }
 type DialogKind = 'account' | 'transfer' | 'plan' | 'extract' | null;
 type ExtractTab = 'realized' | 'forecast';
+type BankTone = 'itau' | 'nubank' | 'inter' | 'santander' | 'caixa' | 'sicoob' | 'bradesco' | 'bb' | 'sicredi' | 'c6' | 'generic';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function today(): string { return new Date().toISOString().slice(0, 10); }
@@ -34,8 +36,22 @@ function monthRange() {
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
 function money(value: string): number { return Number(value.replace(',', '.')); }
 function key(prefix: string): string { return `${prefix}:${crypto.randomUUID()}`; }
+function bankVisual(value: string | null, fallbackName: string): { tone: BankTone; mark: string; bank: string } {
+  const raw = `${value ?? ''} ${fallbackName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleUpperCase('pt-BR');
+  if (raw.includes('NUBANK')) return { tone: 'nubank', mark: 'nu', bank: 'Nubank' };
+  if (raw.includes('ITAU')) return { tone: 'itau', mark: 'itaú', bank: 'Itaú' };
+  if (raw.includes('INTER')) return { tone: 'inter', mark: 'inter', bank: 'Inter' };
+  if (raw.includes('SANTANDER')) return { tone: 'santander', mark: 'Santander', bank: 'Santander' };
+  if (raw.includes('CAIXA')) return { tone: 'caixa', mark: 'CAIXA', bank: 'Caixa' };
+  if (raw.includes('SICOOB')) return { tone: 'sicoob', mark: 'SICOOB', bank: 'Sicoob' };
+  if (raw.includes('BRADESCO')) return { tone: 'bradesco', mark: 'bradesco', bank: 'Bradesco' };
+  if (raw.includes('BANCO DO BRASIL') || /(^|\s)BB(\s|$)/.test(raw)) return { tone: 'bb', mark: 'BB', bank: 'Banco do Brasil' };
+  if (raw.includes('SICREDI')) return { tone: 'sicredi', mark: 'Sicredi', bank: 'Sicredi' };
+  if (raw.includes('C6')) return { tone: 'c6', mark: 'C6', bank: 'C6 Bank' };
+  return { tone: 'generic', mark: '▥', bank: 'Banco' };
+}
 
-export function BanksPage({ company }: BanksPageProps) {
+export function BanksPage({ company, showHeader = true }: BanksPageProps) {
   const scope = useMemo(() => ({ tenantId: company.tenantId, companyId: company.id }), [company.id, company.tenantId]);
   const repositories = useMemo(() => getFinanceRepositories(), []);
   const initialRange = useMemo(() => monthRange(), []);
@@ -82,13 +98,8 @@ export function BanksPage({ company }: BanksPageProps) {
     const balance = balanceByInstallment.get(item.installmentId);
     return (balance?.remainingAmount ?? item.amount) > 0 && balance?.financialStatus !== 'paid';
   });
-  const accountMovements = movements
-    .filter((item) => item.accountId === effectiveAccountId)
-    .sort((a, b) => `${b.movementOn}:${b.id}`.localeCompare(`${a.movementOn}:${a.id}`));
-  const projectedItems = openEntries
-    .filter((item) => item.plannedAccountId === effectiveAccountId)
-    .map((item) => ({ item, remaining: Math.max(0, balanceByInstallment.get(item.installmentId)?.remainingAmount ?? item.amount) }))
-    .sort((a, b) => `${a.item.dueDate}:${a.item.installmentId}`.localeCompare(`${b.item.dueDate}:${b.item.installmentId}`));
+  const accountMovements = movements.filter((item) => item.accountId === effectiveAccountId).sort((a, b) => `${b.movementOn}:${b.id}`.localeCompare(`${a.movementOn}:${a.id}`));
+  const projectedItems = openEntries.filter((item) => item.plannedAccountId === effectiveAccountId).map((item) => ({ item, remaining: Math.max(0, balanceByInstallment.get(item.installmentId)?.remainingAmount ?? item.amount) })).sort((a, b) => `${a.item.dueDate}:${a.item.installmentId}`.localeCompare(`${b.item.dueDate}:${b.item.installmentId}`));
   const projectedByAccount = new Map(activeBalances.map((account) => [account.accountId, { inflow: 0, outflow: 0 }]));
   openEntries.forEach((item) => {
     if (!item.plannedAccountId) return;
@@ -107,21 +118,9 @@ export function BanksPage({ company }: BanksPageProps) {
   const uniqueOpenEntries = Array.from(new Map(openEntries.map((item) => [item.entryId, item])).values());
   const entryOptions = [{ value: '', label: 'Selecione…' }, ...uniqueOpenEntries.map((item) => ({ value: item.entryId, label: `${item.description} · ${item.entryType === 'income' ? 'Receber' : 'Pagar'}` }))];
 
-  function closeDialog() {
-    setDialog(null);
-    operations.clearFeedback();
-  }
-  function openExtract(accountId: string) {
-    setSelectedAccountId(accountId);
-    setExtractTab('realized');
-    operations.clearFeedback();
-    setDialog('extract');
-  }
-  function openNewAccount() {
-    setAccountForm({ id: '', name: '', accountType: 'bank', openingBalance: '0', status: 'active' });
-    operations.clearFeedback();
-    setDialog('account');
-  }
+  function closeDialog() { setDialog(null); operations.clearFeedback(); }
+  function openExtract(accountId: string) { setSelectedAccountId(accountId); setExtractTab('realized'); operations.clearFeedback(); setDialog('extract'); }
+  function openNewAccount() { setAccountForm({ id: '', name: '', accountType: 'bank', openingBalance: '0', status: 'active' }); operations.clearFeedback(); setDialog('account'); }
   function openEditAccount(accountId: string) {
     const account = (references?.accounts ?? []).find((item) => item.id === accountId);
     if (!account) return;
@@ -129,21 +128,9 @@ export function BanksPage({ company }: BanksPageProps) {
     operations.clearFeedback();
     setDialog('account');
   }
-  function openTransfer(accountId = effectiveAccountId) {
-    setTransferForm({ fromAccountId: accountId, toAccountId: '', transferOn: today(), amount: '', notes: '' });
-    operations.clearFeedback();
-    setDialog('transfer');
-  }
-  function openPlan(item?: FinancialEntryListItem) {
-    setPlanForm({ entryId: item?.entryId ?? '', plannedAccountId: item?.plannedAccountId ?? effectiveAccountId });
-    operations.clearFeedback();
-    setDialog('plan');
-  }
-  async function refreshAll() {
-    await operations.loadReferences();
-    setRefreshToken((value) => value + 1);
-    closeDialog();
-  }
+  function openTransfer(accountId = effectiveAccountId) { setTransferForm({ fromAccountId: accountId, toAccountId: '', transferOn: today(), amount: '', notes: '' }); operations.clearFeedback(); setDialog('transfer'); }
+  function openPlan(item?: FinancialEntryListItem) { setPlanForm({ entryId: item?.entryId ?? '', plannedAccountId: item?.plannedAccountId ?? effectiveAccountId }); operations.clearFeedback(); setDialog('plan'); }
+  async function refreshAll() { await operations.loadReferences(); setRefreshToken((value) => value + 1); closeDialog(); }
   async function saveAccount() {
     try {
       if (accountForm.id) await operations.updateAccount({ id: accountForm.id, name: accountForm.name, accountType: accountForm.accountType, status: accountForm.status });
@@ -164,22 +151,22 @@ export function BanksPage({ company }: BanksPageProps) {
     } catch { /* feedback padronizado permanece no modal */ }
   }
 
-  return <section className="finance-overview banks-page" aria-labelledby="banks-title">
-    <PageHeader
-      id="banks-title"
-      title="Bancos"
-      actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')} disabled={activeAccounts.length < 2}>Nova transferência</Button></div>}
-    />
+  return <section className={`finance-overview banks-page${showHeader ? '' : ' banks-page--embedded'}`} aria-label={`Bancos ${company.tradeName ?? company.legalName}`}>
+    {showHeader && <PageHeader id="banks-title" title="Bancos" actions={<div className="banks-page__top-actions"><Button onClick={openNewAccount}>Novo banco</Button><Button onClick={() => openTransfer('')} disabled={activeAccounts.length < 2}>Nova transferência</Button></div>} />}
 
     {operations.state.errorMessage && dialog === null && <Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage} />}
     {operations.state.successMessage && dialog === null && <Feedback tone="success" title="Concluído" message={operations.state.successMessage} />}
 
-    {activeBalances.length === 0 ? <Card><p className="ui-muted">Nenhuma conta ativa cadastrada.</p></Card> : <div className="banks-page__accounts">
-      {activeBalances.map((item) => <Button key={item.accountId} className="banks-page__account-card" onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, saldo ${currency.format(item.currentBalance)}`}>
-        <span>{item.name}</span>
-        <strong>{currency.format(item.currentBalance)}</strong>
-        <small>Toque para abrir o extrato</small>
-      </Button>)}
+    {activeBalances.length === 0 ? null : <div className="banks-page__accounts">
+      {activeBalances.map((item) => {
+        const brand = bankVisual(item.bankInstitution, item.name);
+        return <Button key={item.accountId} variant="tertiary" className={`banks-page__account-card bank-brand bank-brand--${brand.tone}`} onClick={() => openExtract(item.accountId)} aria-label={`Abrir extrato de ${item.name}, ${brand.bank}, saldo ${currency.format(item.currentBalance)}`}>
+          <span className="bank-brand__mark" aria-hidden="true">{brand.mark}</span>
+          <span className="banks-page__account-copy"><strong>{item.name}</strong><small>{brand.bank}</small></span>
+          <strong className="banks-page__account-balance">{currency.format(item.currentBalance)}</strong>
+          <small className="banks-page__account-hint">Toque para abrir o extrato ›</small>
+        </Button>;
+      })}
     </div>}
 
     <Dialog open={dialog === 'extract'} title={selectedBalance ? selectedBalance.name : 'Extrato'} description={selectedBalance ? `Saldo ${currency.format(selectedBalance.currentBalance)}` : undefined} onClose={closeDialog} onBack={closeDialog}>
