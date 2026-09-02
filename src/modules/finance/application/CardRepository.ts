@@ -1,6 +1,7 @@
 import type { CompanyScope } from '../domain/registries';
 import type {
   CardInstallment,
+  CardStatementActivity,
   CardStatementBalance,
   CardStatementItem,
   CloseCardStatement,
@@ -23,10 +24,13 @@ export interface CardRepository {
   listLimits(scope: CompanyScope): Promise<readonly CreditCardLimit[]>;
   listInstallments(scope: CompanyScope, cardId?: string): Promise<readonly CardInstallment[]>;
   listStatementItems(scope: CompanyScope, cardId: string): Promise<readonly CardStatementItem[]>;
+  listStatementActivities(scope: CompanyScope, cardId: string): Promise<readonly CardStatementActivity[]>;
   listStatements(scope: CompanyScope, cardId?: string): Promise<readonly CardStatementBalance[]>;
   createPurchase(input: CreateCardPurchase): Promise<CreatedCardPurchase>;
   updatePurchase(input: CompanyScope & { transactionId: string; purchaseDate: string; description: string; totalAmount: number }): Promise<void>;
   deletePurchase(input: CompanyScope & { transactionId: string }): Promise<void>;
+  updateStatementPayment(input: CompanyScope & { paymentId: string; paidOn: string; amount: number; notes: string | null }): Promise<void>;
+  deleteStatementPayment(input: CompanyScope & { paymentId: string }): Promise<void>;
   closeStatement(input: CloseCardStatement): Promise<ClosedCardStatement>;
   recordStatementPayment(input: RecordCardStatementPayment): Promise<RecordedCardStatementPayment>;
 }
