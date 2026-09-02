@@ -128,7 +128,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
-          <Route path="/rh" element={<HrWorkspacePage companies={companies} initialCompanyId={activeCompany?.id}/>}/>
+          <Route path="/rh" element={activeCompany ? <HrWorkspacePage companies={companies} initialCompanyId={activeCompany.id}/> : <HrWorkspacePage companies={companies}/>}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
