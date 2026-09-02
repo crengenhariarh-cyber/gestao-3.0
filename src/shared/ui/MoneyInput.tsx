@@ -25,19 +25,23 @@ function valueFromMaskedInput(raw: string): number {
 }
 
 export function MoneyInput({ label, value, onValueChange, required, disabled, error, hint, id }: MoneyInputProps) {
+  const optionalProps = {
+    ...(id !== undefined ? { id } : {}),
+    ...(error !== undefined ? { error } : {}),
+    ...(hint !== undefined ? { hint } : {}),
+    ...(required !== undefined ? { required } : {}),
+    ...(disabled !== undefined ? { disabled } : {}),
+  };
+
   return (
     <Input
-      id={id}
+      {...optionalProps}
       label={label}
       type="text"
       inputMode="numeric"
       autoComplete="off"
       value={formatter.format(Number.isFinite(value) ? value : 0)}
       onChange={(event) => onValueChange(valueFromMaskedInput(event.target.value))}
-      required={required}
-      disabled={disabled}
-      error={error}
-      hint={hint}
     />
   );
 }
