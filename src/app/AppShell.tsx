@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
+import { AllBanksList } from '../modules/finance/ui/AllBanksList';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
 import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
@@ -95,7 +96,7 @@ export function AppShell({ session }: AppShellProps) {
 
   const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
-  const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks">{companies.map((company, index) => <section key={company.id} aria-label={`Bancos ${companyLabel(company)}`}><BanksPage company={company} showHeader={index === 0}/></section>)}</div>;
+  const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks"><section className="app-company-sections--banks__controls" aria-label="Ações de bancos"><BanksPage company={companies[0]!} showHeader /></section><AllBanksList companies={companies}/></div>;
   const allCompaniesRh = <div>{companies.map((company) => <section key={company.id} aria-label={`RH ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><HrBudgetPage company={company}/></section>)}</div>;
   const allCompaniesEngineering = <div>{companies.map((company) => <section key={company.id} aria-label={`Engenharia ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
