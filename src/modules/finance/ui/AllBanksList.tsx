@@ -225,7 +225,12 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
             <div className="statement-view__copy"><strong>{item.description || 'Movimentação'}</strong><span>{item.movementOn.split('-').reverse().join('/')} · {item.direction === 'inflow' ? 'Entrada' : 'Saída'}</span></div>
             <strong className={item.direction === 'inflow' ? 'statement-view__positive' : 'statement-view__negative'}>{item.direction === 'inflow' ? '+' : '-'} {currency.format(item.amount)}</strong>
           </div>)}</div>}
-          <div className="statement-view__footer-actions"><Button variant="secondary" onClick={exportCsv}>Baixar extrato (Excel)</Button><Button onClick={() => window.print()}>Imprimir</Button></div>
+          <div className="statement-view__footer-actions">
+            <Button variant="secondary" onClick={() => openEdit(selected)}>Editar banco</Button>
+            <Button variant="danger" onClick={() => openDelete(selected)}>Excluir banco</Button>
+            <Button variant="secondary" onClick={exportCsv}>Baixar extrato (Excel)</Button>
+            <Button onClick={() => window.print()}>Imprimir</Button>
+          </div>
         </>}
       </div>}
     </Dialog>
