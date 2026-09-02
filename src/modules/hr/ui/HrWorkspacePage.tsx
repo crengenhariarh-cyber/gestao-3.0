@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, CalendarCheck, Clock3, FileText, FolderUp, HardHat, ReceiptText, ShieldCheck, Upload, UserRoundSearch, UsersRound, WalletCards } from 'lucide-react';
+import { BarChart3, CalendarCheck, Clock3, FileText, FolderUp, HardHat, ReceiptText, ShieldCheck, Upload, UsersRound, WalletCards } from 'lucide-react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
@@ -27,7 +27,6 @@ const tabs: Array<{ id: HrWorkspaceTab; label: string; icon: typeof BarChart3 }>
 ];
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T12:00:00Z`));
 
 export function HrWorkspacePage({ company }: { company: CompanySummary }) {
   const [tab, setTab] = useState<HrWorkspaceTab>('dashboard');
