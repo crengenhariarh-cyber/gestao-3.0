@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { FinancialAccountBalance, FinancialAccountMovement } from '../domain/accounts';
-import type { FinancialAccountType, RegistryStatus } from '../domain/registries';
+import type { FinancialAccountType, FinancialBankInstitution, RegistryStatus } from '../domain/registries';
 import { getFinanceRepositories } from '../infrastructure/createFinanceRepositories';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
@@ -17,6 +17,12 @@ type ListedAccount = FinancialAccountBalance & { companyName: string };
 type AccountDialog = 'extract' | 'edit' | 'delete' | null;
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const bankInstitutionOptions = [
+  { value: '', label: 'Selecione…' },
+  { value: 'itau', label: 'Itaú' }, { value: 'nubank', label: 'Nubank' }, { value: 'inter', label: 'Inter' },
+  { value: 'santander', label: 'Santander' }, { value: 'caixa', label: 'Caixa' }, { value: 'sicoob', label: 'Sicoob' },
+  { value: 'bradesco', label: 'Bradesco' }, { value: 'bb', label: 'Banco do Brasil' }, { value: 'sicredi', label: 'Sicredi' }, { value: 'c6', label: 'C6 Bank' },
+];
 function bankVisual(value: string | null, fallbackName: string): { tone: BankTone; mark: string; bank: string } {
   const raw = `${value ?? ''} ${fallbackName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleUpperCase('pt-BR');
   if (raw.includes('NUBANK')) return { tone: 'nubank', mark: 'nu', bank: 'Nubank' };
@@ -45,7 +51,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [selected, setSelected] = useState<ListedAccount | null>(null);
   const [dialog, setDialog] = useState<AccountDialog>(null);
   const [menuAccountId, setMenuAccountId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', accountType: 'bank' as FinancialAccountType, status: 'active' as RegistryStatus });
+  const [editForm, setEditForm] = useState({ name: '', accountType: 'bank' as FinancialAccountType, bankInstitution: '' as FinancialBankInstitution | '', status: 'active' as RegistryStatus });
   const [movements, setMovements] = useState<readonly FinancialAccountMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [extractLoading, setExtractLoading] = useState(false);
@@ -104,7 +110,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   function openEdit(account: ListedAccount) {
     setMenuAccountId(null);
     setSelected(account);
-    setEditForm({ name: account.name, accountType: account.accountType, status: account.status });
+    setEditForm({ name: account.name, accountType: account.accountType, bankInstitution: account.bankInstitution ?? '', status: account.status });
     setDialog('edit');
   }
 
@@ -124,7 +130,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     setSaving(true);
     setError(null);
     try {
-      await repositories.registries.updateAccount({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.accountId, name: editForm.name, accountType: editForm.accountType, status: editForm.status });
+      await repositories.registries.updateAccount({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.accountId, name: editForm.name, accountType: editForm.accountType, bankInstitution: editForm.bankInstitution || null, status: editForm.status });
       closeDialog();
       await load();
       window.dispatchEvent(new Event('finance-bank-order-changed'));
@@ -140,7 +146,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     setSaving(true);
     setError(null);
     try {
-      await repositories.registries.updateAccount({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.accountId, name: selected.name, accountType: selected.accountType, status: 'inactive' });
+      await repositories.registries.updateAccount({ tenantId: selected.tenantId, companyId: selected.companyId, id: selected.accountId, name: selected.name, accountType: selected.accountType, bankInstitution: selected.bankInstitution, status: 'inactive' });
       closeDialog();
       await load();
       window.dispatchEvent(new Event('finance-bank-order-changed'));
@@ -178,7 +184,13 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     </Dialog>
 
     <Dialog open={dialog === 'edit' && selected !== null} title="Editar banco" description={selected ? selected.companyName : undefined} loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button onClick={() => { void saveEdit(); }}>Salvar alterações</Button></>}>
-      <div className="finance-form-grid"><Input label="Nome da conta" value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} required /><Select label="Tipo" value={editForm.accountType} onChange={(event) => setEditForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} /><Select label="Status" value={editForm.status} onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as RegistryStatus }))} options={[{ value: 'active', label: 'Ativa' }, { value: 'inactive', label: 'Inativa' }]} /></div>
+      <div className="finance-form-grid">
+        <Select label="Empresa" value={selected?.companyId ?? ''} disabled options={companies.map((company) => ({ value: company.id, label: companyName(company) }))} />
+        <Input label="Nome da conta" value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} required />
+        <Select label="Instituição" value={editForm.bankInstitution} onChange={(event) => setEditForm((current) => ({ ...current, bankInstitution: event.target.value as FinancialBankInstitution | '' }))} options={bankInstitutionOptions} />
+        <Select label="Tipo" value={editForm.accountType} onChange={(event) => setEditForm((current) => ({ ...current, accountType: event.target.value as FinancialAccountType }))} options={[{ value: 'bank', label: 'Banco' }, { value: 'cash', label: 'Dinheiro' }, { value: 'other', label: 'Outra conta' }]} />
+        <Select label="Status" value={editForm.status} onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as RegistryStatus }))} options={[{ value: 'active', label: 'Ativa' }, { value: 'inactive', label: 'Inativa' }]} />
+      </div>
     </Dialog>
 
     <Dialog open={dialog === 'delete' && selected !== null} title="Excluir banco" description={selected ? selected.companyName : undefined} loading={saving} onClose={closeDialog} onBack={closeDialog} footer={<><Button variant="secondary" onClick={closeDialog}>Cancelar</Button><Button variant="danger" onClick={() => { void confirmDelete(); }}>Excluir banco</Button></>}>
