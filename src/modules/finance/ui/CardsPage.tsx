@@ -40,7 +40,6 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tenantId = companies[0]?.tenantId ?? '';
-  const companyKey = companies.map((company) => `${company.tenantId}:${company.id}`).sort().join('|');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +63,7 @@ export function CardsPage({ companies }: { companies: readonly CompanySummary[] 
     } finally {
       setLoading(false);
     }
-  }, [repositories.cards, companyKey, companies]);
+  }, [repositories.cards, companies]);
 
   useEffect(() => { void load(); }, [load]);
 
