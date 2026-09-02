@@ -16,7 +16,7 @@ import type {
 
 type CategoryRow = { id: string; tenant_id: string; company_id: string; name: string; kind: FinancialCategory['kind']; status: FinancialCategory['status'] };
 type CostCenterRow = { id: string; tenant_id: string; company_id: string; name: string; code: string | null; status: CostCenter['status'] };
-type AccountRow = { id: string; tenant_id: string; company_id: string; name: string; account_type: FinancialAccount['accountType']; opening_balance: number | string; status: FinancialAccount['status'] };
+type AccountRow = { id: string; tenant_id: string; company_id: string; name: string; account_type: FinancialAccount['accountType']; bank_institution: FinancialAccount['bankInstitution']; opening_balance: number | string; status: FinancialAccount['status'] };
 
 function category(row: CategoryRow): FinancialCategory {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, kind: row.kind, status: row.status };
@@ -25,7 +25,7 @@ function costCenter(row: CostCenterRow): CostCenter {
   return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, code: row.code, status: row.status };
 }
 function account(row: AccountRow): FinancialAccount {
-  return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, accountType: row.account_type, openingBalance: Number(row.opening_balance), status: row.status };
+  return { id: row.id, tenantId: row.tenant_id, companyId: row.company_id, name: row.name, accountType: row.account_type, bankInstitution: row.bank_institution, openingBalance: Number(row.opening_balance), status: row.status };
 }
 
 export class SupabaseFinanceRegistryRepository implements FinanceRegistryRepository {
@@ -78,14 +78,14 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
   }
 
   async listAccounts(scope: CompanyScope): Promise<readonly FinancialAccount[]> {
-    const { data, error } = await this.client.from('financial_accounts').select('id,tenant_id,company_id,name,account_type,opening_balance,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
+    const { data, error } = await this.client.from('financial_accounts').select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId).order('name');
     if (error) throw error;
     return data.map(account);
   }
 
   async createAccount(raw: CreateFinancialAccount): Promise<FinancialAccount> {
     const input = normalizeAccount(raw);
-    const { data, error } = await this.client.from('financial_accounts').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, account_type: input.accountType, opening_balance: input.openingBalance ?? 0 }).select('id,tenant_id,company_id,name,account_type,opening_balance,status').single();
+    const { data, error } = await this.client.from('financial_accounts').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, account_type: input.accountType, bank_institution: input.bankInstitution ?? null, opening_balance: input.openingBalance ?? 0 }).select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').single();
     if (error) throw error;
     return account(data);
   }
@@ -94,9 +94,9 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     const name = raw.name.trim();
     if (!name) throw new Error('name is required');
     const { data, error } = await this.client.from('financial_accounts')
-      .update({ name, account_type: raw.accountType, status: raw.status })
+      .update({ name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
       .eq('tenant_id', raw.tenantId).eq('company_id', raw.companyId).eq('id', raw.id)
-      .select('id,tenant_id,company_id,name,account_type,opening_balance,status').single();
+      .select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').single();
     if (error) throw error;
     return account(data);
   }
