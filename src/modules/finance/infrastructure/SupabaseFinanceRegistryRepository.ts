@@ -93,9 +93,10 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
   async updateAccount(raw: UpdateFinancialAccount): Promise<FinancialAccount> {
     const name = raw.name.trim();
     if (!name) throw new Error('name is required');
+    const sourceCompanyId = raw.sourceCompanyId ?? raw.companyId;
     const { data, error } = await this.client.from('financial_accounts')
-      .update({ name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
-      .eq('tenant_id', raw.tenantId).eq('company_id', raw.companyId).eq('id', raw.id)
+      .update({ company_id: raw.companyId, name, account_type: raw.accountType, bank_institution: raw.bankInstitution ?? null, status: raw.status })
+      .eq('tenant_id', raw.tenantId).eq('company_id', sourceCompanyId).eq('id', raw.id)
       .select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').single();
     if (error) throw error;
     return account(data);
