@@ -81,6 +81,27 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
     }));
   }
 
+  async updateMovement(input: CompanyScope & { movementId: string; movementOn: string; amount: number; description: string | null }): Promise<void> {
+    const { error } = await this.client.rpc('update_bank_movement', {
+      p_tenant_id: input.tenantId,
+      p_company_id: input.companyId,
+      p_movement_id: input.movementId,
+      p_movement_on: input.movementOn,
+      p_amount: input.amount,
+      p_description: input.description,
+    });
+    if (error) throw error;
+  }
+
+  async deleteMovement(input: CompanyScope & { movementId: string }): Promise<void> {
+    const { error } = await this.client.rpc('delete_bank_movement', {
+      p_tenant_id: input.tenantId,
+      p_company_id: input.companyId,
+      p_movement_id: input.movementId,
+    });
+    if (error) throw error;
+  }
+
   async listTransfers(scope: CompanyScope): Promise<readonly FinancialTransfer[]> {
     const { data, error } = await this.client.from('financial_transfers')
       .select('id,tenant_id,company_id,from_account_id,to_account_id,transfer_on,amount,notes')
