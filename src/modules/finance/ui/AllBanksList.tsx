@@ -44,7 +44,6 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
   const [extractLoading, setExtractLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tenantId = companies[0]?.tenantId ?? '';
-  const companyKey = companies.map((company) => `${company.tenantId}:${company.id}`).sort().join('|');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,7 +60,7 @@ export function AllBanksList({ companies }: { companies: readonly CompanySummary
     } finally {
       setLoading(false);
     }
-  }, [repositories, companyKey]);
+  }, [companies, repositories]);
 
   useEffect(() => { void load(); }, [load]);
 
