@@ -32,6 +32,12 @@ type ListRow = {
   };
 };
 
+type ImmediateSettlementRow = {
+  id: string;
+  due_date: string;
+  amount: number | string;
+};
+
 function isCreateRow(value: unknown): value is CreateRow {
   if (typeof value !== 'object' || value === null) return false;
   const row = value as Record<string, unknown>;
@@ -155,6 +161,37 @@ export class SupabaseFinancialEntryRepository implements FinancialEntryRepositor
       p_account_id: accountId,
     });
     if (error) throw error;
+
+    // No lançamento rápido, escolher uma conta para uma movimentação com data de hoje
+    // (ou anterior) significa que o dinheiro já entrou/saiu. Registra a baixa imediatamente.
+    // Datas futuras continuam apenas planejadas e não alteram o saldo antes da hora.
+    if (!accountId || accountCompanyId !== scope.companyId) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const installmentResult = await this.client
+      .from('financial_installments')
+      .select('id,due_date,amount')
+      .eq('tenant_id', scope.tenantId)
+      .eq('company_id', scope.companyId)
+      .eq('entry_id', entryId)
+      .lte('due_date', today)
+      .order('installment_number')
+      .limit(1)
+      .maybeSingle<ImmediateSettlementRow>();
+    if (installmentResult.error) throw installmentResult.error;
+    const installment = installmentResult.data;
+    if (!installment) return;
+
+    const settlementResult = await this.client.rpc('record_financial_settlement', {
+      p_tenant_id: scope.tenantId,
+      p_company_id: scope.companyId,
+      p_installment_id: installment.id,
+      p_account_id: accountId,
+      p_settled_on: installment.due_date,
+      p_amount: Number(installment.amount),
+      p_idempotency_key: `quick-entry:auto:${entryId}:${installment.id}`,
+      p_notes: 'Baixa automática do lançamento rápido com conta selecionada',
+    });
+    if (settlementResult.error) throw settlementResult.error;
   }
 
   async list(scope: CompanyScope): Promise<readonly FinancialEntryListItem[]> {
