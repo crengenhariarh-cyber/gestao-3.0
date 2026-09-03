@@ -29,8 +29,10 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   const [selectedCompanyId,setSelectedCompanyId]=useState(()=>initialCompanyId&&companies.some(item=>item.id===initialCompanyId)?initialCompanyId:ALL_ENGINEERING_COMPANIES);
   const [selectedContract,setSelectedContract]=useState<EngineeringContractSummary|null>(null);
   const selectedCompany=selectedCompanyId===ALL_ENGINEERING_COMPANIES?null:companies.find(item=>item.id===selectedCompanyId)??null;
-  const visibleCompanies=selectedCompany?[selectedCompany]:companies;
-  const scopes=useMemo(()=>visibleCompanies.map(item=>({tenantId:item.tenantId,companyId:item.id})),[visibleCompanies]);
+  const scopes=useMemo(()=>{
+    const sourceCompanies=selectedCompany?[selectedCompany]:companies;
+    return sourceCompanies.map(item=>({tenantId:item.tenantId,companyId:item.id}));
+  },[selectedCompany,companies]);
   const operationScope=selectedCompany?{tenantId:selectedCompany.tenantId,companyId:selectedCompany.id}:null;
   const overview=useEngineeringOverview(scopes,refreshToken);
   const companyOptions=[{value:ALL_ENGINEERING_COMPANIES,label:'Todas as empresas'},...companies.map(item=>({value:item.id,label:companyLabel(item)}))];
