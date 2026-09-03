@@ -21,7 +21,7 @@ export class SupabaseEngineeringOverviewRepository implements EngineeringOvervie
     ]);
     for (const result of [contracts,measurements,production,addenda,provisionals]) if (result.error) throw result.error;
     return {
-      contracts:(contracts.data ?? []).map(r=>({contractId:r.contract_id,contractNumber:r.contract_number,status:r.status,updatedContractValue:Number(r.updated_contract_value),measuredNet:Number(r.measured_net),grossBalance:Number(r.gross_balance),measuredPercent:Number(r.measured_percent)})),
+      contracts:(contracts.data ?? []).map(r=>({companyId:scope.companyId,contractId:r.contract_id,contractNumber:r.contract_number,status:r.status,updatedContractValue:Number(r.updated_contract_value),measuredNet:Number(r.measured_net),grossBalance:Number(r.gross_balance),measuredPercent:Number(r.measured_percent)})),
       measurements:(measurements.data ?? []).map(r=>({measurementId:r.measurement_id,competence:r.competence,status:r.status,grossAmount:Number(r.gross_amount),retainedAmount:Number(r.retained_amount),netAmount:Number(r.net_amount)})),
       production:(production.data ?? []).map(r=>({employmentContractId:r.employment_contract_id,competence:r.competence,executedQuantity:Number(r.executed_quantity),productionValue:Number(r.production_value)})),
       addenda:(addenda.data ?? []).map(r=>({id:r.id,addendumNumber:r.addendum_number,addendumType:r.addendum_type,status:r.status,statedValue:r.stated_value===null?null:Number(r.stated_value)})),
