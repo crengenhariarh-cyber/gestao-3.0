@@ -15,7 +15,7 @@ function companyLabel(company: CompanySummary): string {
   return company.tradeName ?? company.legalName;
 }
 
-export function BudgetWorkspacePage({ companies, initialCompanyId }: { companies: readonly CompanySummary[]; initialCompanyId?: string }) {
+export function BudgetWorkspacePage({ companies, initialCompanyId }: { companies: readonly CompanySummary[]; initialCompanyId?: string | undefined }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const initial = initialCompanyId && companies.some((company) => company.id === initialCompanyId) ? initialCompanyId : companies[0]?.id ?? '';
   const [companyId, setCompanyId] = useState(initial);
