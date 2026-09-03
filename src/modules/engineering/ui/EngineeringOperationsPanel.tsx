@@ -8,7 +8,8 @@ import { useEngineeringOperations } from './useEngineeringOperations';
 
 type TabId='contratos'|'medicoes'|'producao'|'aditivos'|'provisorios';
 type Kind='work'|'structure'|'contract'|'contractStatus'|'service'|'contractService'|'allocation'|'provisional'|'provisionalLine'|'convert'|'addendum'|'addendumLine'|'measurement'|'measurementLine'|'retention'|'measurementStatus'|'receivable'|'receive'|'productionPeriod'|'productionEntry'|'productionStatus'|null;
-interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; }
+type ActionsMode='default'|'contract-create'|'contract-maintenance';
+interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; }
 interface Option { value:string; label:string; }
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const today=()=>new Date().toISOString().slice(0,10);
@@ -16,7 +17,7 @@ const currentMonth=()=>new Date().toISOString().slice(0,7);
 const numberValue=(value:string)=>{const parsed=Number(value.replace(',','.'));return Number.isFinite(parsed)?parsed:0;};
 const options=(items:readonly {id:string;name:string}[],placeholder='Selecione…'):Option[]=>[{value:'',label:placeholder},...items.map(item=>({value:item.id,label:item.name}))];
 
-export function EngineeringOperationsPanel({activeTab,scope,onChanged}:Props){
+export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMode='default',focusedContractId=null}:Props){
   const operations=useEngineeringOperations(scope);
   const data=operations.state.data;
   const [kind,setKind]=useState<Kind>(null);
@@ -46,7 +47,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged}:Props){
     measurement:{contractId:'',competence:currentMonth(),notes:''},measurementLine:{measurementId:'',contractId:'',contractServiceId:'',structureId:'',measuredQuantity:'',unitPrice:'',notes:''},retention:{measurementId:'',retentionType:'inss',calculationType:'percentage',rate:'',fixedAmount:'',description:'',notes:''},measurementStatus:{measurementId:'',action:'close',reason:''},receivable:{measurementId:'',dueDate:today()},receive:{measurementId:'',accountId:'',receivedOn:today(),amount:''},
     productionPeriod:{workId:'',competence:currentMonth()},productionEntry:{periodId:'',employmentContractId:'',structureId:'',serviceId:'',productionDate:today(),executedQuantity:'',unitValue:'',notes:''},productionStatus:{periodId:'',action:'close',reason:''},
   };
-  function open(next:Exclude<Kind,null>){operations.clearFeedback();setForm(defaults[next]);setKind(next);}
+  function open(next:Exclude<Kind,null>){operations.clearFeedback();const base={...defaults[next]};if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;setForm(base);setKind(next);}
   function close(){setKind(null);operations.clearFeedback();}
   async function done(action:()=>Promise<unknown>){await action();onChanged();setKind(null);}
   async function submit(){
@@ -78,8 +79,11 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged}:Props){
     }catch{return;}
   }
 
+  const defaultContractActions=<><Button size="sm" onClick={()=>open('work')}>Nova obra</Button><Button size="sm" variant="secondary" onClick={()=>open('structure')}>Estrutura</Button><Button size="sm" onClick={()=>open('contract')}>Novo contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('service')}>Novo serviço</Button><Button size="sm" variant="secondary" onClick={()=>open('contractService')}>Serviço no contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuir serviço</Button><Button size="sm" variant="tertiary" onClick={()=>open('contractStatus')}>Status</Button></>;
+  const contractCreateAction=<Button onClick={()=>open('contract')}>＋ Novo contrato</Button>;
+  const contractMaintenanceActions=<><Button size="sm" onClick={()=>open('contractStatus')}>Status</Button><Button size="sm" variant="secondary" onClick={()=>open('contractService')}>Serviços</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuição</Button><Button size="sm" variant="secondary" onClick={()=>open('addendum')}>Aditivo</Button><Button size="sm" variant="secondary" onClick={()=>open('measurement')}>Nova medição</Button></>;
   const actions:Record<TabId,ReactNode>={
-    contratos:<><Button size="sm" onClick={()=>open('work')}>Nova obra</Button><Button size="sm" variant="secondary" onClick={()=>open('structure')}>Estrutura</Button><Button size="sm" onClick={()=>open('contract')}>Novo contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('service')}>Novo serviço</Button><Button size="sm" variant="secondary" onClick={()=>open('contractService')}>Serviço no contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuir serviço</Button><Button size="sm" variant="tertiary" onClick={()=>open('contractStatus')}>Status</Button></>,
+    contratos:actionsMode==='contract-create'?contractCreateAction:actionsMode==='contract-maintenance'?contractMaintenanceActions:defaultContractActions,
     medicoes:<><Button size="sm" onClick={()=>open('measurement')}>Nova medição</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementLine')}>Adicionar item</Button><Button size="sm" variant="secondary" onClick={()=>open('retention')}>Retenção</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementStatus')}>Fechar / aprovar</Button><Button size="sm" variant="tertiary" onClick={()=>open('receivable')}>Gerar a receber</Button><Button size="sm" variant="tertiary" onClick={()=>open('receive')}>Receber</Button></>,
     producao:<><Button size="sm" onClick={()=>open('productionPeriod')}>Novo período</Button><Button size="sm" variant="secondary" onClick={()=>open('productionEntry')}>Lançar produção</Button><Button size="sm" variant="secondary" onClick={()=>open('productionStatus')}>Fechar / reabrir</Button></>,
     aditivos:<><Button size="sm" onClick={()=>open('addendum')}>Novo aditivo</Button><Button size="sm" variant="secondary" onClick={()=>open('addendumLine')}>Adicionar item</Button></>,
