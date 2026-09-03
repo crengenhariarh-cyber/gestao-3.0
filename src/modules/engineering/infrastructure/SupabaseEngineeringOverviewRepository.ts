@@ -31,7 +31,7 @@ export class SupabaseEngineeringOverviewRepository implements EngineeringOvervie
       measurements:(measurements.data ?? []).map(r=>({measurementId:r.measurement_id,competence:r.competence,status:r.status,grossAmount:Number(r.gross_amount),retainedAmount:Number(r.retained_amount),netAmount:Number(r.net_amount)})),
       production:(production.data ?? []).map(r=>({employmentContractId:r.employment_contract_id,competence:r.competence,executedQuantity:Number(r.executed_quantity),productionValue:Number(r.production_value)})),
       addenda:(addenda.data ?? []).map(r=>({id:r.id,addendumNumber:r.addendum_number,addendumType:r.addendum_type,status:r.status,statedValue:r.stated_value===null?null:Number(r.stated_value)})),
-      provisionals:(provisionals.data ?? []).map(r=>({id:r.id,provisionalNumber:r.provisional_number,title:r.title,status:r.status,clientName:r.client_name})),
+      provisionals:(provisionals.data ?? []).map(r=>({id:r.id,companyId:scope.companyId,provisionalNumber:r.provisional_number,title:r.title,status:r.status,clientName:r.client_name})),
     };
   }
 }
