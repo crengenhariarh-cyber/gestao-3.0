@@ -98,7 +98,6 @@ export function AppShell({ session }: AppShellProps) {
   const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
   const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks"><section className="app-company-sections--banks__controls" aria-label="Ações de bancos"><BanksPage company={companies[0]!} companies={companies} showHeader /></section><AllBanksList companies={companies}/></div>;
-  const allCompaniesEngineering = <div>{companies.map((company) => <section key={company.id} aria-label={`Engenharia ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><EngineeringPage company={company}/></section>)}</div>;
 
   return (
     <div className="app-shell">
@@ -129,7 +128,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
           <Route path="/rh" element={activeCompany ? <HrWorkspacePage companies={companies} initialCompanyId={activeCompany.id}/> : <HrWorkspacePage companies={companies}/>}/>
-          <Route path="/engenharia" element={activeCompany ? <EngineeringPage company={activeCompany}/> : allCompaniesEngineering}/>
+          <Route path="/engenharia" element={<EngineeringPage company={activeCompany ?? companies[0]!} companies={companies}/>}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
         </Routes>
       </main>
