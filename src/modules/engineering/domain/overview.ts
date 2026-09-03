@@ -2,6 +2,8 @@ export interface EngineeringContractSummary {
   contractId: string;
   companyId: string;
   contractNumber: string;
+  workName: string;
+  clientName: string | null;
   status: string;
   updatedContractValue: number;
   measuredNet: number;
