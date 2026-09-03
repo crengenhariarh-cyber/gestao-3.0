@@ -423,7 +423,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const busy = operations.state.busy || paymentLoading || submitting;
   const footer = <div className="quick-entry__footer-actions">
     <Button disabled={busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button>
-    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button>
+    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(true); }}>Lançar</Button>
   </div>;
 
   return <Dialog open={open} title="Novo lançamento" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
