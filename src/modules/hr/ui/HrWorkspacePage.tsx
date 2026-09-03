@@ -63,7 +63,8 @@ function addDays(value:string,days:number){const date=new Date(`${value}T12:00:0
 function messageFrom(error: unknown){return error instanceof Error&&error.message?error.message:'Não foi possível concluir a operação.';}
 
 export function HrWorkspacePage({companies,initialCompanyId}:{companies:readonly CompanySummary[];initialCompanyId?:string}){
- const [tab,setTab]=useState<HrWorkspaceTab>('dashboard');
+ const requestedTab=new URLSearchParams(window.location.search).get('tab');
+ const [tab,setTab]=useState<HrWorkspaceTab>(()=>tabs.some(item=>item.id===requestedTab)?requestedTab as HrWorkspaceTab:'dashboard');
  const [competence,setCompetence]=useState(()=>currentHrCompetence().month.slice(0,7));
  const [companyFilter,setCompanyFilter]=useState(()=>initialCompanyId&&companies.some(i=>i.id===initialCompanyId)?initialCompanyId:ALL_HR_COMPANIES);
  const [employeeSearch,setEmployeeSearch]=useState(''); const [employeeStatus,setEmployeeStatus]=useState('active');
