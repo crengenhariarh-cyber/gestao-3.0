@@ -1,5 +1,6 @@
 export interface EngineeringContractSummary {
   contractId: string;
+  companyId: string;
   contractNumber: string;
   status: string;
   updatedContractValue: number;
