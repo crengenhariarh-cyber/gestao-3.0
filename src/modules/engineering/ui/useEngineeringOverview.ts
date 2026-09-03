@@ -7,23 +7,31 @@ export type EngineeringOverviewState =
   | { status:'ready'; data:EngineeringOverview; errorMessage:null }
   | { status:'error'; data:null; errorMessage:string };
 
-export function useEngineeringOverview(scope:{tenantId:string;companyId:string}|null, refreshToken = 0):EngineeringOverviewState {
+type Scope={tenantId:string;companyId:string};
+
+export function useEngineeringOverview(scopes:readonly Scope[], refreshToken = 0):EngineeringOverviewState {
   const repository = useMemo(()=>getEngineeringOverviewRepository(),[]);
   const [state,setState] = useState<EngineeringOverviewState>({status:'idle',data:null,errorMessage:null});
-  const tenantId=scope?.tenantId ?? null;
-  const companyId=scope?.companyId ?? null;
+  const scopeKey=scopes.map(scope=>`${scope.tenantId}:${scope.companyId}`).sort().join('|');
 
   useEffect(()=>{
-    if(!tenantId||!companyId){ setState({status:'idle',data:null,errorMessage:null}); return; }
+    if(scopes.length===0){ setState({status:'idle',data:null,errorMessage:null}); return; }
     let cancelled=false;
     setState({status:'loading',data:null,errorMessage:null});
-    void repository.load({tenantId,companyId}).then(data=>{
-      if(!cancelled) setState({status:'ready',data,errorMessage:null});
+    void Promise.all(scopes.map(scope=>repository.load(scope))).then(results=>{
+      if(cancelled)return;
+      setState({status:'ready',data:{
+        contracts:results.flatMap(item=>item.contracts),
+        measurements:results.flatMap(item=>item.measurements),
+        production:results.flatMap(item=>item.production),
+        addenda:results.flatMap(item=>item.addenda),
+        provisionals:results.flatMap(item=>item.provisionals),
+      },errorMessage:null});
     }).catch(()=>{
-      if(!cancelled) setState({status:'error',data:null,errorMessage:'Não foi possível carregar a Engenharia desta empresa.'});
+      if(!cancelled)setState({status:'error',data:null,errorMessage:'Não foi possível carregar a Engenharia para o filtro selecionado.'});
     });
     return ()=>{cancelled=true;};
-  },[repository,tenantId,companyId,refreshToken]);
+  },[repository,scopeKey,refreshToken]);
 
   return state;
 }
