@@ -1,0 +1,70 @@
+/* Acabamento premium aprovado para RH e Engenharia */
+:root{--module-card-border:color-mix(in srgb,var(--border,#dfe3eb) 88%,transparent);--module-card-shadow:0 10px 30px rgba(16,24,40,.07);--module-soft-shadow:0 6px 18px rgba(16,24,40,.055);--module-radius:20px;--module-inner-radius:16px}
+
+/* RH - cabeçalho e filtros em cards */
+.hr-workspace__hero{border:1px solid var(--module-card-border)!important;border-radius:var(--module-radius)!important;background:var(--surface,#fff)!important;box-shadow:var(--module-card-shadow)!important;overflow:hidden}
+.hr-workspace__hero .ui-card__header{padding:18px 18px 4px!important}
+.hr-workspace__hero .ui-card__content{padding:14px 18px 18px!important}
+.hr-workspace__hero .ui-card__title{font-weight:850;letter-spacing:-.03em}
+.hr-workspace__hero .ui-card__actions .ui-button{min-height:42px;border-radius:13px;box-shadow:0 8px 18px color-mix(in srgb,var(--primary,#2563eb) 22%,transparent);font-weight:800}
+.hr-workspace__top-filters{gap:12px!important}
+.hr-workspace__top-filters .ui-field{position:relative;display:grid;align-content:center;min-height:104px;padding:16px 16px 14px 74px;border:1px solid var(--module-card-border);border-radius:var(--module-inner-radius);background:linear-gradient(180deg,color-mix(in srgb,var(--primary,#2563eb) 2.2%,var(--surface,#fff)),var(--surface,#fff));box-shadow:var(--module-soft-shadow);overflow:hidden}
+.hr-workspace__top-filters .ui-field::before{content:'';position:absolute;left:16px;top:50%;width:42px;height:42px;transform:translateY(-50%);border-radius:13px;background-color:#eaf2ff;background-position:center;background-repeat:no-repeat;background-size:23px 23px}
+.hr-workspace__top-filters .ui-field:first-child::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f6fdf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='3' width='12' height='18' rx='1'/%3E%3Cpath d='M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3'/%3E%3C/svg%3E")}
+.hr-workspace__top-filters .ui-field:nth-child(2)::before{background-color:#f3ecff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a46db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 10h18'/%3E%3C/svg%3E")}
+.hr-workspace__top-filters .ui-field__label{margin:0 0 4px!important;color:var(--muted,#667085);font-size:.78rem!important;font-weight:800!important;line-height:1.1}
+.hr-workspace__top-filters .ui-input{height:auto!important;min-height:34px!important;padding:0 28px 0 0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--text,#172033);font-size:1.05rem!important;font-weight:800!important}
+.hr-workspace__top-filters .ui-input:focus{outline:none!important;box-shadow:none!important}
+
+/* RH - abas e cards */
+.hr-workspace__tabs{gap:10px!important;padding:4px 2px 10px!important}
+.hr-workspace__tabs button{min-height:52px!important;border-radius:15px!important;box-shadow:var(--module-soft-shadow)!important}
+.hr-workspace__tabs button.is-active{background:var(--surface,#fff)!important;box-shadow:0 5px 16px rgba(16,24,40,.05)!important}
+.hr-workspace__content>.ui-card,.hr-workspace__kpis .ui-card,.hr-workspace__quick-three .ui-card{border:1px solid var(--module-card-border)!important;border-radius:var(--module-radius)!important;background:var(--surface,#fff)!important;box-shadow:var(--module-card-shadow)!important}
+.hr-workspace__primary-total{border:1px solid color-mix(in srgb,var(--primary,#2563eb) 10%,var(--border,#dfe3eb))!important;border-radius:16px!important;background:linear-gradient(180deg,color-mix(in srgb,var(--primary,#2563eb) 3%,var(--surface,#fff)),var(--surface,#fff))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.65)}
+.hr-workspace__kpis .ui-card{position:relative;overflow:hidden}
+.hr-workspace__kpis .ui-card::before{content:'';position:absolute;left:16px;top:18px;width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#eaf2ff,#f5f8ff)}
+.hr-workspace__kpis .ui-card:nth-child(2)::before{background:linear-gradient(145deg,#f3ecff,#faf7ff)}
+.hr-workspace__kpis .ui-card:nth-child(3)::before{background:linear-gradient(145deg,#e9f8f1,#f6fcf9)}
+.hr-workspace__kpis .ui-card:nth-child(4)::before{background:linear-gradient(145deg,#fff4da,#fffaf0)}
+.hr-workspace__kpis .ui-card__header,.hr-workspace__kpis .ui-card__content{padding-left:66px!important}
+.hr-workspace__kpis strong{letter-spacing:-.03em}
+
+/* Engenharia - cabeçalho e filtro */
+.engineering-module-header{border:1px solid var(--module-card-border)!important;border-radius:var(--module-radius)!important;background:var(--surface,#fff)!important;box-shadow:var(--module-card-shadow)!important;overflow:hidden}
+.engineering-module-header .ui-card__header{padding:18px 18px 4px!important}
+.engineering-module-header .ui-card__title{font-weight:850;letter-spacing:-.03em}
+.engineering-module-header .ui-card__content{padding:14px 18px 18px!important}
+.engineering-module-header__filter .ui-field{position:relative;display:grid;align-content:center;min-height:100px;padding:16px 16px 14px 74px;border:1px solid var(--module-card-border);border-radius:var(--module-inner-radius);background:linear-gradient(180deg,color-mix(in srgb,var(--primary,#2563eb) 2.2%,var(--surface,#fff)),var(--surface,#fff));box-shadow:var(--module-soft-shadow)}
+.engineering-module-header__filter .ui-field::before{content:'';position:absolute;left:16px;top:50%;width:42px;height:42px;transform:translateY(-50%);border-radius:13px;background:#eaf2ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f6fdf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='3' width='12' height='18' rx='1'/%3E%3Cpath d='M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3'/%3E%3C/svg%3E") center/23px 23px no-repeat}
+.engineering-module-header__filter .ui-field__label{margin:0 0 4px!important;color:var(--muted,#667085);font-size:.78rem!important;font-weight:800!important}
+.engineering-module-header__filter .ui-input{min-height:34px!important;padding:0 28px 0 0!important;border:0!important;background:transparent!important;box-shadow:none!important;font-size:1.05rem!important;font-weight:800!important}
+.engineering-module-header__filter .ui-input:focus{outline:none!important;box-shadow:none!important}
+
+/* Engenharia - navegação, ação e KPIs */
+.engineering-overview>.ui-tabs,.engineering-overview [role='tablist']{gap:10px}
+.engineering-overview [role='tab']{min-height:52px;border-radius:15px;box-shadow:var(--module-soft-shadow)}
+.engineering-contracts-reference__title h2{letter-spacing:-.035em}
+.engineering-overview--contratos .engineering-actions>.ui-button,.engineering-overview--contratos>.engineering-contracts-reference>.ui-button{min-height:54px!important;border-radius:14px!important;font-size:1rem!important;font-weight:850!important;box-shadow:0 8px 20px color-mix(in srgb,var(--primary,#2563eb) 20%,transparent)}
+.engineering-contracts-reference__kpis .ui-card{position:relative;border:1px solid var(--module-card-border)!important;border-radius:var(--module-radius)!important;background:var(--surface,#fff)!important;box-shadow:var(--module-card-shadow)!important;overflow:hidden}
+.engineering-contract-stat--count{background:linear-gradient(180deg,color-mix(in srgb,var(--primary,#2563eb) 2.5%,var(--surface,#fff)),var(--surface,#fff))!important}
+.engineering-contract-stat--contracted{background:linear-gradient(180deg,#fffdf7,var(--surface,#fff))!important}
+.engineering-contract-stat--measured{background:linear-gradient(180deg,#f7fcf9,var(--surface,#fff))!important}
+.engineering-contract-stat--balance{background:linear-gradient(180deg,#fffaf7,var(--surface,#fff))!important}
+.engineering-contracts-reference__kpis .ui-card::before{content:'';position:absolute;left:16px;top:18px;width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#eaf2ff,#f6f9ff)}
+.engineering-contract-stat--contracted::before{background:linear-gradient(145deg,#e9f8f1,#f8fcfa)!important}
+.engineering-contract-stat--measured::before{background:linear-gradient(145deg,#f3ecff,#fbf8ff)!important}
+.engineering-contract-stat--balance::before{background:linear-gradient(145deg,#fff4da,#fffaf0)!important}
+.engineering-contracts-reference__kpis .ui-card__header,.engineering-contracts-reference__kpis .ui-card__content{padding-left:68px!important}
+.engineering-contract-stat strong{letter-spacing:-.035em}
+.engineering-contract-card{border-radius:18px!important;box-shadow:var(--module-soft-shadow)!important}
+
+@media(max-width:620px){
+ .hr-workspace__hero .ui-card__header{padding:14px 14px 2px!important}.hr-workspace__hero .ui-card__content{padding:12px 14px 14px!important}.hr-workspace__top-filters{gap:8px!important}.hr-workspace__top-filters .ui-field{min-height:94px;padding:13px 10px 12px 58px}.hr-workspace__top-filters .ui-field::before{left:10px;width:38px;height:38px;border-radius:11px;background-size:21px 21px}.hr-workspace__top-filters .ui-field__label{font-size:.7rem!important}.hr-workspace__top-filters .ui-input{font-size:.92rem!important}.hr-workspace__hero .ui-card__actions .ui-button{min-height:38px;font-size:.78rem}.hr-workspace__kpis .ui-card__header,.hr-workspace__kpis .ui-card__content{padding-left:58px!important}.hr-workspace__kpis .ui-card::before{left:12px;top:16px;width:34px;height:34px}
+ .engineering-module-header .ui-card__header{padding:14px 14px 2px!important}.engineering-module-header .ui-card__content{padding:12px 14px 14px!important}.engineering-module-header__filter .ui-field{min-height:92px;padding:13px 10px 12px 58px}.engineering-module-header__filter .ui-field::before{left:10px;width:38px;height:38px;border-radius:11px;background-size:21px 21px}.engineering-module-header__filter .ui-field__label{font-size:.7rem!important}.engineering-module-header__filter .ui-input{font-size:.94rem!important}.engineering-contracts-reference__kpis .ui-card__header,.engineering-contracts-reference__kpis .ui-card__content{padding-left:58px!important}.engineering-contracts-reference__kpis .ui-card::before{left:12px;top:16px;width:34px;height:34px}
+}
+
+@media(max-width:430px){
+ .hr-workspace__top-filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}.hr-workspace__top-filters .ui-field{min-height:90px;padding-left:54px}.hr-workspace__top-filters .ui-field::before{left:9px;width:35px;height:35px}.hr-workspace__top-filters .ui-input{font-size:.84rem!important}.hr-workspace__top-filters .ui-field__label{font-size:.66rem!important}
+ .engineering-contracts-reference__kpis{grid-template-columns:1fr 1fr!important}.engineering-contract-stat--count,.engineering-contract-stat--balance{grid-column:1/-1!important}
+}
