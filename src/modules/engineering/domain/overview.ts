@@ -37,6 +37,7 @@ export interface EngineeringAddendumSummary {
 
 export interface EngineeringProvisionalSummary {
   id: string;
+  companyId: string;
   provisionalNumber: string;
   title: string | null;
   status: string;
