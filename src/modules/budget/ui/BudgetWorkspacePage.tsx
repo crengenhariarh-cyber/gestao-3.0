@@ -10,181 +10,43 @@ import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 import './budget-workspace.css';
 
-type FlowType = 'income' | 'expense';
-type CategoryKind = 'income' | 'expense' | 'both';
-type CategoryRow = { id:string; name:string; kind:CategoryKind; status:'active'|'inactive' };
-type CostCenterRow = { id:string; name:string; status:string };
-type PlanRow = { id:string; category_id:string|null; cost_center_id:string|null; planned_amount:number|string; flow_type:FlowType; notes:string|null };
-type ControlRow = { category_id:string|null; cost_center_id:string|null; planned_income:number|string; planned_expense:number|string; actual_income:number|string; actual_expense:number|string };
-type ItemDraft = { id:string|null; flowType:FlowType; categoryId:string; costCenterId:string; amount:string; notes:string };
-type CategoryDraft = { id:string|null; name:string; kind:CategoryKind };
+type FlowType='income'|'expense';
+type CategoryKind='income'|'expense'|'both';
+type CategoryRow={id:string;name:string;kind:CategoryKind;status:'active'|'inactive'};
+type CostCenterRow={id:string;name:string;status:string};
+type PlanRow={id:string;category_id:string|null;cost_center_id:string|null;planned_amount:number|string;flow_type:FlowType;notes:string|null};
+type ControlRow={category_id:string|null;cost_center_id:string|null;planned_income:number|string;planned_expense:number|string;actual_income:number|string;actual_expense:number|string};
+type ItemDraft={id:string|null;flowType:FlowType;categoryId:string;costCenterId:string;amount:string;notes:string};
+type CategoryDraft={id:string|null;name:string;kind:CategoryKind};
 
-const supabase = getSupabaseClient();
-const currency = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
-const money = (value:number) => currency.format(value);
-const currentMonth = () => { const date=new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`; };
-const numberValue = (value:string|number|null|undefined) => { const parsed=Number(String(value??0).replace(',','.')); return Number.isFinite(parsed)?parsed:0; };
-const scopeKey = (categoryId:string|null,costCenterId:string|null) => `${categoryId??'none'}:${costCenterId??'general'}`;
+const supabase=getSupabaseClient();
+const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const money=(value:number)=>currency.format(value);
+const currentMonth=()=>{const date=new Date();return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;};
+const numberValue=(value:string|number|null|undefined)=>{const parsed=Number(String(value??0).replace(',','.'));return Number.isFinite(parsed)?parsed:0;};
+const scopeKey=(categoryId:string|null,costCenterId:string|null)=>`${categoryId??'none'}:${costCenterId??'general'}`;
+function companyLabel(company:CompanySummary){const raw=`${company.tradeName??''} ${company.legalName}`.toLocaleUpperCase('pt-BR');if(raw.includes('SARTORI'))return'Sartori';if(raw.includes('PESSOAL'))return'Pessoal';if(raw.includes('BLAZE'))return'Blaze';if(raw.includes('ADMIN'))return'Admin';if(raw.includes('PR-HIST')||/(^|\s)PR(\s|$)/.test(raw))return'PR';if(raw.includes('CR-HIST')||/(^|\s)CR(\s|$)/.test(raw))return'CR';return company.tradeName??company.legalName;}
+function errorMessage(error:unknown){return error&&typeof error==='object'&&'message' in error&&typeof error.message==='string'?error.message:'Não foi possível concluir a operação.';}
 
-function companyLabel(company: CompanySummary): string {
-  const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
-  if (raw.includes('SARTORI')) return 'Sartori';
-  if (raw.includes('PESSOAL')) return 'Pessoal';
-  if (raw.includes('BLAZE')) return 'Blaze';
-  if (raw.includes('ADMIN')) return 'Admin';
-  if (raw.includes('PR-HIST') || /(^|\s)PR(\s|$)/.test(raw)) return 'PR';
-  if (raw.includes('CR-HIST') || /(^|\s)CR(\s|$)/.test(raw)) return 'CR';
-  return company.tradeName ?? company.legalName;
-}
-function errorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
-  return 'Não foi possível concluir a operação.';
-}
-
-export function BudgetWorkspacePage({ companies, initialCompanyId }: { companies: readonly CompanySummary[]; initialCompanyId?: string | undefined }) {
-  const initial = initialCompanyId && companies.some((company) => company.id === initialCompanyId) ? initialCompanyId : companies[0]?.id ?? '';
-  const [companyId,setCompanyId] = useState(initial);
-  const [competence,setCompetence] = useState(currentMonth);
-  const [categories,setCategories] = useState<CategoryRow[]>([]);
-  const [costCenters,setCostCenters] = useState<CostCenterRow[]>([]);
-  const [plans,setPlans] = useState<PlanRow[]>([]);
-  const [control,setControl] = useState<ControlRow[]>([]);
-  const [loading,setLoading] = useState(true);
-  const [saving,setSaving] = useState(false);
-  const [feedback,setFeedback] = useState<{tone:'danger'|'success';message:string}|null>(null);
-  const [itemDraft,setItemDraft] = useState<ItemDraft|null>(null);
-  const [categoryDraft,setCategoryDraft] = useState<CategoryDraft|null>(null);
-  const company = useMemo(() => companies.find((item) => item.id === companyId) ?? companies[0], [companies,companyId]);
-
-  useEffect(() => {
-    if (initialCompanyId && companies.some((item) => item.id === initialCompanyId)) setCompanyId(initialCompanyId);
-  },[companies,initialCompanyId]);
-
-  async function load() {
-    if (!company) return;
-    setLoading(true); setFeedback(null);
-    const month=`${competence}-01`;
-    const [categoriesResult,costCentersResult,plansResult,controlResult] = await Promise.all([
-      supabase.from('financial_categories').select('id,name,kind,status').eq('tenant_id',company.tenantId).eq('company_id',company.id).order('name'),
-      supabase.from('cost_centers').select('id,name,status').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('status','active').order('name'),
-      supabase.from('budget_plans').select('id,category_id,cost_center_id,planned_amount,flow_type,notes').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('competence_month',month).eq('source_kind','manual'),
-      supabase.from('budget_monthly_control').select('category_id,cost_center_id,planned_income,planned_expense,actual_income,actual_expense').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('competence_month',month),
-    ]);
-    const firstError=categoriesResult.error??costCentersResult.error??plansResult.error??controlResult.error;
-    if(firstError){setCategories([]);setCostCenters([]);setPlans([]);setControl([]);setFeedback({tone:'danger',message:firstError.message});}
-    else{
-      setCategories((categoriesResult.data??[]) as CategoryRow[]);
-      setCostCenters((costCentersResult.data??[]) as CostCenterRow[]);
-      setPlans((plansResult.data??[]) as PlanRow[]);
-      setControl((controlResult.data??[]) as ControlRow[]);
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => { void load(); },[company?.id,competence]);
-
-  if (!company) return <EmptyState title="Orçamento indisponível" message="Nenhuma empresa disponível."/>;
-  if (loading) return <LoadingState label="Carregando orçamento…"/>;
-
-  const categoryMap=new Map(categories.map((item)=>[item.id,item]));
-  const costCenterMap=new Map(costCenters.map((item)=>[item.id,item.name]));
-  const totals=control.reduce((acc,row)=>({
-    plannedIncome:acc.plannedIncome+numberValue(row.planned_income), actualIncome:acc.actualIncome+numberValue(row.actual_income),
-    plannedExpense:acc.plannedExpense+numberValue(row.planned_expense), actualExpense:acc.actualExpense+numberValue(row.actual_expense),
-  }),{plannedIncome:0,actualIncome:0,plannedExpense:0,actualExpense:0});
-  const plannedResult=totals.plannedIncome-totals.plannedExpense;
-  const actualResult=totals.actualIncome-totals.actualExpense;
-
-  function compatibleCategories(flowType:FlowType){ return categories.filter((category)=>category.status==='active'&&(category.kind===flowType||category.kind==='both')); }
-  function actualFor(flowType:FlowType,categoryId:string|null,costCenterId:string|null){
-    const row=control.find((item)=>scopeKey(item.category_id,item.cost_center_id)===scopeKey(categoryId,costCenterId));
-    return row ? numberValue(flowType==='income'?row.actual_income:row.actual_expense) : 0;
-  }
-  function rows(flowType:FlowType){
-    const manual=plans.filter((plan)=>plan.flow_type===flowType);
-    const keys=new Set(manual.map((plan)=>scopeKey(plan.category_id,plan.cost_center_id)));
-    const unplanned=control.filter((row)=>numberValue(flowType==='income'?row.actual_income:row.actual_expense)>0&&!keys.has(scopeKey(row.category_id,row.cost_center_id)));
-    return [
-      ...manual.map((plan)=>({id:plan.id,categoryId:plan.category_id,costCenterId:plan.cost_center_id,planned:numberValue(plan.planned_amount),actual:actualFor(flowType,plan.category_id,plan.cost_center_id)})),
-      ...unplanned.map((row)=>({id:null,categoryId:row.category_id,costCenterId:row.cost_center_id,planned:0,actual:numberValue(flowType==='income'?row.actual_income:row.actual_expense)})),
-    ];
-  }
-  function openNewItem(flowType:FlowType,categoryId='',costCenterId=''){ setFeedback(null);setItemDraft({id:null,flowType,categoryId,costCenterId,amount:'',notes:''}); }
-  function openEditItem(planId:string){ const plan=plans.find((item)=>item.id===planId);if(!plan)return;setItemDraft({id:plan.id,flowType:plan.flow_type,categoryId:plan.category_id??'',costCenterId:plan.cost_center_id??'',amount:String(numberValue(plan.planned_amount)),notes:plan.notes??''}); }
-  async function saveItem(){
-    if(!itemDraft||!itemDraft.categoryId)return;
-    const amount=numberValue(itemDraft.amount);if(amount<0)return;
-    setSaving(true);setFeedback(null);
-    try{
-      const payload={tenant_id:company.tenantId,company_id:company.id,cost_center_id:itemDraft.costCenterId||null,category_id:itemDraft.categoryId,competence_month:`${competence}-01`,planned_amount:amount,source_kind:'manual',flow_type:itemDraft.flowType,notes:itemDraft.notes||null};
-      const result=itemDraft.id
-        ? await supabase.from('budget_plans').update(payload).eq('id',itemDraft.id).eq('tenant_id',company.tenantId).eq('company_id',company.id)
-        : await supabase.from('budget_plans').insert(payload);
-      if(result.error)throw result.error;
-      setItemDraft(null);await load();setFeedback({tone:'success',message:'Item do orçamento salvo.'});
-    }catch(error){setFeedback({tone:'danger',message:errorMessage(error)});}finally{setSaving(false);}
-  }
-  async function removeItem(id:string){
-    if(!window.confirm('Excluir este item somente deste orçamento/competência?'))return;
-    const result=await supabase.from('budget_plans').delete().eq('id',id).eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('source_kind','manual');
-    if(result.error)setFeedback({tone:'danger',message:result.error.message});else{await load();setFeedback({tone:'success',message:'Item removido deste orçamento.'});}
-  }
-  async function saveCategory(){
-    if(!categoryDraft||!categoryDraft.name.trim())return;
-    setSaving(true);setFeedback(null);
-    try{
-      const result=categoryDraft.id
-        ? await supabase.from('financial_categories').update({name:categoryDraft.name.trim(),kind:categoryDraft.kind}).eq('id',categoryDraft.id).eq('tenant_id',company.tenantId).eq('company_id',company.id)
-        : await supabase.from('financial_categories').insert({tenant_id:company.tenantId,company_id:company.id,name:categoryDraft.name.trim(),kind:categoryDraft.kind,status:'active'});
-      if(result.error)throw result.error;
-      setCategoryDraft(null);await load();setFeedback({tone:'success',message:'Categoria salva somente para esta empresa/orçamento.'});
-    }catch(error){setFeedback({tone:'danger',message:errorMessage(error)});}finally{setSaving(false);}
-  }
-  async function deactivateCategory(category:CategoryRow){
-    if(!window.confirm(`Excluir ${category.name} das opções deste orçamento? O histórico será preservado.`))return;
-    const result=await supabase.from('financial_categories').update({status:'inactive'}).eq('id',category.id).eq('tenant_id',company.tenantId).eq('company_id',company.id);
-    if(result.error)setFeedback({tone:'danger',message:result.error.message});else{await load();setFeedback({tone:'success',message:'Categoria desativada. O histórico foi preservado.'});}
-  }
-  async function reactivateCategory(category:CategoryRow){
-    const result=await supabase.from('financial_categories').update({status:'active'}).eq('id',category.id).eq('tenant_id',company.tenantId).eq('company_id',company.id);
-    if(result.error)setFeedback({tone:'danger',message:result.error.message});else await load();
-  }
-
-  function budgetList(flowType:FlowType){
-    const list=rows(flowType);
-    if(list.length===0)return <p className="ui-muted">Nenhum item cadastrado nesta competência.</p>;
-    return <div className="budget-workspace__items">{list.map((row)=>{
-      const category=row.categoryId?categoryMap.get(row.categoryId):undefined;
-      const balance=flowType==='income'?row.actual-row.planned:row.planned-row.actual;
-      return <div className="budget-workspace__item" key={row.id??`actual-${scopeKey(row.categoryId,row.costCenterId)}`}>
-        <div className="budget-workspace__item-main"><strong>{category?.name??'Sem categoria'}</strong><span>{row.costCenterId?costCenterMap.get(row.costCenterId)??'Centro de custo':'Geral'}{category?.status==='inactive'?' · categoria inativa':''}</span></div>
-        <div className="budget-workspace__item-values"><span>Previsto <b>{money(row.planned)}</b></span><span>Realizado <b>{money(row.actual)}</b></span><span>{flowType==='income'?'Diferença':'Saldo'} <b>{money(balance)}</b></span></div>
-        <div className="budget-workspace__item-actions">{row.id?<><Button size="sm" variant="secondary" onClick={()=>openEditItem(row.id!)}>Editar</Button><Button size="sm" variant="danger" onClick={()=>{void removeItem(row.id!);}}>Excluir</Button></>:<Button size="sm" onClick={()=>openNewItem(flowType,row.categoryId??'',row.costCenterId??'')}>Definir previsão</Button>}</div>
-      </div>;
-    })}</div>;
-  }
-
-  return <section className="budget-workspace" aria-label="Orçamento">
-    <PageHeader title="Orçamento" eyebrow="Planejamento financeiro" description="Previsto × realizado de entradas, saídas e resultado mensal." actions={<div className="budget-workspace__filters"><Select label="Empresa" value={company.id} onChange={(event)=>setCompanyId(event.target.value)} options={companies.map((item)=>({value:item.id,label:companyLabel(item)}))}/><Input label="Competência" type="month" value={competence} onChange={(event)=>setCompetence(event.target.value)}/></div>}/>
-    {feedback&&<Feedback tone={feedback.tone} title={feedback.tone==='success'?'Concluído':'Não foi possível salvar'} message={feedback.message}/>} 
-    <div className="budget-workspace__summary">
-      <Card title="Entradas"><div className="budget-workspace__kpi"><span>Previsto {money(totals.plannedIncome)}</span><strong>{money(totals.actualIncome)}</strong><small>realizado</small></div></Card>
-      <Card title="Saídas"><div className="budget-workspace__kpi"><span>Previsto {money(totals.plannedExpense)}</span><strong>{money(totals.actualExpense)}</strong><small>realizado</small></div></Card>
-      <Card title="Resultado do mês" className="budget-workspace__result"><div className="budget-workspace__kpi"><span>Previsto {money(plannedResult)}</span><strong>{money(actualResult)}</strong><small>realizado</small></div></Card>
-    </div>
-    <div className="budget-workspace__columns">
-      <Card title="Entradas previstas × realizadas" description="Receitas e recebimentos da empresa selecionada." actions={<Button size="sm" onClick={()=>openNewItem('income')}>＋ Adicionar entrada</Button>}>{budgetList('income')}</Card>
-      <Card title="Saídas previstas × realizadas" description="Limites e despesas da empresa selecionada." actions={<Button size="sm" onClick={()=>openNewItem('expense')}>＋ Adicionar saída</Button>}>{budgetList('expense')}</Card>
-    </div>
-    <Card title="Categorias deste orçamento" description="Adicionar, editar ou excluir aqui não altera as categorias das outras empresas." actions={<Button size="sm" onClick={()=>setCategoryDraft({id:null,name:'',kind:'expense'})}>＋ Nova categoria</Button>}>
-      <div className="budget-workspace__categories">{categories.length===0?<p className="ui-muted">Nenhuma categoria cadastrada.</p>:categories.map((category)=><div className={`budget-workspace__category ${category.status==='inactive'?'is-inactive':''}`.trim()} key={category.id}><div><strong>{category.name}</strong><span>{category.kind==='income'?'Entrada':category.kind==='expense'?'Saída':'Entrada e saída'} · {category.status==='active'?'Ativa':'Inativa'}</span></div><div><Button size="sm" variant="secondary" onClick={()=>setCategoryDraft({id:category.id,name:category.name,kind:category.kind})}>Editar</Button>{category.status==='active'?<Button size="sm" variant="danger" onClick={()=>{void deactivateCategory(category);}}>Excluir</Button>:<Button size="sm" variant="tertiary" onClick={()=>{void reactivateCategory(category);}}>Reativar</Button>}</div></div>)}</div>
-    </Card>
-
-    <Dialog open={itemDraft!==null} title={itemDraft?.id?'Editar item do orçamento':`Novo item de ${itemDraft?.flowType==='income'?'entrada':'saída'}`} description="O item pertence somente à empresa, competência e centro de custo selecionados." loading={saving} onClose={()=>setItemDraft(null)} onBack={()=>setItemDraft(null)} onConfirm={()=>{void saveItem();}}>
-      {itemDraft&&<div className="budget-workspace__form"><Select label="Categoria" value={itemDraft.categoryId} onChange={(event)=>setItemDraft({...itemDraft,categoryId:event.target.value})} options={[{value:'',label:'Selecione…'},...compatibleCategories(itemDraft.flowType).map((category)=>({value:category.id,label:category.name}))]}/><Select label="Obra / centro de custo" value={itemDraft.costCenterId} onChange={(event)=>setItemDraft({...itemDraft,costCenterId:event.target.value})} options={[{value:'',label:'Geral / sem obra'},...costCenters.map((item)=>({value:item.id,label:item.name}))]}/><Input label="Valor previsto" type="number" min="0" step="0.01" value={itemDraft.amount} onChange={(event)=>setItemDraft({...itemDraft,amount:event.target.value})}/><Input label="Observação" value={itemDraft.notes} onChange={(event)=>setItemDraft({...itemDraft,notes:event.target.value})}/></div>}
-    </Dialog>
-    <Dialog open={categoryDraft!==null} title={categoryDraft?.id?'Editar categoria':'Nova categoria'} description="A categoria será exclusiva da empresa selecionada e não afetará os outros orçamentos." loading={saving} onClose={()=>setCategoryDraft(null)} onBack={()=>setCategoryDraft(null)} onConfirm={()=>{void saveCategory();}}>
-      {categoryDraft&&<div className="budget-workspace__form"><Input label="Nome da categoria" value={categoryDraft.name} onChange={(event)=>setCategoryDraft({...categoryDraft,name:event.target.value})}/><Select label="Natureza" value={categoryDraft.kind} onChange={(event)=>setCategoryDraft({...categoryDraft,kind:event.target.value as CategoryKind})} options={[{value:'expense',label:'Saída'},{value:'income',label:'Entrada'},{value:'both',label:'Entrada e saída'}]}/></div>}
-    </Dialog>
-  </section>;
+export function BudgetWorkspacePage({companies,initialCompanyId}:{companies:readonly CompanySummary[];initialCompanyId?:string|undefined}){
+ const initial=initialCompanyId&&companies.some(company=>company.id===initialCompanyId)?initialCompanyId:companies[0]?.id??'';
+ const [companyId,setCompanyId]=useState(initial);const [competence,setCompetence]=useState(currentMonth);const [categories,setCategories]=useState<CategoryRow[]>([]);const [costCenters,setCostCenters]=useState<CostCenterRow[]>([]);const [plans,setPlans]=useState<PlanRow[]>([]);const [control,setControl]=useState<ControlRow[]>([]);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [feedback,setFeedback]=useState<{tone:'danger'|'success';message:string}|null>(null);const [itemDraft,setItemDraft]=useState<ItemDraft|null>(null);const [categoryDraft,setCategoryDraft]=useState<CategoryDraft|null>(null);
+ const company=useMemo(()=>companies.find(item=>item.id===companyId)??companies[0]!,[companies,companyId]);
+ useEffect(()=>{if(initialCompanyId&&companies.some(item=>item.id===initialCompanyId))setCompanyId(initialCompanyId);},[companies,initialCompanyId]);
+ async function load(){setLoading(true);const month=`${competence}-01`;const [cat,cc,plan,ctl]=await Promise.all([supabase.from('financial_categories').select('id,name,kind,status').eq('tenant_id',company.tenantId).eq('company_id',company.id).order('name'),supabase.from('cost_centers').select('id,name,status').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('status','active').order('name'),supabase.from('budget_plans').select('id,category_id,cost_center_id,planned_amount,flow_type,notes').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('competence_month',month).eq('source_kind','manual'),supabase.from('budget_monthly_control').select('category_id,cost_center_id,planned_income,planned_expense,actual_income,actual_expense').eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('competence_month',month)]);const error=cat.error??cc.error??plan.error??ctl.error;if(error){setFeedback({tone:'danger',message:error.message});setCategories([]);setCostCenters([]);setPlans([]);setControl([]);}else{setCategories((cat.data??[]) as CategoryRow[]);setCostCenters((cc.data??[]) as CostCenterRow[]);setPlans((plan.data??[]) as PlanRow[]);setControl((ctl.data??[]) as ControlRow[]);}setLoading(false);}
+ useEffect(()=>{void load();},[company.id,competence]);
+ if(!company)return <EmptyState title="Orçamento indisponível" message="Nenhuma empresa disponível."/>;
+ if(loading)return <LoadingState label="Carregando orçamento…"/>;
+ const categoryMap=new Map(categories.map(item=>[item.id,item]));const costCenterMap=new Map(costCenters.map(item=>[item.id,item.name]));const totals=control.reduce((acc,row)=>({plannedIncome:acc.plannedIncome+numberValue(row.planned_income),actualIncome:acc.actualIncome+numberValue(row.actual_income),plannedExpense:acc.plannedExpense+numberValue(row.planned_expense),actualExpense:acc.actualExpense+numberValue(row.actual_expense)}),{plannedIncome:0,actualIncome:0,plannedExpense:0,actualExpense:0});
+ const compatibleCategories=(flowType:FlowType)=>categories.filter(category=>category.status==='active'&&(category.kind===flowType||category.kind==='both'));
+ function actualFor(flowType:FlowType,categoryId:string|null,costCenterId:string|null){const row=control.find(item=>scopeKey(item.category_id,item.cost_center_id)===scopeKey(categoryId,costCenterId));return row?numberValue(flowType==='income'?row.actual_income:row.actual_expense):0;}
+ function rows(flowType:FlowType){const manual=plans.filter(plan=>plan.flow_type===flowType);const keys=new Set(manual.map(plan=>scopeKey(plan.category_id,plan.cost_center_id)));const unplanned=control.filter(row=>numberValue(flowType==='income'?row.actual_income:row.actual_expense)>0&&!keys.has(scopeKey(row.category_id,row.cost_center_id)));return [...manual.map(plan=>({id:plan.id,categoryId:plan.category_id,costCenterId:plan.cost_center_id,planned:numberValue(plan.planned_amount),actual:actualFor(flowType,plan.category_id,plan.cost_center_id)})),...unplanned.map(row=>({id:null,categoryId:row.category_id,costCenterId:row.cost_center_id,planned:0,actual:numberValue(flowType==='income'?row.actual_income:row.actual_expense)}))];}
+ function openNewItem(flowType:FlowType,categoryId='',costCenterId=''){setFeedback(null);setItemDraft({id:null,flowType,categoryId,costCenterId,amount:'',notes:''});}
+ function openEditItem(id:string){const plan=plans.find(item=>item.id===id);if(plan)setItemDraft({id:plan.id,flowType:plan.flow_type,categoryId:plan.category_id??'',costCenterId:plan.cost_center_id??'',amount:String(numberValue(plan.planned_amount)),notes:plan.notes??''});}
+ async function saveItem(){if(!itemDraft||!itemDraft.categoryId)return;setSaving(true);const payload={tenant_id:company.tenantId,company_id:company.id,cost_center_id:itemDraft.costCenterId||null,category_id:itemDraft.categoryId,competence_month:`${competence}-01`,planned_amount:numberValue(itemDraft.amount),source_kind:'manual',flow_type:itemDraft.flowType,notes:itemDraft.notes||null};const result=itemDraft.id?await supabase.from('budget_plans').update(payload).eq('id',itemDraft.id).eq('tenant_id',company.tenantId).eq('company_id',company.id):await supabase.from('budget_plans').insert(payload);if(result.error)setFeedback({tone:'danger',message:result.error.message});else{setItemDraft(null);await load();setFeedback({tone:'success',message:'Item do orçamento salvo.'});}setSaving(false);}
+ async function removeItem(id:string){if(!window.confirm('Excluir este item somente deste orçamento/competência?'))return;const result=await supabase.from('budget_plans').delete().eq('id',id).eq('tenant_id',company.tenantId).eq('company_id',company.id).eq('source_kind','manual');if(result.error)setFeedback({tone:'danger',message:result.error.message});else{await load();setFeedback({tone:'success',message:'Item removido deste orçamento.'});}}
+ async function saveCategory(){if(!categoryDraft||!categoryDraft.name.trim())return;setSaving(true);try{const result=categoryDraft.id?await supabase.from('financial_categories').update({name:categoryDraft.name.trim(),kind:categoryDraft.kind}).eq('id',categoryDraft.id).eq('tenant_id',company.tenantId).eq('company_id',company.id):await supabase.from('financial_categories').insert({tenant_id:company.tenantId,company_id:company.id,name:categoryDraft.name.trim(),kind:categoryDraft.kind,status:'active'});if(result.error)throw result.error;setCategoryDraft(null);await load();setFeedback({tone:'success',message:'Categoria salva somente para esta empresa/orçamento.'});}catch(error){setFeedback({tone:'danger',message:errorMessage(error)});}finally{setSaving(false);}}
+ async function setCategoryStatus(category:CategoryRow,status:'active'|'inactive'){if(status==='inactive'&&!window.confirm(`Excluir ${category.name} das opções deste orçamento? O histórico será preservado.`))return;const result=await supabase.from('financial_categories').update({status}).eq('id',category.id).eq('tenant_id',company.tenantId).eq('company_id',company.id);if(result.error)setFeedback({tone:'danger',message:result.error.message});else{await load();setFeedback({tone:'success',message:status==='inactive'?'Categoria desativada. O histórico foi preservado.':'Categoria reativada.'});}}
+ function budgetList(flowType:FlowType){const list=rows(flowType);if(!list.length)return <p className="ui-muted">Nenhum item cadastrado nesta competência.</p>;return <div className="budget-workspace__items">{list.map(row=>{const category=row.categoryId?categoryMap.get(row.categoryId):undefined;const balance=flowType==='income'?row.actual-row.planned:row.planned-row.actual;return <div className="budget-workspace__item" key={row.id??`actual-${scopeKey(row.categoryId,row.costCenterId)}`}><div className="budget-workspace__item-main"><strong>{category?.name??'Sem categoria'}</strong><span>{row.costCenterId?costCenterMap.get(row.costCenterId)??'Centro de custo':'Geral'}</span></div><div className="budget-workspace__item-values"><span>Previsto <b>{money(row.planned)}</b></span><span>Realizado <b>{money(row.actual)}</b></span><span>{flowType==='income'?'Diferença':'Saldo'} <b>{money(balance)}</b></span></div><div className="budget-workspace__item-actions">{row.id?<><Button size="sm" variant="secondary" onClick={()=>openEditItem(row.id!)}>Editar</Button><Button size="sm" variant="danger" onClick={()=>{void removeItem(row.id!);}}>Excluir</Button></>:<Button size="sm" onClick={()=>openNewItem(flowType,row.categoryId??'',row.costCenterId??'')}>Definir previsão</Button>}</div></div>;})}</div>;}
+ return <section className="budget-workspace" aria-label="Orçamento"><PageHeader title="Orçamento" eyebrow="Planejamento financeiro" description="Previsto × realizado de entradas, saídas e resultado mensal." actions={<div className="budget-workspace__filters"><Select label="Empresa" value={company.id} onChange={event=>setCompanyId(event.target.value)} options={companies.map(item=>({value:item.id,label:companyLabel(item)}))}/><Input label="Competência" type="month" value={competence} onChange={event=>setCompetence(event.target.value)}/></div>}/>{feedback&&<Feedback tone={feedback.tone} title={feedback.tone==='success'?'Concluído':'Não foi possível salvar'} message={feedback.message}/>}<div className="budget-workspace__summary"><Card title="Entradas"><div className="budget-workspace__kpi"><span>Previsto {money(totals.plannedIncome)}</span><strong>{money(totals.actualIncome)}</strong><small>realizado</small></div></Card><Card title="Saídas"><div className="budget-workspace__kpi"><span>Previsto {money(totals.plannedExpense)}</span><strong>{money(totals.actualExpense)}</strong><small>realizado</small></div></Card><Card title="Resultado do mês" className="budget-workspace__result"><div className="budget-workspace__kpi"><span>Previsto {money(totals.plannedIncome-totals.plannedExpense)}</span><strong>{money(totals.actualIncome-totals.actualExpense)}</strong><small>realizado</small></div></Card></div><div className="budget-workspace__columns"><Card title="Entradas previstas × realizadas" description="Receitas e recebimentos da empresa selecionada." actions={<Button size="sm" onClick={()=>openNewItem('income')}>＋ Adicionar entrada</Button>}>{budgetList('income')}</Card><Card title="Saídas previstas × realizadas" description="Limites e despesas da empresa selecionada." actions={<Button size="sm" onClick={()=>openNewItem('expense')}>＋ Adicionar saída</Button>}>{budgetList('expense')}</Card></div><Card title="Categorias deste orçamento" description="Adicionar, editar ou excluir aqui não altera as categorias das outras empresas." actions={<Button size="sm" onClick={()=>setCategoryDraft({id:null,name:'',kind:'expense'})}>＋ Nova categoria</Button>}><div className="budget-workspace__categories">{categories.map(category=><div className={`budget-workspace__category ${category.status==='inactive'?'is-inactive':''}`.trim()} key={category.id}><div><strong>{category.name}</strong><span>{category.kind==='income'?'Entrada':category.kind==='expense'?'Saída':'Entrada e saída'} · {category.status==='active'?'Ativa':'Inativa'}</span></div><div><Button size="sm" variant="secondary" onClick={()=>setCategoryDraft({id:category.id,name:category.name,kind:category.kind})}>Editar</Button>{category.status==='active'?<Button size="sm" variant="danger" onClick={()=>{void setCategoryStatus(category,'inactive');}}>Excluir</Button>:<Button size="sm" variant="tertiary" onClick={()=>{void setCategoryStatus(category,'active');}}>Reativar</Button>}</div></div>)}</div></Card><Dialog open={itemDraft!==null} title={itemDraft?.id?'Editar item do orçamento':`Novo item de ${itemDraft?.flowType==='income'?'entrada':'saída'}`} description="O item pertence somente à empresa, competência e centro de custo selecionados." loading={saving} onClose={()=>setItemDraft(null)} onBack={()=>setItemDraft(null)} onConfirm={()=>{void saveItem();}}>{itemDraft&&<div className="budget-workspace__form"><Select label="Categoria" value={itemDraft.categoryId} onChange={event=>setItemDraft({...itemDraft,categoryId:event.target.value})} options={[{value:'',label:'Selecione…'},...compatibleCategories(itemDraft.flowType).map(category=>({value:category.id,label:category.name}))]}/><Select label="Obra / centro de custo" value={itemDraft.costCenterId} onChange={event=>setItemDraft({...itemDraft,costCenterId:event.target.value})} options={[{value:'',label:'Geral / sem obra'},...costCenters.map(item=>({value:item.id,label:item.name}))]}/><Input label="Valor previsto" type="number" min="0" step="0.01" value={itemDraft.amount} onChange={event=>setItemDraft({...itemDraft,amount:event.target.value})}/><Input label="Observação" value={itemDraft.notes} onChange={event=>setItemDraft({...itemDraft,notes:event.target.value})}/></div>}</Dialog><Dialog open={categoryDraft!==null} title={categoryDraft?.id?'Editar categoria':'Nova categoria'} description="A categoria será exclusiva da empresa selecionada e não afetará os outros orçamentos." loading={saving} onClose={()=>setCategoryDraft(null)} onBack={()=>setCategoryDraft(null)} onConfirm={()=>{void saveCategory();}}>{categoryDraft&&<div className="budget-workspace__form"><Input label="Nome da categoria" value={categoryDraft.name} onChange={event=>setCategoryDraft({...categoryDraft,name:event.target.value})}/><Select label="Natureza" value={categoryDraft.kind} onChange={event=>setCategoryDraft({...categoryDraft,kind:event.target.value as CategoryKind})} options={[{value:'expense',label:'Saída'},{value:'income',label:'Entrada'},{value:'both',label:'Entrada e saída'}]}/></div>}</Dialog></section>;
 }
