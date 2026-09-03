@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { EngineeringOverview } from '../domain/overview';
 import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
-import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 import { Tabs } from '../../../shared/ui/Tabs';
 import { EngineeringAddendumMaintenance } from './EngineeringAddendumMaintenance';
@@ -14,17 +13,22 @@ import { EngineeringProvisionalMaintenance } from './EngineeringProvisionalMaint
 import { useEngineeringOverview } from './useEngineeringOverview';
 import './engineering.css';
 
-interface EngineeringPageProps { company: CompanySummary; }
+interface EngineeringPageProps { company: CompanySummary; companies?: readonly CompanySummary[]; }
 type TabId='contratos'|'medicoes'|'producao'|'aditivos'|'provisorios';
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+function companyLabel(company:CompanySummary){const raw=`${company.tradeName??''} ${company.legalName}`.toLocaleUpperCase('pt-BR');if(raw.includes('PESSOAL'))return'Pessoal';if(raw.includes('PR-HIST')||/(^|\s)PR(\s|$)/.test(raw))return'PR';if(raw.includes('CR-HIST')||/(^|\s)CR(\s|$)/.test(raw))return'CR';return company.tradeName??company.legalName;}
 
-export function EngineeringPage({company}:EngineeringPageProps){
+export function EngineeringPage({company,companies=[company]}:EngineeringPageProps){
   const [activeTab,setActiveTab]=useState<TabId>('contratos');
   const [refreshToken,setRefreshToken]=useState(0);
   const [contractSearch,setContractSearch]=useState('');
   const [contractStatus,setContractStatus]=useState('all');
-  const scope=useMemo(()=>({tenantId:company.tenantId,companyId:company.id}),[company.id,company.tenantId]);
+  const [selectedCompanyId,setSelectedCompanyId]=useState(company.id);
+  useEffect(()=>setSelectedCompanyId(company.id),[company.id]);
+  const selectedCompany=companies.find(item=>item.id===selectedCompanyId)??company;
+  const scope=useMemo(()=>({tenantId:selectedCompany.tenantId,companyId:selectedCompany.id}),[selectedCompany.id,selectedCompany.tenantId]);
   const overview=useEngineeringOverview(scope,refreshToken);
+  const companyOptions=companies.map(item=>({value:item.id,label:companyLabel(item)}));
   const tabs=useMemo(()=>[
     {id:'contratos',label:'Contratos'},{id:'medicoes',label:'Medições'},{id:'producao',label:'Produção'},{id:'aditivos',label:'Aditivos'},{id:'provisorios',label:'Provisórios'},
   ],[]);
@@ -55,7 +59,7 @@ export function EngineeringPage({company}:EngineeringPageProps){
   const addendaStatedTotal=addendaWithStatedValue.reduce((sum,item)=>sum+(item.statedValue??0),0);
   const provisionalClients=new Set(data.provisionals.map(item=>item.clientName).filter((value):value is string=>Boolean(value))).size;
   return <section className={`engineering-overview engineering-overview--${activeTab}`} aria-labelledby="engineering-title">
-    <PageHeader id="engineering-title" eyebrow="Módulo operacional" title="Engenharia" description="Contratos, medições, produção, provisórios e aditivos integrados à empresa selecionada."/>
+    <Card className="engineering-module-header" title="Engenharia"><div className="engineering-module-header__filter"><Select label="Empresa" value={selectedCompany.id} options={companyOptions} onChange={event=>setSelectedCompanyId(event.target.value)}/></div></Card>
     <Tabs items={tabs} activeId={activeTab} onChange={id=>setActiveTab(id as TabId)} ariaLabel="Seções da engenharia"/>
     {activeTab==='contratos'&&<section className="engineering-contracts-reference" aria-label="Contratos">
       <div className="engineering-contracts-reference__title"><h2>Contratos</h2></div>
