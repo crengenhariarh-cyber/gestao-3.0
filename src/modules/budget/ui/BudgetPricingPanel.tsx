@@ -6,7 +6,7 @@ import { Feedback } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 
-type ContractRow={id:string;contract_number:string;work_name?:string|null};
+type ContractRow={id:string;contract_number:string;client_name?:string|null};
 type SettingsRow={id:string;contract_id:string|null;target_net_margin_percent:number|string};
 type ProjectionRow={annual_expense:number|string;required_net_revenue:number|string;retention_rate_percent:number|string;fixed_retention_amount:number|string;required_gross_revenue:number|string;realized_gross_revenue:number|string;realized_retained_amount:number|string;realized_net_revenue:number|string};
 
@@ -32,7 +32,7 @@ export function BudgetPricingPanel({tenantId,companyId,costCenterId,budgetYear,a
   settingsQuery=costCenterId?settingsQuery.eq('cost_center_id',costCenterId):settingsQuery.is('cost_center_id',null);
   const [settingsResult,contractsResult]=await Promise.all([
    settingsQuery.maybeSingle(),
-   supabase.from('engineering_contracts').select('id,contract_number,work_name').eq('tenant_id',tenantId).eq('company_id',companyId).order('contract_number'),
+   supabase.from('engineering_contracts').select('id,contract_number,client_name').eq('tenant_id',tenantId).eq('company_id',companyId).order('contract_number'),
   ]);
   if(settingsResult.error||contractsResult.error){setFeedback({tone:'danger',message:settingsResult.error?.message??contractsResult.error?.message??'Não foi possível carregar a formação de preço.'});setLoading(false);return;}
   const settings=(settingsResult.data??null) as SettingsRow|null;
@@ -54,7 +54,7 @@ export function BudgetPricingPanel({tenantId,companyId,costCenterId,budgetYear,a
  const calculatedGross=contractId&&retentionRate<100?(calculatedNet+fixedRetention)/(1-retentionRate/100):calculatedNet;
  const projectedNet=projection?numberValue(projection.required_net_revenue):calculatedNet;
  const projectedGross=projection?numberValue(projection.required_gross_revenue):calculatedGross;
- const contractOptions=useMemo(()=>[{value:'',label:'Sem contrato / sem retenções'},...contracts.map(item=>({value:item.id,label:item.work_name?`${item.contract_number} · ${item.work_name}`:item.contract_number}))],[contracts]);
+ const contractOptions=useMemo(()=>[{value:'',label:'Sem contrato / sem retenções'},...contracts.map(item=>({value:item.id,label:item.client_name?`${item.contract_number} · ${item.client_name}`:item.contract_number}))],[contracts]);
 
  async function save(){
   if(!tenantId||!companyId)return;setSaving(true);setFeedback(null);
