@@ -39,15 +39,15 @@ drop view if exists public.budget_required_revenue_projection;
 create view public.budget_required_revenue_projection
 with (security_invoker=true) as
 with expense as (
-  select p.tenant_id,p.company_id,p.cost_center_id,p.budget_year,
-         sum(p.annual_amount)::numeric(18,2) annual_expense
-  from public.budget_annual_plans p
+  select l.tenant_id,l.company_id,l.cost_center_id,extract(year from l.competence_month)::int budget_year,
+         sum(l.limit_amount)::numeric(18,2) annual_expense
+  from public.budget_limits l
   left join public.budget_item_treatments t
-    on t.tenant_id=p.tenant_id and t.company_id=p.company_id
-   and t.budget_year=p.budget_year and t.category_id=p.category_id
-   and t.cost_center_id is not distinct from p.cost_center_id
-  where p.flow_type='expense' and coalesce(t.treatment,'operational_cost')<>'retention'
-  group by p.tenant_id,p.company_id,p.cost_center_id,p.budget_year
+    on t.tenant_id=l.tenant_id and t.company_id=l.company_id
+   and t.budget_year=extract(year from l.competence_month)::int and t.category_id=l.category_id
+   and t.cost_center_id is not distinct from l.cost_center_id
+  where l.status='active' and coalesce(t.treatment,'operational_cost')<>'retention'
+  group by l.tenant_id,l.company_id,l.cost_center_id,extract(year from l.competence_month)::int
 ), retention as (
   select tenant_id,company_id,contract_id,
          coalesce(sum(case when calculation_type='percentage' then rate else 0 end),0)::numeric(10,4) retention_rate_percent,
