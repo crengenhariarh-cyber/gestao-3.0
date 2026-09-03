@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BudgetWorkspacePage } from '../modules/budget/ui/BudgetWorkspacePage';
 import { EngineeringPage } from '../modules/engineering/ui/EngineeringPage';
 import { AllBanksList } from '../modules/finance/ui/AllBanksList';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
@@ -127,6 +128,7 @@ export function AppShell({ session }: AppShellProps) {
           <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
+          <Route path="/orcamento" element={<BudgetWorkspacePage companies={companies} initialCompanyId={activeCompany?.id}/>}/>
           <Route path="/rh" element={activeCompany ? <HrWorkspacePage companies={companies} initialCompanyId={activeCompany.id}/> : <HrWorkspacePage companies={companies}/>}/>
           <Route path="/engenharia" element={activeCompany ? <EngineeringPage companies={companies} initialCompanyId={activeCompany.id}/> : <EngineeringPage companies={companies}/>}/>
           <Route path="*" element={<EmptyState title="Página não encontrada" message="A rota informada não existe neste ambiente."/>}/>
