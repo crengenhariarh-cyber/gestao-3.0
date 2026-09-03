@@ -12,7 +12,6 @@ type Scope={tenantId:string;companyId:string};
 export function useEngineeringOverview(scopes:readonly Scope[], refreshToken = 0):EngineeringOverviewState {
   const repository = useMemo(()=>getEngineeringOverviewRepository(),[]);
   const [state,setState] = useState<EngineeringOverviewState>({status:'idle',data:null,errorMessage:null});
-  const scopeKey=scopes.map(scope=>`${scope.tenantId}:${scope.companyId}`).sort().join('|');
 
   useEffect(()=>{
     if(scopes.length===0){ setState({status:'idle',data:null,errorMessage:null}); return; }
@@ -31,7 +30,7 @@ export function useEngineeringOverview(scopes:readonly Scope[], refreshToken = 0
       if(!cancelled)setState({status:'error',data:null,errorMessage:'Não foi possível carregar a Engenharia para o filtro selecionado.'});
     });
     return ()=>{cancelled=true;};
-  },[repository,scopeKey,refreshToken]);
+  },[repository,scopes,refreshToken]);
 
   return state;
 }
