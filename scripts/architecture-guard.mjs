@@ -32,17 +32,27 @@ if (suspiciousGlobalCss.includes('public/module-polish.css')) warnings.push('Bas
 const srcModules = join(root, 'src', 'modules');
 const uiFiles = walk(srcModules).filter((file) => /[\\/]ui[\\/].*\.(?:ts|tsx)$/.test(file));
 let directSupabaseUi = 0;
+let nativeConfirmCount = 0;
+let inlineStyleFiles = 0;
 for (const file of uiFiles) {
   const source = readFileSync(file, 'utf8');
   if (source.includes('shared/infrastructure/supabase/client')) directSupabaseUi += 1;
+  nativeConfirmCount += (source.match(/window\.confirm\s*\(/g) ?? []).length;
+  if (source.includes('style={{')) inlineStyleFiles += 1;
   if (statSync(file).size > 45_000) failures.push(`Arquivo de UI acima de 45 KB: ${relative(root, file)}`);
 }
+
 const MAX_DIRECT_SUPABASE_UI = 7;
-if (directSupabaseUi > MAX_DIRECT_SUPABASE_UI) {
-  failures.push(`Acesso direto UI → Supabase aumentou: ${directSupabaseUi} > baseline ${MAX_DIRECT_SUPABASE_UI}`);
-} else if (directSupabaseUi > 0) {
-  warnings.push(`Dívida arquitetural UI → Supabase: ${directSupabaseUi}/${MAX_DIRECT_SUPABASE_UI}; deve diminuir, nunca aumentar.`);
-}
+if (directSupabaseUi > MAX_DIRECT_SUPABASE_UI) failures.push(`Acesso direto UI → Supabase aumentou: ${directSupabaseUi} > baseline ${MAX_DIRECT_SUPABASE_UI}`);
+else if (directSupabaseUi > 0) warnings.push(`Dívida arquitetural UI → Supabase: ${directSupabaseUi}/${MAX_DIRECT_SUPABASE_UI}; deve diminuir, nunca aumentar.`);
+
+const MAX_NATIVE_CONFIRM = 2;
+if (nativeConfirmCount > MAX_NATIVE_CONFIRM) failures.push(`Confirmações nativas aumentaram: ${nativeConfirmCount} > baseline ${MAX_NATIVE_CONFIRM}. Use o Design System.`);
+else if (nativeConfirmCount > 0) warnings.push(`Confirmações nativas: ${nativeConfirmCount}/${MAX_NATIVE_CONFIRM}; devem migrar para o componente compartilhado.`);
+
+const MAX_INLINE_STYLE_FILES = 1;
+if (inlineStyleFiles > MAX_INLINE_STYLE_FILES) failures.push(`Arquivos de UI com style={{...}} aumentaram: ${inlineStyleFiles} > baseline ${MAX_INLINE_STYLE_FILES}`);
+else if (inlineStyleFiles > 0) warnings.push(`Inline style em UI: ${inlineStyleFiles}/${MAX_INLINE_STYLE_FILES}; deve ser eliminado.`);
 
 console.log('Architecture guard');
 for (const warning of warnings) console.warn(`WARN: ${warning}`);
