@@ -88,6 +88,12 @@ export class SupabaseFinanceRegistryRepository implements FinanceRegistryReposit
     return data.map(account);
   }
 
+  async listTenantAccounts(tenantId: string): Promise<readonly FinancialAccount[]> {
+    const { data, error } = await this.client.from('financial_accounts').select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').eq('tenant_id', tenantId).order('name');
+    if (error) throw error;
+    return data.map(account);
+  }
+
   async createAccount(raw: CreateFinancialAccount): Promise<FinancialAccount> {
     const input = normalizeAccount(raw);
     const { data, error } = await this.client.from('financial_accounts').insert({ tenant_id: input.tenantId, company_id: input.companyId, name: input.name, account_type: input.accountType, bank_institution: input.bankInstitution ?? null, opening_balance: input.openingBalance ?? 0 }).select('id,tenant_id,company_id,name,account_type,bank_institution,opening_balance,status').single();
