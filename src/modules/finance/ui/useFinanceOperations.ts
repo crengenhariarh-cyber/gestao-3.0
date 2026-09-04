@@ -97,9 +97,13 @@ export function useFinanceOperations(scope: CompanyScope) {
     }
   }, []);
 
+  const clearFeedback = useCallback(() => {
+    setState((current) => ({ ...current, errorMessage: null, successMessage: null }));
+  }, []);
+
   return {
     state,
-    clearFeedback: () => setState((current) => ({ ...current, errorMessage: null, successMessage: null })),
+    clearFeedback,
     loadReferences,
     createEntry: (input: EntryOperationInput) => execute(() => repositories.entries.createSingle({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento criado com sucesso.'),
     updateEntry: (input: EntryUpdateOperationInput) => execute(() => repositories.entries.update({ ...scope, ...input, entryType: normalizedEntryType(input.entryType) }), 'Lançamento atualizado com sucesso.'),
