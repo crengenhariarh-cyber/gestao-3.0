@@ -25,6 +25,29 @@ Ao refinar uma tela, o mesmo ciclo deve obrigatoriamente:
 
 A meta final do produto após a consolidação completa é **mínimo 9,0/10**, com alvo de **9,5/10**.
 
+## Design System obrigatório — construir certo na primeira passagem
+
+Toda tela nova, tela crua ou tela em refinamento deve ser planejada **a partir do Design System oficial já definido no Gestão 3.0**, antes de qualquer acabamento local. O padrão não é uma etapa posterior de correção: ele é requisito de entrada para formular a tela.
+
+Antes de implementar ou refinar uma tela, deve-se inventariar todos os elementos necessários — cabeçalho, filtros, cards, KPIs, abas, tabelas/listas, formulários, campos, botões, menus, feedbacks, estados vazios e especialmente modais — e mapear cada elemento para o componente/padrão oficial existente.
+
+Regras obrigatórias:
+
+1. **Modais:** usar o padrão oficial do sistema. Modais devem respeitar a estrutura, dimensões/responsividade e comportamento já aprovados, incluindo ações fixas de Voltar/Fechar/Salvar quando aplicáveis. Não criar modal particular apenas porque uma tela precisa de pequena variação.
+2. **Botões:** reutilizar variantes, tamanhos, estados e hierarquia já definidos. Não criar botão visualmente novo por módulo sem necessidade estrutural aprovada.
+3. **Cards e KPIs:** seguir bordas, raio, sombra, espaçamento, tipografia, hierarquia e comportamento responsivo do Design System. Não aplicar acabamento posterior por CSS global para simular o padrão.
+4. **Abas:** usar o padrão oficial de abas e seus estados ativo, inativo, hover/foco e responsividade.
+5. **Campos e filtros:** seguir os mesmos padrões de label, altura, espaçamento, ícones, mensagens de validação, seleção e estados disabled/read-only.
+6. **Cabeçalhos e navegação:** respeitar hierarquia de título, ações, voltar/fechar e distribuição de conteúdo já estabelecida para o aplicativo.
+7. **Feedback e estados:** loading, vazio, erro, sucesso, confirmação e bloqueio devem usar componentes compartilhados; evitar `window.confirm`, alerts nativos e soluções exclusivas de uma página quando existe componente oficial.
+8. **Responsividade:** o mesmo Design System deve funcionar em celular, tablet e desktop; não criar uma segunda identidade visual para mobile.
+9. **Tema:** qualquer componente novo/refinado deve respeitar tema claro/escuro global por tokens/variáveis do sistema, sem ajustes manuais tela a tela.
+10. **Exceções:** se uma necessidade realmente não estiver coberta pelo Design System, primeiro deve-se criar/evoluir um componente reutilizável no próprio Design System; somente depois ele pode ser usado na tela. A exceção não deve nascer como CSS ou componente particular do módulo.
+
+**Regra de primeira passagem:** ao iniciar uma tela, todos os padrões previsíveis devem ser aplicados já na formulação inicial. Não é aceitável concluir uma tela sabendo que depois será necessário pedir separadamente “corrigir modal”, “padronizar botão”, “arrumar card”, “ajustar abas” ou “aplicar dark mode”. Esses elementos fazem parte da definição de pronto da própria tela.
+
+A auditoria de saída de cada tela deve conferir explicitamente aderência ao Design System. Divergência visual ou criação desnecessária de componente paralelo reduz a nota e impede a conclusão se a área ficar abaixo de 9,0/10.
+
 ## Estados
 
 - **GREEN**: arquitetura aderente; atualizações normais permitidas.
@@ -41,7 +64,8 @@ O CI deve falhar quando ocorrer qualquer um destes eventos:
 4. criação/crescimento de página de UI acima do limite de 45 KB sem decomposição;
 5. falha de typecheck, lint, testes ou build;
 6. introdução de nova exceção arquitetural sem registro neste documento;
-7. conclusão declarada de tela refinada mantendo remendo novo ou aumentando a dívida técnica da área.
+7. conclusão declarada de tela refinada mantendo remendo novo ou aumentando a dívida técnica da área;
+8. criação de padrão visual paralelo quando já existe componente equivalente no Design System.
 
 ## Baseline de dívida em 04/09/2026
 
@@ -65,6 +89,7 @@ Dívidas conhecidas que devem diminuir, nunca aumentar:
 - Toda correção em área crítica deve preferir refatoração do ponto de origem ao invés de sobreposição posterior.
 - Tela refinada deve ter acabamento profissional e código igualmente refinado; qualidade visual não compensa arquitetura ruim e arquitetura boa não compensa tela crua.
 - Ao tocar em dívida técnica pertencente à tela que está sendo refinada, a direção obrigatória é reduzi-la, nunca apenas escondê-la.
+- O Design System é a fonte de verdade visual e comportamental; telas não podem redefinir localmente padrões já existentes.
 
 ## Saída do estado AMBER
 
@@ -75,6 +100,7 @@ Para retornar a GREEN:
 3. reduzir páginas monolíticas de maior risco;
 4. eliminar alertas de segurança críticos do Supabase;
 5. adicionar testes de integração/regressão para Orçamento, RH e Engenharia;
-6. concluir o refinamento das telas ainda cruas e auditar cada módulo com nota mínima 9,0/10.
+6. concluir o refinamento das telas ainda cruas e auditar cada módulo com nota mínima 9,0/10;
+7. confirmar aderência integral das telas refinadas ao Design System oficial.
 
-Enquanto esses itens não forem concluídos, a regra é: **não aumentar a dívida técnica**. Durante o refinamento total, cada área concluída deve reduzir o baseline de dívida correspondente e atingir **mínimo 9,0/10** antes de avançar.
+Enquanto esses itens não forem concluídos, a regra é: **não aumentar a dívida técnica**. Durante o refinamento total, cada área concluída deve reduzir o baseline de dívida correspondente, obedecer ao Design System desde a primeira passagem e atingir **mínimo 9,0/10** antes de avançar.
