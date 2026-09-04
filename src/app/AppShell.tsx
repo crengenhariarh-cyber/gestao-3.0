@@ -6,7 +6,7 @@ import { AllBanksList } from '../modules/finance/ui/AllBanksList';
 import { AllCompaniesMonthlyAccountsPage } from '../modules/finance/ui/AllCompaniesMonthlyAccountsPage';
 import { BanksPage } from '../modules/finance/ui/BanksPage';
 import { CardsPage } from '../modules/finance/ui/CardsPage';
-import { FinancePage } from '../modules/finance/ui/FinancePage';
+import { FinanceWorkspacePage } from '../modules/finance/ui/FinanceWorkspacePage';
 import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrWorkspacePage } from '../modules/hr/ui/HrWorkspacePage';
@@ -97,9 +97,9 @@ export function AppShell({ session }: AppShellProps) {
     ...companies.map((company) => ({ value: company.id, label: companyLabel(company) })),
   ];
   const selectedCompanies = allCompaniesSelected ? companies : activeCompany ? [activeCompany] : [];
+  const financeCompanies = allCompaniesSelected ? companies : selectedCompanies;
   const activeMobileItem = entryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/cartoes' ? 'Cartões' : null;
 
-  const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
   const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks"><section className="app-company-sections--banks__controls" aria-label="Ações de bancos"><BanksPage company={companies[0]!} companies={companies} showHeader /></section><AllBanksList companies={companies}/></div>;
 
   return (
@@ -123,10 +123,10 @@ export function AppShell({ session }: AppShellProps) {
       </header>
 
       <main className="app-page" id="app-main" tabIndex={-1}>
-        <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany ? companyLabel(activeCompany) : ''}</strong></div>
+        {location.pathname !== '/financeiro' && <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany ? companyLabel(activeCompany) : ''}</strong></div>}
         <Routes>
           <Route path="/" element={<HomePage key={homeRefreshToken} companies={selectedCompanies}/>}/>
-          <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
+          <Route path="/financeiro" element={<FinanceWorkspacePage companies={financeCompanies} initialCompanyId={activeCompany?.id}/>}/>
           <Route path="/contas-do-mes" element={<AllCompaniesMonthlyAccountsPage companies={selectedCompanies}/>}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
