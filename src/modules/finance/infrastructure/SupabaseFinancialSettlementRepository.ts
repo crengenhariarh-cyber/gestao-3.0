@@ -99,6 +99,7 @@ export class SupabaseFinancialSettlementRepository implements FinancialSettlemen
       p_amount: input.amount,
       p_idempotency_key: input.idempotencyKey,
       p_notes: input.notes,
+      p_settles_in_full: input.settlesInFull,
     });
 
     if (rpcResult.error) throw rpcResult.error;

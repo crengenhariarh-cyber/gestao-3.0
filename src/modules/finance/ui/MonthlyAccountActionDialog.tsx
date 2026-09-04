@@ -43,6 +43,8 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('total');
   const [paymentAccounts, setPaymentAccounts] = useState<readonly FinancialAccount[]>([]);
   const [paymentForm, setPaymentForm] = useState({ accountId: '', settledOn: today(), amount: 0, notes: '' });
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [differenceConfirm, setDifferenceConfirm] = useState(false);
   const [editForm, setEditForm] = useState({ entryType: entry.entryType, description: entry.description, counterparty: entry.counterpartyName ?? '', categoryId: entry.categoryId, costCenterId: entry.costCenterId ?? '', competenceMonth: entry.competenceMonth.slice(0, 7), dueDate: entry.dueDate, amount: String(entry.amount), installmentCount: String(entry.installmentCount), notes: entry.notes ?? '' });
 
   const original = balance?.installmentAmount ?? entry.amount;
@@ -53,14 +55,18 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
   const isIncome = entry.entryType === 'income';
   const clearFeedback = operations.clearFeedback;
   const paymentAmount = paymentForm.amount;
+  const settlementDifference = paymentAmount - remaining;
+  const absoluteDifference = Math.abs(settlementDifference);
+  const differsFromRemaining = absoluteDifference > 0.005;
   const remainingAfter = Math.max(remaining - paymentAmount, 0);
-  const overpayAmount = Math.max(paymentAmount - remaining, 0);
 
   useEffect(() => {
     if (!open) return;
     setAction('details');
     setPaymentMode('total');
     setPaymentForm({ accountId: '', settledOn: today(), amount: remaining, notes: '' });
+    setPaymentError(null);
+    setDifferenceConfirm(false);
     setEditForm({ entryType: entry.entryType, description: entry.description, counterparty: entry.counterpartyName ?? '', categoryId: entry.categoryId, costCenterId: entry.costCenterId ?? '', competenceMonth: entry.competenceMonth.slice(0, 7), dueDate: entry.dueDate, amount: String(entry.amount), installmentCount: String(entry.installmentCount), notes: entry.notes ?? '' });
     clearFeedback();
   }, [clearFeedback, entry.amount, entry.categoryId, entry.competenceMonth, entry.costCenterId, entry.counterpartyName, entry.description, entry.dueDate, entry.entryType, entry.installmentCount, entry.notes, open, remaining]);
@@ -88,11 +94,15 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
 
   function choosePaymentMode(mode: PaymentMode) {
     setPaymentMode(mode);
+    setPaymentError(null);
+    setDifferenceConfirm(false);
     if (mode === 'total') setPaymentForm((current) => ({ ...current, amount: remaining }));
   }
 
   function openPayment() {
     setPaymentMode('total');
+    setPaymentError(null);
+    setDifferenceConfirm(false);
     setPaymentForm((current) => ({ ...current, amount: remaining }));
     setAction('payment');
   }
@@ -108,11 +118,37 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
     } finally { setLoadingEntry(false); }
   }
 
-  async function savePayment() {
-    if (!paymentForm.accountId || paymentForm.amount <= 0 || paymentForm.amount > remaining + 0.005) return;
+  async function savePayment(differenceConfirmed = false) {
+    setPaymentError(null);
+    if (!paymentForm.accountId) {
+      setPaymentError('Selecione o banco ou conta para continuar.');
+      return;
+    }
+    if (!Number.isFinite(paymentForm.amount) || paymentForm.amount <= 0) {
+      setPaymentError(`Informe um valor efetivamente ${isIncome ? 'recebido' : 'pago'} maior que zero.`);
+      return;
+    }
+    if (paymentMode === 'partial' && paymentForm.amount > remaining + 0.005) {
+      setPaymentError(`No modo parcial, o valor não pode ultrapassar o saldo restante de ${currency.format(remaining)}. Use ${isIncome ? 'Recebimento total' : 'Pagamento total'} para liquidar com diferença.`);
+      return;
+    }
+    if (paymentMode === 'total' && differsFromRemaining && !differenceConfirmed) {
+      setDifferenceConfirm(true);
+      return;
+    }
     try {
-      await operations.settleInstallment({ installmentId: entry.installmentId, accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentForm.amount, idempotencyKey: key('monthly-account'), notes: paymentForm.notes || null });
-      onChanged(); onClose();
+      await operations.settleInstallment({
+        installmentId: entry.installmentId,
+        accountId: paymentForm.accountId,
+        settledOn: paymentForm.settledOn,
+        amount: paymentForm.amount,
+        idempotencyKey: key('monthly-account'),
+        notes: paymentForm.notes || null,
+        settlesInFull: paymentMode === 'total',
+      });
+      setDifferenceConfirm(false);
+      onChanged();
+      onClose();
     } catch { /* feedback permanece no modal */ }
   }
 
@@ -129,18 +165,24 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
 
   if (loadingEntry) return <Dialog open={open} title="Carregando lançamento" onClose={onClose} onBack={onClose}><LoadingState label="Carregando dados…" /></Dialog>;
 
-  if (action === 'payment') return <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={entry.description} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={() => setAction('details')} onBack={() => setAction('details')} onConfirm={() => { void savePayment(); }}>
-    <div className="payment-app">
-      {operations.state.errorMessage && <Feedback tone="danger" title={isIncome ? 'Não foi possível receber' : 'Não foi possível pagar'} message={operations.state.errorMessage} />}
-      <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{entry.description}</strong><span>{entry.installmentCount > 1 ? `PARCELA ${entry.installmentNumber}/${entry.installmentCount}` : isIncome ? 'RECEITA' : 'DESPESA'}</span></div></div>
-      <div className="payment-app__totals"><div><span>Total original</span><strong>{currency.format(original)}</strong></div><div><span>{isIncome ? 'Já recebido' : 'Já pago'}</span><strong>{currency.format(alreadySettled)}</strong></div><div><span>Restante</span><strong>{currency.format(remaining)}</strong></div></div>
-      <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>{isIncome ? 'Recebimento total' : 'Pagamento total'}</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>{isIncome ? 'Recebimento parcial' : 'Pagamento parcial'}</strong><small>{isIncome ? 'Receber parte ou informar outro valor' : 'Pagar parte ou informar outro valor'}</small></span></Button></div>
-      <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={(event) => setPaymentForm((current) => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /></div>
-      <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label={isIncome ? 'Valor efetivamente recebido' : 'Valor efetivamente pago'} value={paymentForm.amount} onValueChange={(amount) => setPaymentForm((current) => ({ ...current, amount }))} required /></div>
-      <Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
-      <div className={`payment-app__result ${overpayAmount > 0 ? 'is-warning' : ''}`.trim()}><span>{overpayAmount > 0 ? 'Valor acima do restante' : 'Saldo restante após confirmar'}</span><strong>{overpayAmount > 0 ? `+ ${currency.format(overpayAmount)}` : currency.format(remainingAfter)}</strong></div>
-    </div>
-  </Dialog>;
+  if (action === 'payment') return <>
+    <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={entry.description} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={() => { setPaymentError(null); setDifferenceConfirm(false); setAction('details'); }} onBack={() => { setPaymentError(null); setDifferenceConfirm(false); setAction('details'); }} onConfirm={() => { void savePayment(); }}>
+      <div className="payment-app">
+        {(paymentError ?? operations.state.errorMessage) && <Feedback tone="danger" title={isIncome ? 'Não foi possível receber' : 'Não foi possível pagar'} message={paymentError ?? operations.state.errorMessage ?? ''} />}
+        <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{entry.description}</strong><span>{entry.installmentCount > 1 ? `PARCELA ${entry.installmentNumber}/${entry.installmentCount}` : isIncome ? 'RECEITA' : 'DESPESA'}</span></div></div>
+        <div className="payment-app__totals"><div><span>Total original</span><strong>{currency.format(original)}</strong></div><div><span>{isIncome ? 'Já recebido' : 'Já pago'}</span><strong>{currency.format(alreadySettled)}</strong></div><div><span>Restante</span><strong>{currency.format(remaining)}</strong></div></div>
+        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>{isIncome ? 'Recebimento total' : 'Pagamento total'}</strong><small>Liquidar o título pelo valor efetivo</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>{isIncome ? 'Recebimento parcial' : 'Pagamento parcial'}</strong><small>{isIncome ? 'Receber parte e manter saldo pendente' : 'Pagar parte e manter saldo pendente'}</small></span></Button></div>
+        <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={(event) => { setPaymentError(null); setPaymentForm((current) => ({ ...current, accountId: event.target.value })); }} options={accountOptions} required /></div>
+        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label={isIncome ? 'Valor efetivamente recebido' : 'Valor efetivamente pago'} value={paymentForm.amount} onValueChange={(amount) => { setPaymentError(null); setDifferenceConfirm(false); setPaymentForm((current) => ({ ...current, amount })); }} required /></div>
+        <Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
+        <div className={`payment-app__result ${paymentMode === 'total' && differsFromRemaining ? 'is-warning' : ''}`.trim()}><span>{paymentMode === 'total' && differsFromRemaining ? `Valor ${settlementDifference > 0 ? 'acima' : 'abaixo'} do restante` : 'Saldo restante após confirmar'}</span><strong>{paymentMode === 'total' && differsFromRemaining ? `${settlementDifference > 0 ? '+' : '-'} ${currency.format(absoluteDifference)}` : currency.format(remainingAfter)}</strong></div>
+      </div>
+    </Dialog>
+
+    <Dialog open={differenceConfirm} title="Confirmar valor diferente" description={`O valor efetivo informado é ${currency.format(paymentAmount)} e o saldo restante do título é ${currency.format(remaining)}.`} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento total' : 'Confirmar pagamento total'} onClose={() => setDifferenceConfirm(false)} onBack={() => setDifferenceConfirm(false)} onConfirm={() => { void savePayment(true); }}>
+      <div className="payment-app__warning"><strong>Diferença de {settlementDifference > 0 ? '+' : '-'} {currency.format(absoluteDifference)}</strong><span>{isIncome ? 'O valor efetivamente recebido será creditado na conta selecionada e a receita será considerada totalmente liquidada.' : 'O valor efetivamente pago será descontado da conta selecionada e a despesa será considerada totalmente liquidada.'}</span><span>O valor original permanece preservado no lançamento e a diferença fica registrada na auditoria da baixa.</span></div>
+    </Dialog>
+  </>;
 
   if (action === 'edit') return <Dialog open={open} title="Editar lançamento" description="Altere os dados do lançamento." loading={operations.state.busy} confirmLabel="Salvar" onClose={() => setAction('details')} onBack={() => setAction('details')} onConfirm={() => { void saveEdit(); }}>
     <div className="quick-entry edit-entry-app">

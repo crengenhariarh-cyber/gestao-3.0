@@ -16,6 +16,12 @@ describe('normalizeFinancialSettlement', () => {
     const result = normalizeFinancialSettlement({ ...base, notes: '  parcial  ' });
     expect(result.idempotencyKey).toBe('settlement-1');
     expect(result.notes).toBe('parcial');
+    expect(result.settlesInFull).toBe(false);
+  });
+
+  it('preserves explicit full-settlement intent', () => {
+    const result = normalizeFinancialSettlement({ ...base, settlesInFull: true });
+    expect(result.settlesInFull).toBe(true);
   });
 
   it('rejects non-positive and non-finite amounts', () => {

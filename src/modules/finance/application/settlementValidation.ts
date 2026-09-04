@@ -21,7 +21,7 @@ function isoDate(value: string, field: string): string {
 
 export function normalizeFinancialSettlement(
   input: RecordFinancialSettlement,
-): RecordFinancialSettlement & { notes: string | null } {
+): RecordFinancialSettlement & { notes: string | null; settlesInFull: boolean } {
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     throw new Error('amount must be greater than zero');
   }
@@ -38,5 +38,6 @@ export function normalizeFinancialSettlement(
     amount: input.amount,
     idempotencyKey,
     notes: optional(input.notes),
+    settlesInFull: input.settlesInFull ?? false,
   };
 }

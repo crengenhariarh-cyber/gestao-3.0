@@ -32,6 +32,7 @@ export interface RecordFinancialSettlement extends CompanyScope {
   amount: number;
   idempotencyKey: string;
   notes?: string | null;
+  settlesInFull?: boolean;
 }
 
 export interface RecordedFinancialSettlement {
