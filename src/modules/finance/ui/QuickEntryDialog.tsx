@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Check, CopyPlus, Eraser } from 'lucide-react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
@@ -408,9 +409,9 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
 
   const busy = operations.state.busy || paymentLoading || submitting;
   const footer = <div className="quick-entry__footer-actions">
-    <Button variant="tertiary" disabled={busy} onClick={clearForm}>⌫ Limpar</Button>
-    <Button variant="secondary" disabled={busy} onClick={() => { void launch(true); }}>▣ Lançar e manter dados</Button>
-    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>✓ Lançar</Button>
+    <Button className="quick-entry__footer-action quick-entry__footer-action--clear" variant="tertiary" disabled={busy} onClick={clearForm}><Eraser className="quick-entry__footer-icon" aria-hidden="true"/><span>Limpar</span></Button>
+    <Button className="quick-entry__footer-action quick-entry__footer-action--keep" variant="secondary" disabled={busy} onClick={() => { void launch(true); }}><CopyPlus className="quick-entry__footer-icon" aria-hidden="true"/><span>Lançar e manter dados</span></Button>
+    <Button className="quick-entry__footer-action quick-entry__footer-action--launch" loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}><Check className="quick-entry__footer-icon" aria-hidden="true"/><span>Lançar</span></Button>
   </div>;
 
   return <Dialog open={open} title="Novo lançamento" description="Registre uma receita ou despesa" variant="quick-entry" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
