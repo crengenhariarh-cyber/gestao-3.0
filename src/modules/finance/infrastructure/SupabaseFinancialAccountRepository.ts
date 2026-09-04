@@ -66,13 +66,13 @@ export class SupabaseFinancialAccountRepository implements FinancialAccountRepos
     if (error) throw error;
   }
 
-  async listMovements(scope: CompanyScope, from: string, to: string): Promise<readonly FinancialAccountMovement[]> {
-    const { data, error } = await this.client.from('financial_account_movements')
+  async listMovements(scope: CompanyScope, from?: string, to?: string): Promise<readonly FinancialAccountMovement[]> {
+    let query = this.client.from('financial_account_movements')
       .select('id,tenant_id,company_id,account_id,movement_on,direction,amount,source_type,source_id,description')
-      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId)
-      .gte('movement_on', from).lte('movement_on', to)
-      .order('movement_on', { ascending: true }).order('created_at', { ascending: true })
-      .returns<MovementRow[]>();
+      .eq('tenant_id', scope.tenantId).eq('company_id', scope.companyId);
+    if (from) query = query.gte('movement_on', from);
+    if (to) query = query.lte('movement_on', to);
+    const { data, error } = await query.order('movement_on', { ascending: true }).order('created_at', { ascending: true }).returns<MovementRow[]>();
     if (error) throw error;
     return data.map((row) => ({
       id: row.id, tenantId: row.tenant_id, companyId: row.company_id, accountId: row.account_id,
