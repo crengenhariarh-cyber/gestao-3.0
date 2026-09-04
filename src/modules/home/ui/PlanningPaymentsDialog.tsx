@@ -84,7 +84,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
     setBusy(true); setError(null); setSuccess(null); setTarget(item); setPaymentMode('total');
     try {
       const scope = { tenantId: item.tenantId, companyId: item.companyId };
-      const accountPromise = finance.registries.listAccounts(scope);
+      const accountPromise = finance.registries.listTenantAccounts(item.tenantId);
       let summary: PaymentSummary;
       let preferredAccountId = '';
       if (item.sourceKind === 'financial_installment') {
