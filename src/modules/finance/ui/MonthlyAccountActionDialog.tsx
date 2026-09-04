@@ -41,14 +41,15 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
   const paid = balance?.financialStatus === 'paid' || remaining <= 0;
   const partial = !paid && remaining + 0.005 < entry.amount;
   const isIncome = entry.entryType === 'income';
+  const clearFeedback = operations.clearFeedback;
 
   useEffect(() => {
     if (!open) return;
     setAction('details');
     setPaymentForm({ accountId: '', settledOn: today(), amount: String(remaining), notes: '' });
     setEditForm({ entryType: entry.entryType, description: entry.description, counterparty: entry.counterpartyName ?? '', categoryId: entry.categoryId, costCenterId: entry.costCenterId ?? '', competenceMonth: entry.competenceMonth.slice(0, 7), dueDate: entry.dueDate, amount: String(entry.amount), installmentCount: String(entry.installmentCount), notes: entry.notes ?? '' });
-    operations.clearFeedback();
-  }, [entry.entryId, entry.installmentId, open]);
+    clearFeedback();
+  }, [clearFeedback, entry.amount, entry.categoryId, entry.competenceMonth, entry.costCenterId, entry.counterpartyName, entry.description, entry.dueDate, entry.entryType, entry.installmentCount, entry.notes, open, remaining]);
 
   const activeAccounts = (references?.accounts ?? []).filter((item) => item.status === 'active');
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
@@ -63,18 +64,7 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
       const rows = await getFinanceRepositories().entries.list(scope);
       const installments = rows.filter((item) => item.entryId === entry.entryId).sort((a, b) => a.installmentNumber - b.installmentNumber);
       const first = installments[0] ?? entry;
-      setEditForm({
-        entryType: first.entryType,
-        description: first.description,
-        counterparty: first.counterpartyName ?? '',
-        categoryId: first.categoryId,
-        costCenterId: first.costCenterId ?? '',
-        competenceMonth: first.competenceMonth.slice(0, 7),
-        dueDate: first.dueDate,
-        amount: String(installments.length ? installments.reduce((total, item) => total + item.amount, 0) : first.amount),
-        installmentCount: String(first.installmentCount),
-        notes: first.notes ?? '',
-      });
+      setEditForm({ entryType: first.entryType, description: first.description, counterparty: first.counterpartyName ?? '', categoryId: first.categoryId, costCenterId: first.costCenterId ?? '', competenceMonth: first.competenceMonth.slice(0, 7), dueDate: first.dueDate, amount: String(installments.length ? installments.reduce((total, item) => total + item.amount, 0) : first.amount), installmentCount: String(first.installmentCount), notes: first.notes ?? '' });
       setAction('edit');
     } finally { setLoadingEntry(false); }
   }
@@ -98,31 +88,8 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
   }
 
   if (loadingEntry) return <Dialog open={open} title="Carregando lançamento" onClose={onClose} onBack={onClose}><LoadingState label="Carregando dados…" /></Dialog>;
-
-  if (action === 'payment') return <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={partial ? `Saldo restante ${currency.format(remaining)}` : undefined} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void savePayment(); }}>
-    {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível concluir" message={operations.state.errorMessage} />}
-    <div className="finance-form-grid"><Select label="Banco / Conta" value={paymentForm.accountId} onChange={(event) => setPaymentForm((current) => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor efetivamente pago" type="number" min="0.01" step="0.01" max={remaining} value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} /></div>
-  </Dialog>;
-
-  if (action === 'edit') return <Dialog open={open} title="Editar lançamento" description="Altere os dados do lançamento." loading={operations.state.busy} confirmLabel="Salvar" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void saveEdit(); }}>
-    {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
-    <div className="finance-form-grid"><Select label="Tipo" value={editType} onChange={(event) => setEditForm((current) => ({ ...current, entryType: event.target.value as FinancialEntryType }))} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} /><Input label="Descrição" value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} required /><Input label="Fornecedor / pagador" value={editForm.counterparty} onChange={(event) => setEditForm((current) => ({ ...current, counterparty: event.target.value }))} /><Select label="Categoria" value={editForm.categoryId} onChange={(event) => setEditForm((current) => ({ ...current, categoryId: event.target.value }))} options={categoryOptions} required /><Select label="Centro de custo" value={editForm.costCenterId} onChange={(event) => setEditForm((current) => ({ ...current, costCenterId: event.target.value }))} options={costCenterOptions} /><Input label="Competência inicial" type="month" value={editForm.competenceMonth} onChange={(event) => setEditForm((current) => ({ ...current, competenceMonth: event.target.value }))} required /><Input label="Primeiro vencimento" type="date" value={editForm.dueDate} onChange={(event) => setEditForm((current) => ({ ...current, dueDate: event.target.value }))} required /><Input label="Valor total" type="number" min="0.01" step="0.01" value={editForm.amount} onChange={(event) => setEditForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Parcelas" type="number" min="1" max="120" step="1" value={editForm.installmentCount} onChange={(event) => setEditForm((current) => ({ ...current, installmentCount: event.target.value }))} required /><Input label="Observação" value={editForm.notes} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></div>
-  </Dialog>;
-
-  if (action === 'delete') return <Dialog open={open} title="Excluir lançamento" description="Esta ação não pode ser desfeita." loading={operations.state.busy} confirmLabel="Excluir" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void confirmDelete(); }}>
-    {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível excluir" message={operations.state.errorMessage} />}
-    <Feedback tone="danger" title="Confirme a exclusão" message={`O lançamento “${entry.description}” será excluído.`} />
-  </Dialog>;
-
-  return <Dialog open={open} title={entry.description} description={`${isIncome ? 'A receber' : 'A pagar'} · ${formatDate(entry.dueDate)}`} onClose={onClose} onBack={onClose}>
-    <div className="monthly-account-detail">
-      <div className="monthly-account-detail__amount"><span>{paid ? 'Valor baixado' : partial ? 'Saldo restante' : 'Valor'}</span><strong>{currency.format(paid ? entry.amount : remaining)}</strong></div>
-      <div className="monthly-account-detail__meta"><span>{entry.installmentCount > 1 ? `Parcela ${entry.installmentNumber}/${entry.installmentCount}` : 'Parcela única'}</span>{entry.counterpartyName && <span>{entry.counterpartyName}</span>}<span>{paid ? 'Baixada' : partial ? 'Pagamento parcial' : 'Pendente'}</span></div>
-      <div className="monthly-account-detail__actions">
-        {!paid && <Button onClick={() => setAction('payment')}>{isIncome ? 'Receber' : partial ? 'Completar pagamento' : 'Pagar'}</Button>}
-        {!paid && entry.installmentNumber === 1 && <Button variant="secondary" onClick={() => { void prepareEdit(); }}>Editar</Button>}
-        {!paid && entry.installmentNumber === 1 && <Button variant="danger" onClick={() => setAction('delete')}>Excluir</Button>}
-      </div>
-    </div>
-  </Dialog>;
+  if (action === 'payment') return <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={partial ? `Saldo restante ${currency.format(remaining)}` : undefined} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void savePayment(); }}>{operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível concluir" message={operations.state.errorMessage} />}<div className="finance-form-grid"><Select label="Banco / Conta" value={paymentForm.accountId} onChange={(event) => setPaymentForm((current) => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={(event) => setPaymentForm((current) => ({ ...current, settledOn: event.target.value }))} required /><Input label="Valor efetivamente pago" type="number" min="0.01" step="0.01" max={remaining} value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Observação" value={paymentForm.notes} onChange={(event) => setPaymentForm((current) => ({ ...current, notes: event.target.value }))} /></div></Dialog>;
+  if (action === 'edit') return <Dialog open={open} title="Editar lançamento" description="Altere os dados do lançamento." loading={operations.state.busy} confirmLabel="Salvar" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void saveEdit(); }}>{operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}<div className="finance-form-grid"><Select label="Tipo" value={editType} onChange={(event) => setEditForm((current) => ({ ...current, entryType: event.target.value as FinancialEntryType }))} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} /><Input label="Descrição" value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} required /><Input label="Fornecedor / pagador" value={editForm.counterparty} onChange={(event) => setEditForm((current) => ({ ...current, counterparty: event.target.value }))} /><Select label="Categoria" value={editForm.categoryId} onChange={(event) => setEditForm((current) => ({ ...current, categoryId: event.target.value }))} options={categoryOptions} required /><Select label="Centro de custo" value={editForm.costCenterId} onChange={(event) => setEditForm((current) => ({ ...current, costCenterId: event.target.value }))} options={costCenterOptions} /><Input label="Competência inicial" type="month" value={editForm.competenceMonth} onChange={(event) => setEditForm((current) => ({ ...current, competenceMonth: event.target.value }))} required /><Input label="Primeiro vencimento" type="date" value={editForm.dueDate} onChange={(event) => setEditForm((current) => ({ ...current, dueDate: event.target.value }))} required /><Input label="Valor total" type="number" min="0.01" step="0.01" value={editForm.amount} onChange={(event) => setEditForm((current) => ({ ...current, amount: event.target.value }))} required /><Input label="Parcelas" type="number" min="1" max="120" step="1" value={editForm.installmentCount} onChange={(event) => setEditForm((current) => ({ ...current, installmentCount: event.target.value }))} required /><Input label="Observação" value={editForm.notes} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></div></Dialog>;
+  if (action === 'delete') return <Dialog open={open} title="Excluir lançamento" description="Esta ação não pode ser desfeita." loading={operations.state.busy} confirmLabel="Excluir" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void confirmDelete(); }}>{operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível excluir" message={operations.state.errorMessage} />}<Feedback tone="danger" title="Confirme a exclusão" message={`O lançamento “${entry.description}” será excluído.`} /></Dialog>;
+  return <Dialog open={open} title={entry.description} description={`${isIncome ? 'A receber' : 'A pagar'} · ${formatDate(entry.dueDate)}`} onClose={onClose} onBack={onClose}><div className="monthly-account-detail"><div className="monthly-account-detail__amount"><span>{paid ? 'Valor baixado' : partial ? 'Saldo restante' : 'Valor'}</span><strong>{currency.format(paid ? entry.amount : remaining)}</strong></div><div className="monthly-account-detail__meta"><span>{entry.installmentCount > 1 ? `Parcela ${entry.installmentNumber}/${entry.installmentCount}` : 'Parcela única'}</span>{entry.counterpartyName && <span>{entry.counterpartyName}</span>}<span>{paid ? 'Baixada' : partial ? 'Pagamento parcial' : 'Pendente'}</span></div><div className="monthly-account-detail__actions">{!paid && <Button onClick={() => setAction('payment')}>{isIncome ? 'Receber' : partial ? 'Completar pagamento' : 'Pagar'}</Button>}{!paid && entry.installmentNumber === 1 && <Button variant="secondary" onClick={() => { void prepareEdit(); }}>Editar</Button>}{!paid && entry.installmentNumber === 1 && <Button variant="danger" onClick={() => setAction('delete')}>Excluir</Button>}</div></div></Dialog>;
 }
