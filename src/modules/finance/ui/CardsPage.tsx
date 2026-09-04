@@ -92,6 +92,11 @@ export function CardsPage({ companies, availableCompanies = companies }: { compa
   }, [repositories.cards, uniqueCompanies]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const refreshCards = () => { void load(); };
+    window.addEventListener('finance-card-order-changed', refreshCards);
+    return () => window.removeEventListener('finance-card-order-changed', refreshCards);
+  }, [load]);
 
   async function loadDetails(item: ListedCard, preferredMonth?: string) {
     setDetailsLoading(true);
