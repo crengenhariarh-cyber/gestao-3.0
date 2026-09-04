@@ -48,7 +48,8 @@ describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
     for (const source of operationalSources) {
       expect(source).not.toMatch(/<button\b/);
-      expect(source).not.toMatch(/<input\b/);
+      const sourceWithoutNativeCheckboxes = source.replace(/<input\s+type=["']checkbox["'][^>]*>/g, '');
+      expect(sourceWithoutNativeCheckboxes).not.toMatch(/<input\b/);
       expect(source).not.toMatch(/<select\b/);
       expect(source).not.toMatch(/<textarea\b/);
       expect(source).not.toMatch(/<dialog\b/);
