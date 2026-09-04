@@ -20,7 +20,6 @@ type PaymentMode = 'total' | 'partial';
 
 interface Props {
   company: CompanySummary;
-  availableCompanies?: readonly CompanySummary[];
   entry: FinancialEntryListItem;
   balance?: InstallmentBalance;
   open: boolean;
@@ -35,7 +34,7 @@ function monthStart(value: string): string { return `${value}-01`; }
 function money(value: string): number { return Number(value.replace(',', '.')); }
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
 
-export function MonthlyAccountActionDialog({ company, availableCompanies, entry, balance, open, onClose, onChanged }: Props) {
+export function MonthlyAccountActionDialog({ company, entry, balance, open, onClose, onChanged }: Props) {
   const scope = useMemo(() => ({ tenantId: company.tenantId, companyId: company.id }), [company.id, company.tenantId]);
   const operations = useFinanceOperations(scope);
   const references = operations.state.references;
@@ -69,22 +68,16 @@ export function MonthlyAccountActionDialog({ company, availableCompanies, entry,
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    const companies = availableCompanies?.length ? availableCompanies : [company];
-    const repositories = getFinanceRepositories();
-    void Promise.all(companies.map((item) => repositories.registries.listAccounts({ tenantId: item.tenantId, companyId: item.id })))
-      .then((rows) => {
+    void getFinanceRepositories().registries.listTenantAccounts(company.tenantId)
+      .then((accounts) => {
         if (cancelled) return;
-        const unique = new Map<string, FinancialAccount>();
-        rows.flat().forEach((account) => {
-          if (account.status === 'active') unique.set(account.id, account);
-        });
-        setPaymentAccounts([...unique.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+        setPaymentAccounts(accounts.filter((account) => account.status === 'active').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
       })
       .catch(() => {
         if (!cancelled) setPaymentAccounts([]);
       });
     return () => { cancelled = true; };
-  }, [availableCompanies, company, open]);
+  }, [company.tenantId, open]);
 
   const activeAccounts = paymentAccounts.length > 0 ? paymentAccounts : (references?.accounts ?? []).filter((item) => item.status === 'active');
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
