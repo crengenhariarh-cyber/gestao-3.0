@@ -33,16 +33,7 @@ const nonCanonicalCssSources = [
   readSource('../../modules/engineering/ui/engineering.css'),
 ];
 
-const operationalSources = [
-  homeSource,
-  financeSource,
-  banksSource,
-  monthlyAccountsSource,
-  quickEntrySource,
-  hrSource,
-  engineeringOperationsSource,
-  engineeringMaintenanceSource,
-];
+const operationalSources = [homeSource, financeSource, banksSource, monthlyAccountsSource, quickEntrySource, hrSource, engineeringOperationsSource, engineeringMaintenanceSource];
 
 describe('Design System final regression', () => {
   it('keeps business controls on shared UI primitives', () => {
@@ -71,7 +62,7 @@ describe('Design System final regression', () => {
       expect(css).not.toMatch(/\.ui-button--(?:primary|secondary|tertiary|success|danger)\s*\{/);
       expect(css).not.toMatch(/\.ui-dialog(?:__|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-tab(?:--|__|\s|\{|\.)/);
-      expect(css).not.toMatch(/\.ui-input(?:--|\s|\{|\.)/);
+      expect(css).not.toMatch(/\.ui-input(?!-shell)(?:--|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-(?:button|card|dialog|tab|input)[^{]*:(?:nth-child|first-child|last-child|last-of-type)\(/);
       expect(css).not.toContain(':nth-child(');
       expect(css).not.toContain(':last-of-type');
