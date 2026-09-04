@@ -356,6 +356,10 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       setLocalError('Selecione um cartão válido.');
       return;
     }
+    if (form.paymentMethod === 'pix' && form.launchType === 'single' && !form.accountRef) {
+      setLocalError('Selecione o banco/conta para concluir o Pix automaticamente.');
+      return;
+    }
     setSubmitting(true);
     try {
       if (form.launchType === 'recurring') {
@@ -389,13 +393,25 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
         const includeInBudget = isCrIncome ? form.includeInBudget : true;
         const budgetUpdate = await getSupabaseClient()
           .from('financial_entries')
-          .update({ include_in_budget: includeInBudget })
+          .update({ include_in_budget: includeInBudget, payment_method: form.paymentMethod })
           .eq('tenant_id', company.tenantId)
           .eq('company_id', company.id)
           .eq('id', created.entryId);
         if (budgetUpdate.error) throw budgetUpdate.error;
         const account = parsePaymentRef(form.accountRef);
         if (account) await getFinanceRepositories().entries.setPlannedAccount(scope, created.entryId, account.resourceId, account.companyId);
+        if (form.paymentMethod === 'pix' && form.launchType === 'single') {
+          if (!account || !created.installmentId) throw new Error('Não foi possível identificar a conta ou parcela para concluir o Pix.');
+          await operations.settleInstallment({
+            installmentId: created.installmentId,
+            accountId: account.resourceId,
+            settledOn: form.date,
+            amount,
+            idempotencyKey: idempotencyKey('quick-pix-settlement'),
+            notes: form.notes.trim() || 'Liquidação automática via Pix',
+          });
+          window.dispatchEvent(new Event('finance-bank-order-changed'));
+        }
       }
       await operations.loadReferences();
       resetAfterSave(keepData);
