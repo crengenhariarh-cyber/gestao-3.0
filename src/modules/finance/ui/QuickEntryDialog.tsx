@@ -377,6 +377,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           p_idempotency_key: idempotencyKey('quick-card-purchase'), p_notes: form.notes.trim() || null,
         });
         if (result.error) throw result.error;
+        window.dispatchEvent(new Event('finance-card-order-changed'));
       } else {
         const created = await operations.createEntry({
           entryType: form.entryType, description: form.description.trim(), counterpartyName: form.counterparty.trim() || null,
