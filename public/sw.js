@@ -1,5 +1,5 @@
-const CACHE_NAME = 'gestao-3-shell-v4';
-const APP_SHELL = ['/', '/manifest.webmanifest?v=4', '/gestao-icon.svg?v=4'];
+const CACHE_NAME = 'gestao-3-shell-v5';
+const APP_SHELL = ['/', '/manifest.webmanifest?v=5', '/gestao-icon.svg?v=5'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+    caches.match(request).then((cached) => cached || fetch(request, { cache: 'no-store' }).then((response) => {
       if (response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
