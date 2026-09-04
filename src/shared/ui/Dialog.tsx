@@ -5,6 +5,7 @@ interface DialogProps {
   open: boolean;
   title: string;
   description?: string | undefined;
+  variant?: string | undefined;
   children?: ReactNode;
   footer?: ReactNode;
   confirmLabel?: string;
@@ -28,6 +29,7 @@ export function Dialog({
   open,
   title,
   description,
+  variant,
   children,
   footer,
   confirmLabel = 'Salvar',
@@ -95,6 +97,7 @@ export function Dialog({
       <section
         ref={dialogRef}
         className="ui-dialog"
+        data-variant={variant}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
