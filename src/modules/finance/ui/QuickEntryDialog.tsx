@@ -63,6 +63,14 @@ function companyName(company: CompanySummary): string {
   return company.tradeName ?? company.legalName;
 }
 
+function companySubtitle(company: CompanySummary): string {
+  const short = companyName(company);
+  if (short === 'CR') return 'CR Engenharia';
+  if (short === 'PR') return 'PR Instalações';
+  if (short === 'Pessoal') return 'Uso pessoal';
+  return company.tradeName ?? company.legalName;
+}
+
 const COST_CENTER_ORDER = ['Admin', 'Blaze', 'CR', 'Pessoal', 'PR', 'Sartori'] as const;
 
 function costCenterLabel(code: string | null, name: string): string | null {
@@ -235,7 +243,6 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
   const categories = (references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === form.entryType));
   const costCenters = canonicalCostCenters(activeCostCenters);
-  const companyOptions = companies.map((item) => ({ value: item.id, label: companyName(item) }));
   const accountOptions = [{ value: '', label: 'Selecione' }, ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name }))];
   const cardOptions = [{ value: '', label: 'Selecione o cartão' }, ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name }))];
   const categoryOptions = [{ value: '', label: 'Selecione' }, ...categories.map((item) => ({ value: item.id, label: item.name }))];
@@ -245,10 +252,6 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     ...(form.entryType === 'expense' ? [{ value: 'credit', label: 'Cartão de crédito' }] : []),
     { value: 'cash', label: 'Dinheiro' }, { value: 'transfer', label: 'Transferência' },
     { value: 'boleto', label: 'Boleto' }, { value: 'other', label: 'Outro' },
-  ];
-  const launchOptions = [
-    { value: 'single', label: 'Único / à vista' }, { value: 'installment', label: 'Parcelado' },
-    ...(form.paymentMethod === 'credit' ? [] : [{ value: 'recurring', label: 'Recorrente' }]),
   ];
 
   function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
@@ -262,6 +265,18 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       launchType: value === 'credit' && current.launchType === 'recurring' ? 'single' : current.launchType,
       accountRef: value === 'credit' ? '' : current.accountRef,
       cardRef: value === 'credit' ? current.cardRef : '',
+    }));
+  }
+
+  function selectCompany(nextCompanyId: string) {
+    setCompanyId(nextCompanyId);
+    setForm((current) => ({
+      ...current,
+      categoryId: '',
+      costCenterId: '',
+      accountRef: allCompaniesMode ? current.accountRef : '',
+      cardRef: allCompaniesMode ? current.cardRef : '',
+      includeInBudget: false,
     }));
   }
 
@@ -295,6 +310,14 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       installmentCount: '2', recurrenceCount: '12', accountRef: '', cardRef: '', categoryId: '', costCenterId: '',
       counterparty: '', notes: '', includeInBudget: false,
     });
+  }
+
+  function clearForm() {
+    operations.clearFeedback();
+    setLocalError(null);
+    setLocalSuccess(null);
+    setMoreOptions(false);
+    resetAfterSave(false);
   }
 
   async function createInlineRegistry(kind: InlineRegistry) {
@@ -385,48 +408,93 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
 
   const busy = operations.state.busy || paymentLoading || submitting;
   const footer = <div className="quick-entry__footer-actions">
-    <Button variant="secondary" disabled={busy} onClick={() => { void launch(true); }}>Lançar e manter dados</Button>
-    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>Lançar</Button>
+    <Button variant="tertiary" disabled={busy} onClick={clearForm}>⌫ Limpar</Button>
+    <Button variant="secondary" disabled={busy} onClick={() => { void launch(true); }}>▣ Lançar e manter dados</Button>
+    <Button loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}>✓ Lançar</Button>
   </div>;
 
-  return <Dialog open={open} title="Novo lançamento" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
+  return <Dialog open={open} title="Novo lançamento" description="Registre uma receita ou despesa" variant="quick-entry" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
     {!company ? <Feedback tone="danger" title="Empresa obrigatória" message="Selecione uma empresa para continuar." /> : !references && operations.state.busy ? <LoadingState label="Carregando dados do lançamento…" /> : <>
       {(localError ?? operations.state.errorMessage) && <Feedback tone="danger" title="Não foi possível lançar" message={localError ?? operations.state.errorMessage ?? ''} />}
       {(localSuccess ?? operations.state.successMessage) && <Feedback tone="success" title="Lançamento concluído" message={localSuccess ?? operations.state.successMessage ?? ''} />}
       <div className="quick-entry">
-        <div className="quick-entry__step"><span>1</span><strong>Dados principais</strong></div>
-        <div className="quick-entry__grid">
-          <Select label="Tipo" value={form.entryType} onChange={(event) => set('entryType', event.target.value as EntryType)} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} />
-          <Input label="Data" type="date" value={form.date} onChange={(event) => set('date', event.target.value)} required />
+        <div className="quick-entry__hero">
+          <div className="quick-entry__type-switch" role="group" aria-label="Tipo do lançamento">
+            <Button variant="tertiary" className={`quick-entry__type-choice quick-entry__type-choice--expense${form.entryType === 'expense' ? ' is-selected' : ''}`} aria-pressed={form.entryType === 'expense'} onClick={() => set('entryType', 'expense')}>
+              <span className="quick-entry__choice-check">{form.entryType === 'expense' ? '✓' : '○'}</span><span className="quick-entry__choice-icon">↓</span><span><strong>Despesa</strong><small>Saída de dinheiro</small></span>
+            </Button>
+            <Button variant="tertiary" className={`quick-entry__type-choice quick-entry__type-choice--income${form.entryType === 'income' ? ' is-selected' : ''}`} aria-pressed={form.entryType === 'income'} onClick={() => set('entryType', 'income')}>
+              <span className="quick-entry__choice-check">{form.entryType === 'income' ? '✓' : '○'}</span><span className="quick-entry__choice-icon">↑</span><span><strong>Receita</strong><small>Entrada de dinheiro</small></span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="quick-entry__form-card">
+          <div className="quick-entry__two-col">
+            <Input label="Data" type="date" value={form.date} onChange={(event) => set('date', event.target.value)} required />
+            <Input label="Valor" inputMode="numeric" placeholder="R$ 0,00" value={formatMoneyDigits(form.amountDigits)} onChange={(event) => set('amountDigits', digitsOnly(event.target.value))} required />
+          </div>
           <Input label="Descrição" placeholder="Ex.: Café da manhã" value={form.description} onChange={(event) => smartFill(event.target.value)} required />
-          <Input label="Valor" inputMode="numeric" placeholder="R$ 0,00" value={formatMoneyDigits(form.amountDigits)} onChange={(event) => set('amountDigits', digitsOnly(event.target.value))} required />
-          <Select label="Forma de pagamento" value={form.paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} options={paymentOptions} />
-          <Select label="Tipo de lançamento" value={form.launchType} onChange={(event) => set('launchType', event.target.value as LaunchType)} options={launchOptions} />
-          {form.launchType === 'installment' && <Input label="Quantidade de parcelas" type="number" min="2" max="120" value={form.installmentCount} onChange={(event) => set('installmentCount', event.target.value)} required />}
-          {form.launchType === 'recurring' && <Input label="Quantidade de repetições" type="number" min="1" max="120" value={form.recurrenceCount} onChange={(event) => set('recurrenceCount', event.target.value)} required />}
-          {form.paymentMethod === 'credit' ? <Select label="Cartão" value={form.cardRef} onChange={(event) => set('cardRef', event.target.value)} options={cardOptions} required /> : <Select label="Banco" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
-          {companies.length > 1 ? <Select label="Empresa" value={companyId} options={companyOptions} onChange={(event) => {
-            setCompanyId(event.target.value);
-            setForm((current) => ({ ...current, categoryId: '', costCenterId: '', accountRef: allCompaniesMode ? current.accountRef : '', cardRef: allCompaniesMode ? current.cardRef : '', includeInBudget: false }));
-          }} /> : <Input label="Empresa" value={companyName(company)} disabled />}
+
+          <div className="quick-entry__two-col">
+            <div className="quick-entry__registry-field"><div className="quick-entry__registry-control">
+              <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
+              <Button className="quick-entry__add" aria-label="Adicionar categoria" onClick={() => { setInlineRegistry(inlineRegistry === 'category' ? null : 'category'); setNewRegistryName(''); }}>＋</Button>
+            </div>{inlineRegistry === 'category' && <div className="quick-entry__registry-create"><Input label="Nova categoria" value={newRegistryName} onChange={(event) => setNewRegistryName(event.target.value)} /><Button disabled={busy || !newRegistryName.trim()} onClick={() => { void createInlineRegistry('category'); }}>Adicionar</Button></div>}</div>
+            <Input label={form.entryType === 'expense' ? 'Fornecedor' : 'Pagador / origem'} placeholder="Selecione / digite" value={form.counterparty} onChange={(event) => set('counterparty', event.target.value)} />
+          </div>
+
+          <div className="quick-entry__company-section">
+            <strong className="quick-entry__section-label">▥ Empresa</strong>
+            <div className="quick-entry__company-options">
+              {companies.map((item) => {
+                const selected = item.id === companyId;
+                const short = companyName(item);
+                return <Button key={item.id} variant="tertiary" className={`quick-entry__company-choice${selected ? ' is-selected' : ''}`} aria-pressed={selected} onClick={() => selectCompany(item.id)}>
+                  <span className="quick-entry__company-check">{selected ? '✓' : short === 'Pessoal' ? '◎' : '▥'}</span>
+                  <span><strong>{short}</strong><small>{companySubtitle(item)}</small></span>
+                </Button>;
+              })}
+            </div>
+          </div>
+
           <div className="quick-entry__registry-field"><div className="quick-entry__registry-control">
             <Select label="Obra / Centro de custo" value={form.costCenterId} onChange={(event) => set('costCenterId', event.target.value)} options={costCenterOptions} />
             <Button className="quick-entry__add" aria-label="Adicionar obra ou centro de custo" onClick={() => { setInlineRegistry(inlineRegistry === 'costCenter' ? null : 'costCenter'); setNewRegistryName(''); }}>＋</Button>
           </div>{inlineRegistry === 'costCenter' && <div className="quick-entry__registry-create"><Input label="Nova obra / centro de custo" value={newRegistryName} onChange={(event) => setNewRegistryName(event.target.value)} /><Button disabled={busy || !newRegistryName.trim()} onClick={() => { void createInlineRegistry('costCenter'); }}>Adicionar</Button></div>}</div>
-          <div className="quick-entry__registry-field"><div className="quick-entry__registry-control">
-            <Select label="Categoria" value={form.categoryId} onChange={(event) => set('categoryId', event.target.value)} options={categoryOptions} required />
-            <Button className="quick-entry__add" aria-label="Adicionar categoria" onClick={() => { setInlineRegistry(inlineRegistry === 'category' ? null : 'category'); setNewRegistryName(''); }}>＋</Button>
-          </div>{inlineRegistry === 'category' && <div className="quick-entry__registry-create"><Input label="Nova categoria" value={newRegistryName} onChange={(event) => setNewRegistryName(event.target.value)} /><Button disabled={busy || !newRegistryName.trim()} onClick={() => { void createInlineRegistry('category'); }}>Adicionar</Button></div>}</div>
+
+          <div className="quick-entry__two-col">
+            <Select label="Forma de pagamento" value={form.paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} options={paymentOptions} />
+            {form.paymentMethod === 'credit' ? <Select label="Cartão" value={form.cardRef} onChange={(event) => set('cardRef', event.target.value)} options={cardOptions} required /> : <Select label="Banco / Conta" value={form.accountRef} onChange={(event) => set('accountRef', event.target.value)} options={accountOptions} />}
+          </div>
+        </div>
+
+        <div className="quick-entry__launch-section">
+          <strong className="quick-entry__section-label">▱ Tipo de lançamento</strong>
+          <div className="quick-entry__launch-options">
+            <Button variant="tertiary" className={`quick-entry__launch-choice${form.launchType === 'single' ? ' is-selected' : ''}`} aria-pressed={form.launchType === 'single'} onClick={() => set('launchType', 'single')}>
+              <span className="quick-entry__launch-check">{form.launchType === 'single' ? '✓' : '○'}</span><span className="quick-entry__launch-icon">▱</span><span><strong>Único</strong><small>À vista</small></span>
+            </Button>
+            <Button variant="tertiary" className={`quick-entry__launch-choice${form.launchType === 'installment' ? ' is-selected' : ''}`} aria-pressed={form.launchType === 'installment'} onClick={() => set('launchType', 'installment')}>
+              <span className="quick-entry__launch-check">{form.launchType === 'installment' ? '✓' : '○'}</span><span className="quick-entry__launch-icon">▤</span><span><strong>Parcelado</strong><small>Várias parcelas</small></span>
+            </Button>
+            {form.paymentMethod !== 'credit' && <Button variant="tertiary" className={`quick-entry__launch-choice${form.launchType === 'recurring' ? ' is-selected' : ''}`} aria-pressed={form.launchType === 'recurring'} onClick={() => set('launchType', 'recurring')}>
+              <span className="quick-entry__launch-check">{form.launchType === 'recurring' ? '✓' : '○'}</span><span className="quick-entry__launch-icon">⟳</span><span><strong>Recorrente</strong><small>Todo mês</small></span>
+            </Button>}
+          </div>
+          {form.launchType === 'installment' && <Input label="Quantidade de parcelas" type="number" min="2" max="120" value={form.installmentCount} onChange={(event) => set('installmentCount', event.target.value)} required />}
+          {form.launchType === 'recurring' && <Input label="Quantidade de repetições" type="number" min="1" max="120" value={form.recurrenceCount} onChange={(event) => set('recurrenceCount', event.target.value)} required />}
           {isCrIncome && form.launchType !== 'recurring' && <label className="quick-entry__budget-toggle">
             <input type="checkbox" checked={form.includeInBudget} onChange={(event) => set('includeInBudget', event.target.checked)} />
             <span><strong>Considerar no orçamento</strong><small>Desmarcado: registra a entrada financeira, mas não soma na receita realizada do orçamento da CR.</small></span>
           </label>}
         </div>
-        <Button className="quick-entry__more" variant="secondary" onClick={() => setMoreOptions((value) => !value)} aria-expanded={moreOptions}>{moreOptions ? '⌃ Menos opções' : '⌄ Mais opções'}</Button>
-        {moreOptions && <><div className="quick-entry__step quick-entry__step--secondary"><span>2</span><strong>Detalhes adicionais</strong></div><div className="quick-entry__more-grid">
-          <Input label={form.entryType === 'expense' ? 'Fornecedor / beneficiário' : 'Pagador / origem'} value={form.counterparty} onChange={(event) => set('counterparty', event.target.value)} />
-          <Input label="Observação" value={form.notes} onChange={(event) => set('notes', event.target.value)} />
-        </div></>}
+
+        <Button className="quick-entry__action-row" variant="secondary" onClick={() => setMoreOptions((value) => !value)} aria-expanded={moreOptions}>
+          <span>▤</span><span><strong>Observações (opcional)</strong><small>{form.notes || 'Adicione uma observação…'}</small></span><span>›</span>
+        </Button>
+        {moreOptions && <div className="quick-entry__notes"><Input label="Observação" value={form.notes} onChange={(event) => set('notes', event.target.value)} /></div>}
+        <div className="quick-entry__action-row quick-entry__action-row--static"><span>⌕</span><span><strong>Anexar comprovante (opcional)</strong><small>Foto, PDF ou imagem</small></span><span>›</span></div>
       </div>
     </>}
   </Dialog>;
