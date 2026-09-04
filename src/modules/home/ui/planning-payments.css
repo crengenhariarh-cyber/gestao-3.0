@@ -8,10 +8,46 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: var(--surface-subtle);
-  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+  border: 1px solid #dbe5ef;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef5fb 100%);
+  box-shadow: 0 10px 26px rgb(15 23 42 / 7%);
+}
+
+.planning-payments__filters .ui-field {
+  gap: 7px;
+  min-width: 0;
+}
+
+.planning-payments__filters .ui-field__label {
+  color: #172033;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+.planning-payments__filters .ui-input-shell {
+  min-height: 56px;
+  border-color: #cbd5e1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 6%);
+}
+
+.planning-payments__filters .ui-input-shell__prefix {
+  min-width: 54px;
+  color: #17345b;
+  background: #f8fbff;
+  border-right: 1px solid #dbe5ef;
+}
+
+.planning-payments__filters .ui-input-shell:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 12%), 0 5px 16px rgb(15 23 42 / 6%);
+}
+
+.planning-payments__filters .ui-input-shell:focus-within .ui-input-shell__prefix {
+  color: #2563eb;
+  background: #eff6ff;
 }
 
 .planning-payments__summary {
@@ -286,6 +322,16 @@
   .planning-payments__filters {
     padding: 13px;
     border-radius: 18px;
+    gap: 11px;
+  }
+
+  .planning-payments__filters .ui-input-shell {
+    min-height: 54px;
+    border-radius: 13px;
+  }
+
+  .planning-payments__filters .ui-input-shell__prefix {
+    min-width: 50px;
   }
 
   .planning-payments__actions {
