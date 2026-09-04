@@ -2,7 +2,7 @@ import type { ChangeEvent, InputHTMLAttributes, ReactNode } from 'react';
 import { CalendarDays, CircleDollarSign, FileText, UserRound } from 'lucide-react';
 import './field.css';
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
   label: string;
   error?: string;
   hint?: string;
