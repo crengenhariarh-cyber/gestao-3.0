@@ -21,6 +21,7 @@ export interface FinanceRegistryRepository {
   updateCostCenter(input: UpdateCostCenter): Promise<CostCenter>;
 
   listAccounts(scope: CompanyScope): Promise<readonly FinancialAccount[]>;
+  listTenantAccounts(tenantId: string): Promise<readonly FinancialAccount[]>;
   createAccount(input: CreateFinancialAccount): Promise<FinancialAccount>;
   updateAccount(input: UpdateFinancialAccount): Promise<FinancialAccount>;
 }
