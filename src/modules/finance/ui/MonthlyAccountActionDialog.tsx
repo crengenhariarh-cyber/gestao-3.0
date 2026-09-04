@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Banknote, CalendarDays, CheckCircle2, Pencil, Trash2, WalletCards } from 'lucide-react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { FinancialEntryListItem, FinancialEntryType } from '../domain/entries';
+import type { FinancialAccount } from '../domain/registries';
 import type { InstallmentBalance } from '../domain/settlements';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
@@ -19,6 +20,7 @@ type PaymentMode = 'total' | 'partial';
 
 interface Props {
   company: CompanySummary;
+  availableCompanies?: readonly CompanySummary[];
   entry: FinancialEntryListItem;
   balance?: InstallmentBalance;
   open: boolean;
@@ -33,13 +35,14 @@ function monthStart(value: string): string { return `${value}-01`; }
 function money(value: string): number { return Number(value.replace(',', '.')); }
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
 
-export function MonthlyAccountActionDialog({ company, entry, balance, open, onClose, onChanged }: Props) {
+export function MonthlyAccountActionDialog({ company, availableCompanies, entry, balance, open, onClose, onChanged }: Props) {
   const scope = useMemo(() => ({ tenantId: company.tenantId, companyId: company.id }), [company.id, company.tenantId]);
   const operations = useFinanceOperations(scope);
   const references = operations.state.references;
   const [action, setAction] = useState<Action>('details');
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('total');
+  const [paymentAccounts, setPaymentAccounts] = useState<readonly FinancialAccount[]>([]);
   const [paymentForm, setPaymentForm] = useState({ accountId: '', settledOn: today(), amount: 0, notes: '' });
   const [editForm, setEditForm] = useState({ entryType: entry.entryType, description: entry.description, counterparty: entry.counterpartyName ?? '', categoryId: entry.categoryId, costCenterId: entry.costCenterId ?? '', competenceMonth: entry.competenceMonth.slice(0, 7), dueDate: entry.dueDate, amount: String(entry.amount), installmentCount: String(entry.installmentCount), notes: entry.notes ?? '' });
 
@@ -63,11 +66,31 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
     clearFeedback();
   }, [clearFeedback, entry.amount, entry.categoryId, entry.competenceMonth, entry.costCenterId, entry.counterpartyName, entry.description, entry.dueDate, entry.entryType, entry.installmentCount, entry.notes, open, remaining]);
 
-  const activeAccounts = (references?.accounts ?? []).filter((item) => item.status === 'active');
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const companies = availableCompanies?.length ? availableCompanies : [company];
+    const repositories = getFinanceRepositories();
+    void Promise.all(companies.map((item) => repositories.registries.listAccounts({ tenantId: item.tenantId, companyId: item.id })))
+      .then((rows) => {
+        if (cancelled) return;
+        const unique = new Map<string, FinancialAccount>();
+        rows.flat().forEach((account) => {
+          if (account.status === 'active') unique.set(account.id, account);
+        });
+        setPaymentAccounts([...unique.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentAccounts([]);
+      });
+    return () => { cancelled = true; };
+  }, [availableCompanies, company, open]);
+
+  const activeAccounts = paymentAccounts.length > 0 ? paymentAccounts : (references?.accounts ?? []).filter((item) => item.status === 'active');
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
   const editType = editForm.entryType === 'income' ? 'income' : 'expense';
   const accountOptions = [{ value: '', label: 'Selecione…' }, ...activeAccounts.map((item) => ({ value: item.id, label: item.name }))];
-  const costCenterOptions = [{ value: '', label: 'Sem centro de custo' }, ...activeCostCenters.map((item) => ({ value: item.id, label: item.code ? `${item.code} · ${item.name}` : item.name }))];
+  const costCenterOptions = [{ value: '', label: 'Sem centro de custo' }, ...activeCostCenters.map((item) => ({ value: item.id, label: item.name }))];
   const categoryOptions = [{ value: '', label: 'Selecione…' }, ...(references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === editType)).map((item) => ({ value: item.id, label: item.name }))];
 
   function choosePaymentMode(mode: PaymentMode) {
@@ -113,7 +136,7 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
 
   if (loadingEntry) return <Dialog open={open} title="Carregando lançamento" onClose={onClose} onBack={onClose}><LoadingState label="Carregando dados…" /></Dialog>;
 
-  if (action === 'payment') return <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={entry.description} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void savePayment(); }}>
+  if (action === 'payment') return <Dialog open={open} title={isIncome ? 'Registrar recebimento' : 'Registrar pagamento'} description={entry.description} loading={operations.state.busy} confirmLabel={isIncome ? 'Confirmar recebimento' : 'Confirmar pagamento'} onClose={() => setAction('details')} onBack={() => setAction('details')} onConfirm={() => { void savePayment(); }}>
     <div className="payment-app">
       {operations.state.errorMessage && <Feedback tone="danger" title={isIncome ? 'Não foi possível receber' : 'Não foi possível pagar'} message={operations.state.errorMessage} />}
       <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{entry.description}</strong><span>{entry.installmentCount > 1 ? `PARCELA ${entry.installmentNumber}/${entry.installmentCount}` : isIncome ? 'RECEITA' : 'DESPESA'}</span></div></div>
@@ -126,7 +149,7 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
     </div>
   </Dialog>;
 
-  if (action === 'edit') return <Dialog open={open} title="Editar lançamento" description="Altere os dados do lançamento." loading={operations.state.busy} confirmLabel="Salvar" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void saveEdit(); }}>
+  if (action === 'edit') return <Dialog open={open} title="Editar lançamento" description="Altere os dados do lançamento." loading={operations.state.busy} confirmLabel="Salvar" onClose={() => setAction('details')} onBack={() => setAction('details')} onConfirm={() => { void saveEdit(); }}>
     <div className="quick-entry edit-entry-app">
       {operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage} />}
       <div className="quick-entry__hero"><div className="quick-entry__type-switch" role="group" aria-label="Tipo do lançamento">
@@ -144,7 +167,7 @@ export function MonthlyAccountActionDialog({ company, entry, balance, open, onCl
     </div>
   </Dialog>;
 
-  if (action === 'delete') return <Dialog open={open} title="Excluir lançamento" description="Esta ação não pode ser desfeita." loading={operations.state.busy} confirmLabel="Excluir" onClose={onClose} onBack={() => setAction('details')} onConfirm={() => { void confirmDelete(); }}>{operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível excluir" message={operations.state.errorMessage} />}<Feedback tone="danger" title="Confirme a exclusão" message={`O lançamento “${entry.description}” será excluído.`} /></Dialog>;
+  if (action === 'delete') return <Dialog open={open} title="Excluir lançamento" description="Esta ação não pode ser desfeita." loading={operations.state.busy} confirmLabel="Excluir" onClose={() => setAction('details')} onBack={() => setAction('details')} onConfirm={() => { void confirmDelete(); }}>{operations.state.errorMessage && <Feedback tone="danger" title="Não foi possível excluir" message={operations.state.errorMessage} />}<Feedback tone="danger" title="Confirme a exclusão" message={`O lançamento “${entry.description}” será excluído.`} /></Dialog>;
 
   return <Dialog open={open} title={entry.description} description={`${isIncome ? 'A receber' : 'A pagar'} · ${formatDate(entry.dueDate)}`} onClose={onClose} onBack={onClose}>
     <div className="monthly-account-detail">
