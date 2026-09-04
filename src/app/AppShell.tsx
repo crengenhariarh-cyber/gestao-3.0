@@ -126,7 +126,7 @@ export function AppShell({ session }: AppShellProps) {
         {location.pathname !== '/financeiro' && <div className="app-page__context" aria-live="polite"><span>Visão</span><strong>{allCompaniesSelected ? 'Todas as empresas' : activeCompany ? companyLabel(activeCompany) : ''}</strong></div>}
         <Routes>
           <Route path="/" element={<HomePage key={homeRefreshToken} companies={selectedCompanies}/>}/>
-          <Route path="/financeiro" element={<FinanceWorkspacePage companies={financeCompanies} initialCompanyId={activeCompany?.id}/>}/>
+          <Route path="/financeiro" element={<FinanceWorkspacePage companies={financeCompanies} {...(activeCompany ? { initialCompanyId: activeCompany.id } : {})}/>}/>
           <Route path="/contas-do-mes" element={<AllCompaniesMonthlyAccountsPage companies={selectedCompanies}/>}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>

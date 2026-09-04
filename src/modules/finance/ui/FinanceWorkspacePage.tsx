@@ -32,12 +32,12 @@ function companySubtitle(company: CompanySummary): string {
 }
 
 function monthLabel(monthStart: string): string {
-  const [year, month] = monthStart.split('-');
+  const [year = '', month = ''] = monthStart.split('-');
   return `${month}/${year}`;
 }
 
 function longMonthLabel(monthStart: string): string {
-  const [year, month] = monthStart.split('-').map(Number);
+  const [year = 0, month = 1] = monthStart.split('-').map(Number);
   const date = new Date(year, month - 1, 1);
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, (value) => value.toUpperCase());
 }
@@ -75,7 +75,7 @@ export function FinanceWorkspacePage({ companies, initialCompanyId }: FinanceWor
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId) ?? fallback;
   const requestedTab = searchParams.get('tab');
   const activeTab: WorkspaceTab = requestedTab === 'lancamentos' || requestedTab === 'contas' ? requestedTab : 'resumo';
-  const scope = useMemo(() => selectedCompany ? ({ tenantId: selectedCompany.tenantId, companyId: selectedCompany.id }) : null, [selectedCompany]);
+  const scope = useMemo(() => ({ tenantId: selectedCompany?.tenantId ?? '', companyId: selectedCompany?.id ?? '' }), [selectedCompany]);
   const overview = useFinanceOverview(scope);
   const operations = useFinanceOperations(scope);
 
@@ -154,7 +154,7 @@ export function FinanceWorkspacePage({ companies, initialCompanyId }: FinanceWor
 
     <button type="button" className="finance-workspace__late" onClick={() => { const next = new URLSearchParams(searchParams); next.set('tab', 'lancamentos'); setSearchParams(next); }}>
       <span className="finance-workspace__late-icon"><Icon name="late" /></span>
-      <span><strong>Contas em atraso</strong><small>Lançamentos vencidos e não pagos</small></span>
+      <span className="finance-workspace__late-copy"><strong>Contas em atraso</strong><small>Lançamentos vencidos e não pagos</small></span>
       <b>{overdueCount}</b><i>›</i>
     </button>
 
