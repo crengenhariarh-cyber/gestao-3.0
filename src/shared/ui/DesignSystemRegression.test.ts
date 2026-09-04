@@ -62,7 +62,8 @@ describe('Design System final regression', () => {
       expect(css).not.toMatch(/\.ui-button--(?:primary|secondary|tertiary|success|danger)\s*\{/);
       expect(css).not.toMatch(/\.ui-dialog(?:__|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-tab(?:--|__|\s|\{|\.)/);
-      expect(css).not.toMatch(/\.ui-input(?!-shell)(?:--|\s|\{|\.)/);
+      const cssWithoutInputShellAliases = css.replace(/\.ui-input-shell(?:__[a-z0-9_-]+)?/gi, '.quick-entry-input-shell');
+      expect(cssWithoutInputShellAliases).not.toMatch(/\.ui-input(?:--|\s|\{|\.)/);
       expect(css).not.toMatch(/\.ui-(?:button|card|dialog|tab|input)[^{]*:(?:nth-child|first-child|last-child|last-of-type)\(/);
       expect(css).not.toContain(':nth-child(');
       expect(css).not.toContain(':last-of-type');
