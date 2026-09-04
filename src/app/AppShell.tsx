@@ -7,7 +7,6 @@ import { AllCompaniesMonthlyAccountsPage } from '../modules/finance/ui/AllCompan
 import { BanksPage } from '../modules/finance/ui/BanksPage';
 import { CardsPage } from '../modules/finance/ui/CardsPage';
 import { FinancePage } from '../modules/finance/ui/FinancePage';
-import { MonthlyAccountsPage } from '../modules/finance/ui/MonthlyAccountsPage';
 import { QuickEntryDialog } from '../modules/finance/ui/QuickEntryDialog';
 import { HomePage } from '../modules/home/ui/HomePage';
 import { HrWorkspacePage } from '../modules/hr/ui/HrWorkspacePage';
@@ -128,7 +127,7 @@ export function AppShell({ session }: AppShellProps) {
         <Routes>
           <Route path="/" element={<HomePage key={homeRefreshToken} companies={selectedCompanies}/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
-          <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : <AllCompaniesMonthlyAccountsPage companies={companies}/>}/>
+          <Route path="/contas-do-mes" element={<AllCompaniesMonthlyAccountsPage companies={selectedCompanies}/>}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
           <Route path="/orcamento" element={<BudgetWorkspacePage companies={companies} initialCompanyId={activeCompany?.id}/>}/>
