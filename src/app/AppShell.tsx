@@ -88,6 +88,12 @@ export function AppShell({ session }: AppShellProps) {
     void navigate({ pathname: location.pathname, search: preservedSearch ? `?${preservedSearch}` : '' }, { replace: true });
   }, [location.pathname, location.search, navigate, routeEntryRequested]);
 
+  useEffect(() => {
+    if (location.pathname !== '/contas-do-mes' || !allCompaniesSelected || companies.length === 0) return;
+    const preferred = companies.find((company) => companyLabel(company) === 'CR') ?? companies[0];
+    if (preferred) session.selectCompany(preferred.id);
+  }, [allCompaniesSelected, companies, location.pathname, session]);
+
   if (companies.length === 0) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
   }
@@ -97,10 +103,10 @@ export function AppShell({ session }: AppShellProps) {
     ...companies.map((company) => ({ value: company.id, label: companyLabel(company) })),
   ];
   const selectedCompanies = allCompaniesSelected ? companies : activeCompany ? [activeCompany] : [];
+  const monthlyAccountsCompany = activeCompany ?? companies.find((company) => companyLabel(company) === 'CR') ?? companies[0];
   const activeMobileItem = entryOpen ? 'Adicionar' : location.pathname === '/' ? 'Início' : location.pathname === '/bancos' ? 'Bancos' : location.pathname === '/cartoes' ? 'Cartões' : null;
 
   const allCompaniesFinance = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Financeiro ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><FinancePage company={company}/></section>)}</div>;
-  const allCompaniesMonthlyAccounts = <div className="app-company-sections">{companies.map((company) => <section key={company.id} aria-label={`Contas do mês ${companyLabel(company)}`}><div className="app-section-heading"><div><span className="ui-muted">Empresa</span><h2>{companyLabel(company)}</h2></div></div><MonthlyAccountsPage company={company}/></section>)}</div>;
   const allCompaniesBanks = <div className="app-company-sections app-company-sections--banks"><section className="app-company-sections--banks__controls" aria-label="Ações de bancos"><BanksPage company={companies[0]!} companies={companies} showHeader /></section><AllBanksList companies={companies}/></div>;
 
   return (
@@ -128,7 +134,7 @@ export function AppShell({ session }: AppShellProps) {
         <Routes>
           <Route path="/" element={<HomePage key={homeRefreshToken} companies={selectedCompanies}/>}/>
           <Route path="/financeiro" element={activeCompany ? <FinancePage company={activeCompany} allowDirectAction={false}/> : allCompaniesFinance}/>
-          <Route path="/contas-do-mes" element={activeCompany ? <MonthlyAccountsPage company={activeCompany}/> : allCompaniesMonthlyAccounts}/>
+          <Route path="/contas-do-mes" element={monthlyAccountsCompany ? <MonthlyAccountsPage company={monthlyAccountsCompany}/> : <EmptyState title="Empresa não encontrada" message="Selecione uma empresa para consultar as contas do mês."/>}/>
           <Route path="/bancos" element={activeCompany ? <BanksPage company={activeCompany} companies={companies}/> : allCompaniesBanks}/>
           <Route path="/cartoes" element={<CardsPage companies={selectedCompanies} availableCompanies={companies}/>}/>
           <Route path="/orcamento" element={<BudgetWorkspacePage companies={companies} initialCompanyId={activeCompany?.id}/>}/>
