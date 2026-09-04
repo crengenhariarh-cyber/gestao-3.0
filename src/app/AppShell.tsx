@@ -82,8 +82,11 @@ export function AppShell({ session }: AppShellProps) {
   useEffect(() => {
     if (!routeEntryRequested) return;
     setQuickEntryOpen(true);
-    void navigate('/', { replace: true });
-  }, [navigate, routeEntryRequested]);
+    const preservedParams = new URLSearchParams(location.search);
+    preservedParams.delete('action');
+    const preservedSearch = preservedParams.toString();
+    void navigate({ pathname: location.pathname, search: preservedSearch ? `?${preservedSearch}` : '' }, { replace: true });
+  }, [location.pathname, location.search, navigate, routeEntryRequested]);
 
   if (companies.length === 0) {
     return <main className="app-page app-page--centered"><EmptyState title="Nenhuma empresa liberada" message="Seu usuário está autenticado, mas ainda não possui uma empresa autorizada."/><Button variant="secondary" onClick={() => void session.signOut()}>Sair</Button></main>;
@@ -142,7 +145,7 @@ export function AppShell({ session }: AppShellProps) {
         <Button variant="tertiary" className={`app-mobile-nav__button ${centralMenuOpen ? 'app-mobile-nav__button--active' : ''}`.trim()} aria-label="Abrir Central do Gestão" onClick={() => setCentralMenuOpen(true)}><span className="app-mobile-nav__icon"><MobileNavIcon icon="more"/></span><span>Mais</span></Button>
       </nav>
 
-      <QuickEntryDialog open={entryOpen} companies={companies} initialCompanyId={activeCompany?.id ?? ''} allCompaniesMode={allCompaniesSelected} onClose={() => { setQuickEntryOpen(false); setHomeRefreshToken((value) => value + 1); if (routeEntryRequested) void navigate('/'); }} />
+      <QuickEntryDialog open={entryOpen} companies={companies} initialCompanyId={activeCompany?.id ?? ''} allCompaniesMode={allCompaniesSelected} onClose={() => { setQuickEntryOpen(false); if (location.pathname === '/') setHomeRefreshToken((value) => value + 1); }} />
 
       <CentralMenu open={centralMenuOpen} onClose={() => setCentralMenuOpen(false)} onNavigate={(to) => { void navigate(to); }} onSignOut={() => { void session.signOut(); }} />
     </div>
