@@ -494,7 +494,6 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           <span>▤</span><span><strong>Observações (opcional)</strong><small>{form.notes || 'Adicione uma observação…'}</small></span><span>›</span>
         </Button>
         {moreOptions && <div className="quick-entry__notes"><Input label="Observação" value={form.notes} onChange={(event) => set('notes', event.target.value)} /></div>}
-        <div className="quick-entry__action-row quick-entry__action-row--static"><span>⌕</span><span><strong>Anexar comprovante (opcional)</strong><small>Foto, PDF ou imagem</small></span><span>›</span></div>
       </div>
     </>}
   </Dialog>;
