@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Check, CopyPlus, Eraser } from 'lucide-react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Button } from '../../../shared/ui/Button';
@@ -112,6 +113,7 @@ function recurrenceEnd(start: string, count: number): string {
 }
 
 export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCompaniesMode = false, onClose }: QuickEntryDialogProps) {
+  const navigate = useNavigate();
   const [companyId, setCompanyId] = useState(initialCompanyId || companies[0]?.id || '');
   const [moreOptions, setMoreOptions] = useState(false);
   const [inlineRegistry, setInlineRegistry] = useState<InlineRegistry | null>(null);
@@ -321,6 +323,11 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     resetAfterSave(false);
   }
 
+  function exitQuickEntry() {
+    onClose();
+    void navigate('/');
+  }
+
   async function createInlineRegistry(kind: InlineRegistry) {
     const name = newRegistryName.trim();
     if (!name || !company) return;
@@ -415,8 +422,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       }
       await operations.loadReferences();
       resetAfterSave(keepData);
-      setLocalSuccess(keepData ? 'Lançamento concluído. Dados principais mantidos.' : 'Lançamento concluído.');
-      if (!keepData) onClose();
+      setLocalSuccess(keepData ? 'Lançamento concluído. Dados principais mantidos.' : 'Lançamento concluído. Pronto para o próximo lançamento.');
     } catch (error) {
       setLocalError(error instanceof Error && error.message ? error.message : 'Não foi possível concluir o lançamento.');
     } finally {
@@ -431,7 +437,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     <Button className="quick-entry__footer-action quick-entry__footer-action--launch" loading={busy} loadingLabel="Lançando…" onClick={() => { void launch(false); }}><Check className="quick-entry__footer-icon" aria-hidden="true"/><span>Lançar</span></Button>
   </div>;
 
-  return <Dialog open={open} title="Novo lançamento" description="Registre uma receita ou despesa" variant="quick-entry" onClose={onClose} onBack={onClose} loading={busy} footer={footer}>
+  return <Dialog open={open} title="Novo lançamento" description="Registre uma receita ou despesa" variant="quick-entry" onClose={exitQuickEntry} onBack={exitQuickEntry} loading={busy} footer={footer}>
     {!company ? <Feedback tone="danger" title="Empresa obrigatória" message="Selecione uma empresa para continuar." /> : !references && operations.state.busy ? <LoadingState label="Carregando dados do lançamento…" /> : <>
       {(localError ?? operations.state.errorMessage) && <Feedback tone="danger" title="Não foi possível lançar" message={localError ?? operations.state.errorMessage ?? ''} />}
       {(localSuccess ?? operations.state.successMessage) && <Feedback tone="success" title="Lançamento concluído" message={localSuccess ?? operations.state.successMessage ?? ''} />}
