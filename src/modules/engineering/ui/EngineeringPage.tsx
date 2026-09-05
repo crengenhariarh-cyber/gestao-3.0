@@ -11,6 +11,7 @@ import { EngineeringContractWorkspace, type EngineeringContractSection } from '.
 import { NewEngineeringContractDialog } from './NewEngineeringContractDialog';
 import { useEngineeringOverview } from './useEngineeringOverview';
 import './engineering.css';
+import './engineering-contract-workspace.css';
 
 interface EngineeringPageProps { companies: readonly CompanySummary[]; initialCompanyId?: string; }
 
