@@ -1,6 +1,7 @@
 import type { CompanyScope } from '../domain/registries';
 import type {
   CardInstallment,
+  CardPurchaseDetails,
   CardStatementActivity,
   CardStatementBalance,
   CardStatementItem,
@@ -13,6 +14,7 @@ import type {
   CreditCardLimit,
   RecordCardStatementPayment,
   RecordedCardStatementPayment,
+  UpdateCardPurchase,
   UpdateCreditCard,
 } from '../domain/cards';
 
@@ -27,7 +29,8 @@ export interface CardRepository {
   listStatementActivities(scope: CompanyScope, cardId: string): Promise<readonly CardStatementActivity[]>;
   listStatements(scope: CompanyScope, cardId?: string): Promise<readonly CardStatementBalance[]>;
   createPurchase(input: CreateCardPurchase): Promise<CreatedCardPurchase>;
-  updatePurchase(input: CompanyScope & { transactionId: string; purchaseDate: string; description: string; totalAmount: number }): Promise<void>;
+  getPurchase(input: CompanyScope & { transactionId: string }): Promise<CardPurchaseDetails>;
+  updatePurchase(input: UpdateCardPurchase): Promise<void>;
   deletePurchase(input: CompanyScope & { transactionId: string }): Promise<void>;
   updateStatementPayment(input: CompanyScope & { paymentId: string; paidOn: string; amount: number; notes: string | null }): Promise<void>;
   deleteStatementPayment(input: CompanyScope & { paymentId: string }): Promise<void>;
