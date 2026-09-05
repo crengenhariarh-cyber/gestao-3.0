@@ -8,7 +8,7 @@ import { useEngineeringOperations } from './useEngineeringOperations';
 
 type TabId='contratos'|'medicoes'|'producao'|'aditivos'|'provisorios';
 type Kind='work'|'structure'|'contract'|'contractStatus'|'service'|'contractService'|'allocation'|'provisional'|'provisionalLine'|'convert'|'addendum'|'addendumLine'|'measurement'|'measurementLine'|'retention'|'measurementStatus'|'receivable'|'receive'|'productionPeriod'|'productionEntry'|'productionStatus'|null;
-type ActionsMode='default'|'contract-create'|'contract-maintenance';
+type ActionsMode='default'|'contract-create'|'contract-maintenance'|'contract-data'|'contract-services'|'measurement-create'|'measurement-close'|'contract-taxes';
 interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; initialKind?:Exclude<Kind,null>; hideActions?:boolean; onDialogClosed?:()=>void; }
 interface Option { value:string; label:string; }
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
@@ -32,9 +32,10 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   const addendumOptions=options((data?.addenda??[]).map(item=>({id:item.id,name:`${item.number} · ${item.status}`})));
   const employeeOptions=options(data?.employees??[]);
   const accountOptions=options(data?.accounts??[]);
+  const focusedContract=data?.contracts.find(item=>item.id===focusedContractId);
   const selectedContract=data?.contracts.find(item=>item.id===(form.contractId??''));
   const selectedPeriod=data?.productionPeriods.find(item=>item.id===(form.periodId??''));
-  const selectedWork=form.workId||selectedContract?.workId||selectedPeriod?.workId||'';
+  const selectedWork=form.workId||selectedContract?.workId||selectedPeriod?.workId||focusedContract?.workId||'';
   const contractServiceOptions=options((data?.contractServices??[]).filter(item=>!form.contractId||item.contractId===form.contractId).map(item=>({id:item.id,name:`${item.description} · ${currency.format(item.unitPrice)}/${item.unit}`})));
   const structureOptions=options((data?.structures??[]).filter(item=>!selectedWork||item.workId===selectedWork));
 
@@ -47,7 +48,14 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     measurement:{contractId:'',competence:currentMonth(),notes:''},measurementLine:{measurementId:'',contractId:'',contractServiceId:'',structureId:'',measuredQuantity:'',unitPrice:'',notes:''},retention:{measurementId:'',retentionType:'inss',calculationType:'percentage',rate:'',fixedAmount:'',description:'',notes:''},measurementStatus:{measurementId:'',action:'close',reason:''},receivable:{measurementId:'',dueDate:today()},receive:{measurementId:'',accountId:'',receivedOn:today(),amount:''},
     productionPeriod:{workId:'',competence:currentMonth()},productionEntry:{periodId:'',employmentContractId:'',structureId:'',serviceId:'',productionDate:today(),executedQuantity:'',unitValue:'',notes:''},productionStatus:{periodId:'',action:'close',reason:''},
   };
-  function open(next:Exclude<Kind,null>){operations.clearFeedback();const base={...defaults[next]};if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;setForm(base);setKind(next);}
+  function open(next:Exclude<Kind,null>){
+    operations.clearFeedback();
+    const base={...defaults[next]};
+    if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;
+    if(focusedContract?.workId&&['structure','allocation','provisional','productionPeriod'].includes(next))base.workId=focusedContract.workId;
+    setForm(base);
+    setKind(next);
+  }
   function close(){setKind(null);operations.clearFeedback();onDialogClosed?.();}
   async function done(action:()=>Promise<unknown>){await action();onChanged();setKind(null);onDialogClosed?.();}
   async function submit(){
@@ -59,19 +67,19 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
         case 'contractStatus':await done(()=>operations.updateContractStatus(form.contractId??'',(form.status??'active') as Parameters<typeof operations.updateContractStatus>[1]));break;
         case 'service':await done(()=>operations.createService({name:form.name??'',unit:form.unit??'un',code:form.code||null,category:form.category||null,notes:form.notes||null}));break;
         case 'contractService':await done(()=>operations.addContractService({contractId:form.contractId??'',serviceId:form.serviceId||null,description:form.description??'',unit:form.unit??'un',quantity:numberValue(form.quantity??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
-        case 'allocation':await done(()=>operations.allocateContractService({workId:form.workId||selectedContract?.workId||'',contractServiceId:form.contractServiceId??'',structureId:form.structureId??'',quantity:numberValue(form.quantity??''),notes:form.notes||null}));break;
-        case 'provisional':await done(()=>operations.createProvisional({workId:form.workId??'',number:form.number??'',title:form.title||null,clientName:form.clientName||null,notes:form.notes||null}));break;
+        case 'allocation':await done(()=>operations.allocateContractService({workId:form.workId||selectedContract?.workId||focusedContract?.workId||'',contractServiceId:form.contractServiceId??'',structureId:form.structureId??'',quantity:numberValue(form.quantity??''),notes:form.notes||null}));break;
+        case 'provisional':await done(()=>operations.createProvisional({workId:form.workId||focusedContract?.workId||'',number:form.number??'',title:form.title||null,clientName:form.clientName||null,notes:form.notes||null}));break;
         case 'provisionalLine':await done(()=>operations.addProvisionalLine({provisionalId:form.provisionalId??'',serviceId:form.serviceId||null,description:form.description??'',unit:form.unit??'un',quantity:numberValue(form.quantity??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
-        case 'convert':await done(()=>operations.convertProvisional({provisionalId:form.provisionalId??'',destination:(form.destination??'contract') as 'contract'|'addendum',number:form.number??'',contractId:form.contractId||null,addendumType:(form.addendumType||null) as 'increase'|'reduction'|'adjustment'|null}));break;
-        case 'addendum':await done(()=>operations.createAddendum({contractId:form.contractId??'',number:form.number??'',type:(form.type??'increase') as 'increase'|'reduction'|'adjustment',effectiveDate:form.effectiveDate||null,statedValue:form.statedValue?numberValue(form.statedValue):null,notes:form.notes||null}));break;
+        case 'convert':await done(()=>operations.convertProvisional({provisionalId:form.provisionalId??'',destination:(form.destination??'contract') as 'contract'|'addendum',number:form.number??'',contractId:form.contractId||focusedContractId||null,addendumType:(form.addendumType||null) as 'increase'|'reduction'|'adjustment'|null}));break;
+        case 'addendum':await done(()=>operations.createAddendum({contractId:form.contractId??focusedContractId??'',number:form.number??'',type:(form.type??'increase') as 'increase'|'reduction'|'adjustment',effectiveDate:form.effectiveDate||null,statedValue:form.statedValue?numberValue(form.statedValue):null,notes:form.notes||null}));break;
         case 'addendumLine':await done(()=>operations.addAddendumLine({addendumId:form.addendumId??'',contractServiceId:form.contractServiceId||null,serviceId:form.serviceId||null,description:form.description??'',unit:form.unit??'un',quantityDelta:numberValue(form.quantityDelta??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
-        case 'measurement':await done(()=>operations.createMeasurement({contractId:form.contractId??'',competence:form.competence??currentMonth(),notes:form.notes||null}));break;
+        case 'measurement':await done(()=>operations.createMeasurement({contractId:form.contractId??focusedContractId??'',competence:form.competence??currentMonth(),notes:form.notes||null}));break;
         case 'measurementLine':await done(()=>operations.addMeasurementLine({measurementId:form.measurementId??'',contractServiceId:form.contractServiceId??'',structureId:form.structureId||null,measuredQuantity:numberValue(form.measuredQuantity??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
         case 'retention':await done(()=>operations.addRetention({measurementId:form.measurementId??'',retentionType:(form.retentionType??'inss') as 'inss'|'iss'|'rt'|'other',calculationType:(form.calculationType??'percentage') as 'percentage'|'fixed',rate:form.rate?numberValue(form.rate):null,fixedAmount:form.fixedAmount?numberValue(form.fixedAmount):null,description:form.description||null,notes:form.notes||null}));break;
         case 'measurementStatus':await done(()=>operations.setMeasurementStatus(form.measurementId??'',(form.action??'close') as 'close'|'approve'|'cancel'|'reopen',form.reason||null));break;
         case 'receivable':await done(()=>operations.generateMeasurementReceivable(form.measurementId??'',form.dueDate??today()));break;
         case 'receive':await done(()=>operations.receiveMeasurement(form.measurementId??'',form.accountId??'',form.receivedOn??today(),numberValue(form.amount??'')));break;
-        case 'productionPeriod':await done(()=>operations.createProductionPeriod({workId:form.workId??'',competence:form.competence??currentMonth()}));break;
+        case 'productionPeriod':await done(()=>operations.createProductionPeriod({workId:form.workId??focusedContract?.workId??'',competence:form.competence??currentMonth()}));break;
         case 'productionEntry':await done(()=>operations.addProductionEntry({periodId:form.periodId??'',employmentContractId:form.employmentContractId??'',structureId:form.structureId??'',serviceId:form.serviceId??'',productionDate:form.productionDate??today(),executedQuantity:numberValue(form.executedQuantity??''),unitValue:form.unitValue?numberValue(form.unitValue):null,notes:form.notes||null}));break;
         case 'productionStatus':await done(()=>operations.setProductionPeriodStatus(form.periodId??'',(form.action??'close') as 'close'|'reopen',form.reason||null));break;
         default:break;
@@ -82,9 +90,14 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   const defaultContractActions=<><Button size="sm" onClick={()=>open('work')}>Nova obra</Button><Button size="sm" variant="secondary" onClick={()=>open('structure')}>Estrutura</Button><Button size="sm" onClick={()=>open('contract')}>Novo contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('service')}>Novo serviço</Button><Button size="sm" variant="secondary" onClick={()=>open('contractService')}>Serviço no contrato</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuir serviço</Button><Button size="sm" variant="tertiary" onClick={()=>open('contractStatus')}>Status</Button></>;
   const contractCreateAction=<Button onClick={()=>open('contract')}>＋ Novo contrato</Button>;
   const contractMaintenanceActions=<><Button size="sm" onClick={()=>open('contractStatus')}>Status</Button><Button size="sm" variant="secondary" onClick={()=>open('contractService')}>Serviços</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuição</Button><Button size="sm" variant="secondary" onClick={()=>open('addendum')}>Aditivo</Button><Button size="sm" variant="secondary" onClick={()=>open('measurement')}>Nova medição</Button></>;
+  const contractDataActions=<><Button size="sm" onClick={()=>open('contractStatus')}>Alterar status</Button><Button size="sm" variant="secondary" onClick={()=>open('structure')}>Nova estrutura</Button><Button size="sm" variant="secondary" onClick={()=>open('addendum')}>Novo aditivo</Button></>;
+  const contractServiceActions=<><Button size="sm" onClick={()=>open('contractService')}>Adicionar serviço</Button><Button size="sm" variant="secondary" onClick={()=>open('allocation')}>Distribuir por estrutura</Button><Button size="sm" variant="secondary" onClick={()=>open('addendum')}>Novo aditivo</Button><Button size="sm" variant="secondary" onClick={()=>open('addendumLine')}>Item de aditivo</Button></>;
+  const measurementCreateActions=<><Button size="sm" onClick={()=>open('measurement')}>Nova medição</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementLine')}>Adicionar serviço medido</Button></>;
+  const measurementCloseActions=<><Button size="sm" onClick={()=>open('measurementStatus')}>Fechar / aprovar / reabrir</Button><Button size="sm" variant="secondary" onClick={()=>open('receivable')}>Gerar conta a receber</Button><Button size="sm" variant="secondary" onClick={()=>open('receive')}>Registrar recebimento</Button></>;
+  const contractTaxActions=<><Button size="sm" onClick={()=>open('retention')}>Lançar retenção</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementStatus')}>Revisar medição</Button></>;
   const actions:Record<TabId,ReactNode>={
-    contratos:actionsMode==='contract-create'?contractCreateAction:actionsMode==='contract-maintenance'?contractMaintenanceActions:defaultContractActions,
-    medicoes:<><Button size="sm" onClick={()=>open('measurement')}>Nova medição</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementLine')}>Adicionar item</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementStatus')}>Fechar / aprovar</Button><Button size="sm" variant="tertiary" onClick={()=>open('receivable')}>Gerar a receber</Button><Button size="sm" variant="tertiary" onClick={()=>open('receive')}>Receber</Button></>,
+    contratos:actionsMode==='contract-create'?contractCreateAction:actionsMode==='contract-data'?contractDataActions:actionsMode==='contract-services'?contractServiceActions:actionsMode==='contract-maintenance'?contractMaintenanceActions:defaultContractActions,
+    medicoes:actionsMode==='measurement-create'?measurementCreateActions:actionsMode==='measurement-close'?measurementCloseActions:actionsMode==='contract-taxes'?contractTaxActions:<><Button size="sm" onClick={()=>open('measurement')}>Nova medição</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementLine')}>Adicionar item</Button><Button size="sm" variant="secondary" onClick={()=>open('measurementStatus')}>Fechar / aprovar</Button><Button size="sm" variant="tertiary" onClick={()=>open('receivable')}>Gerar a receber</Button><Button size="sm" variant="tertiary" onClick={()=>open('receive')}>Receber</Button></>,
     producao:<><Button size="sm" onClick={()=>open('productionPeriod')}>Novo período</Button><Button size="sm" variant="secondary" onClick={()=>open('productionEntry')}>Lançar produção</Button><Button size="sm" variant="secondary" onClick={()=>open('productionStatus')}>Fechar / reabrir</Button></>,
     aditivos:<><Button size="sm" onClick={()=>open('addendum')}>Novo aditivo</Button><Button size="sm" variant="secondary" onClick={()=>open('addendumLine')}>Adicionar item</Button></>,
     provisorios:<><Button size="sm" onClick={()=>open('provisional')}>Novo provisório</Button><Button size="sm" variant="secondary" onClick={()=>open('provisionalLine')}>Adicionar item</Button><Button size="sm" variant="tertiary" onClick={()=>open('convert')}>Converter</Button></>,
