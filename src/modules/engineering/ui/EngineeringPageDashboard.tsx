@@ -4,6 +4,7 @@ import { Card } from '../../../shared/ui/Card';
 import { EngineeringPage } from './EngineeringPage';
 import { useEngineeringOverview } from './useEngineeringOverview';
 import './engineering-dashboard.css';
+import './engineering-form-standard.css';
 
 interface Props { companies: readonly CompanySummary[]; initialCompanyId?: string; }
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
