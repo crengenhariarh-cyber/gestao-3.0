@@ -93,7 +93,7 @@ export function Dialog({
   }
 
   return (
-    <div className="ui-dialog-backdrop" role="presentation">
+    <div className="ui-dialog-backdrop" data-variant={variant} role="presentation">
       <section
         ref={dialogRef}
         className="ui-dialog"
