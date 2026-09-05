@@ -8,6 +8,7 @@ import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
+import { NewEngineeringContractDialog } from './NewEngineeringContractDialog';
 import { useEngineeringOverview } from './useEngineeringOverview';
 import './engineering.css';
 
@@ -21,10 +22,7 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   const [contractSearch,setContractSearch]=useState('');
   const [contractStatus,setContractStatus]=useState('all');
   const [selectedContract,setSelectedContract]=useState<EngineeringContractSummary|null>(null);
-  const [companyPickerOpen,setCompanyPickerOpen]=useState(false);
-  const [pendingCompanyId,setPendingCompanyId]=useState('');
-  const [createCompanyId,setCreateCompanyId]=useState('');
-  const [createNonce,setCreateNonce]=useState(0);
+  const [createOpen,setCreateOpen]=useState(false);
   const selectedCompany=initialCompanyId?companies.find(item=>item.id===initialCompanyId)??null:null;
   const engineeringCompanies=companies.filter(item=>companyLabel(item)!=='Pessoal');
   const scopes=useMemo(()=>{
@@ -53,18 +51,9 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   });
   const maintenanceCompany=selectedContract?companies.find(item=>item.id===selectedContract.companyId)??null:null;
   const maintenanceScope=maintenanceCompany?{tenantId:maintenanceCompany.tenantId,companyId:maintenanceCompany.id}:null;
-  const createCompany=engineeringCompanies.find(item=>item.id===createCompanyId)??null;
-  function startCreate(companyId:string){setCreateCompanyId(companyId);setCreateNonce(value=>value+1);setCompanyPickerOpen(false);}
-  function openCreate(){
-    if(selectedCompany&&companyLabel(selectedCompany)!=='Pessoal'){startCreate(selectedCompany.id);return;}
-    const onlyCompany=engineeringCompanies[0];
-    if(onlyCompany&&engineeringCompanies.length===1){startCreate(onlyCompany.id);return;}
-    setPendingCompanyId(engineeringCompanies[0]?.id??'');
-    setCompanyPickerOpen(true);
-  }
 
   return <section className="engineering-overview engineering-overview--contratos" aria-labelledby="engineering-title">
-    <div className="engineering-contracts-reference__title engineering-contracts-reference__title--main"><div><h1 id="engineering-title">Engenharia</h1><p className="ui-muted">Contratos e resultados das obras</p></div><Button onClick={openCreate} disabled={engineeringCompanies.length===0}>＋ Novo contrato</Button></div>
+    <div className="engineering-contracts-reference__title engineering-contracts-reference__title--main"><div><h1 id="engineering-title">Engenharia</h1><p className="ui-muted">Contratos e resultados das obras</p></div><Button onClick={()=>setCreateOpen(true)} disabled={engineeringCompanies.length===0}>＋ Novo contrato</Button></div>
     <section className="engineering-contracts-reference" aria-label="Contratos">
       <div className="engineering-contracts-reference__kpis">
         <Card className="engineering-contract-stat engineering-contract-stat--count" title="Contratos"><strong>{data.contracts.length}</strong><span>{data.addenda.length} aditivo(s)</span></Card>
@@ -90,10 +79,13 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
         })}
       </div>
     </section>
-    <Dialog open={companyPickerOpen} title="Novo contrato" description="Selecione a empresa do contrato." onClose={()=>setCompanyPickerOpen(false)} onBack={()=>setCompanyPickerOpen(false)} onConfirm={pendingCompanyId?()=>startCreate(pendingCompanyId):undefined}>
-      <Select label="Empresa" value={pendingCompanyId} onChange={event=>setPendingCompanyId(event.target.value)} options={[{value:'',label:'Selecione…'},...engineeringCompanies.map(item=>({value:item.id,label:companyLabel(item)}))]} required/>
-    </Dialog>
-    {createCompany&&createNonce>0&&<EngineeringOperationsPanel key={`${createCompany.id}-${createNonce}`} activeTab="contratos" scope={{tenantId:createCompany.tenantId,companyId:createCompany.id}} onChanged={refresh} initialKind="contract" hideActions onDialogClosed={()=>setCreateNonce(0)}/>} 
+    <NewEngineeringContractDialog
+      open={createOpen}
+      companies={companies}
+      initialCompanyId={selectedCompany?.id}
+      onClose={()=>setCreateOpen(false)}
+      onSaved={refresh}
+    />
     <Dialog open={selectedContract!==null} title={selectedContract?.workName??'Contrato'} description={selectedContract?`${selectedContract.clientName??'Cliente'} · ${selectedContract.contractNumber}`:undefined} onClose={()=>setSelectedContract(null)} onBack={()=>setSelectedContract(null)}>
       {selectedContract&&maintenanceScope&&<><div className="engineering-contract-dialog-summary"><span>Contratado <strong>{currency.format(selectedContract.updatedContractValue)}</strong></span><span>Medido <strong>{currency.format(selectedContract.measuredNet)}</strong></span><span>Saldo <strong>{currency.format(selectedContract.grossBalance)}</strong></span></div><EngineeringOperationsPanel activeTab="contratos" scope={maintenanceScope} onChanged={refresh} actionsMode="contract-maintenance" focusedContractId={selectedContract.contractId}/></>}
     </Dialog>
