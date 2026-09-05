@@ -9,12 +9,13 @@ type MeasurementRow = { measurement_id:string; competence:string; status:string;
 type ProductionRow = { employment_contract_id:string; competence:string; executed_quantity:number|string; production_value:number|string };
 type AddendumRow = { id:string; addendum_number:string; addendum_type:string; status:string; stated_value:number|string|null };
 type ProvisionalRow = { id:string; provisional_number:string; title:string|null; status:string; client_name:string|null };
+type ProvisionalLineRow = { provisional_id:string; line_total:number|string };
 
 export class SupabaseEngineeringOverviewRepository implements EngineeringOverviewRepository {
   constructor(private readonly client: SupabaseClient) {}
 
   async load(scope: EngineeringCompanyScope): Promise<EngineeringOverview> {
-    const [contracts, contractMeta, works, measurements, production, addenda, provisionals] = await Promise.all([
+    const [contracts, contractMeta, works, measurements, production, addenda, provisionals, provisionalLines] = await Promise.all([
       this.client.from('engineering_contract_financial_summary').select('contract_id,contract_number,status,updated_contract_value,measured_net,gross_balance,measured_percent').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ContractRow[]>(),
       this.client.from('engineering_contracts').select('id,work_id,client_name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ContractMetaRow[]>(),
       this.client.from('works').select('id,name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<WorkRow[]>(),
@@ -22,16 +23,19 @@ export class SupabaseEngineeringOverviewRepository implements EngineeringOvervie
       this.client.from('engineering_employee_production_summary').select('employment_contract_id,competence,executed_quantity,production_value').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProductionRow[]>(),
       this.client.from('contract_addenda').select('id,addendum_number,addendum_type,status,stated_value').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<AddendumRow[]>(),
       this.client.from('provisional_contracts').select('id,provisional_number,title,status,client_name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProvisionalRow[]>(),
+      this.client.from('provisional_contract_lines').select('provisional_id,line_total').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProvisionalLineRow[]>(),
     ]);
-    for (const result of [contracts,contractMeta,works,measurements,production,addenda,provisionals]) if (result.error) throw result.error;
+    for (const result of [contracts,contractMeta,works,measurements,production,addenda,provisionals,provisionalLines]) if (result.error) throw result.error;
     const metaByContract=new Map((contractMeta.data??[]).map(row=>[row.id,row]));
     const workById=new Map((works.data??[]).map(row=>[row.id,row.name]));
+    const negotiatedByProvisional=new Map<string,number>();
+    for (const row of provisionalLines.data??[]) negotiatedByProvisional.set(row.provisional_id,(negotiatedByProvisional.get(row.provisional_id)??0)+Number(row.line_total||0));
     return {
       contracts:(contracts.data ?? []).map(r=>{const meta=metaByContract.get(r.contract_id);return{companyId:scope.companyId,contractId:r.contract_id,contractNumber:r.contract_number,workName:meta?workById.get(meta.work_id)??r.contract_number:r.contract_number,clientName:meta?.client_name??null,status:r.status,updatedContractValue:Number(r.updated_contract_value),measuredNet:Number(r.measured_net),grossBalance:Number(r.gross_balance),measuredPercent:Number(r.measured_percent)};}),
       measurements:(measurements.data ?? []).map(r=>({measurementId:r.measurement_id,competence:r.competence,status:r.status,grossAmount:Number(r.gross_amount),retainedAmount:Number(r.retained_amount),netAmount:Number(r.net_amount)})),
       production:(production.data ?? []).map(r=>({employmentContractId:r.employment_contract_id,competence:r.competence,executedQuantity:Number(r.executed_quantity),productionValue:Number(r.production_value)})),
       addenda:(addenda.data ?? []).map(r=>({id:r.id,addendumNumber:r.addendum_number,addendumType:r.addendum_type,status:r.status,statedValue:r.stated_value===null?null:Number(r.stated_value)})),
-      provisionals:(provisionals.data ?? []).map(r=>({id:r.id,companyId:scope.companyId,provisionalNumber:r.provisional_number,title:r.title,status:r.status,clientName:r.client_name})),
+      provisionals:(provisionals.data ?? []).map(r=>({id:r.id,companyId:scope.companyId,provisionalNumber:r.provisional_number,title:r.title,status:r.status,clientName:r.client_name,negotiatedValue:negotiatedByProvisional.get(r.id)??0})),
     };
   }
 }
