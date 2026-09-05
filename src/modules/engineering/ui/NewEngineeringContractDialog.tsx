@@ -128,34 +128,79 @@ export function NewEngineeringContractDialog({ open, companies, initialCompanyId
     <Dialog
       open={open}
       title="Novo contrato"
-      description="Cadastre a obra e os dados principais. O valor será calculado pelos serviços do contrato."
+      description="Cadastre o contrato e a obra."
       loading={busy}
       onClose={onClose}
       onBack={onClose}
       onConfirm={() => { void submit(); }}
+      confirmLabel="Salvar contrato"
     >
       {errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={errorMessage} />}
-      <div className="engineering-form-grid engineering-contract-create-form">
-        <Select
-          label="Empresa"
-          value={form.companyId}
-          onChange={event => field('companyId', event.target.value)}
-          options={engineeringCompanies.map(item => ({ value: item.id, label: companyLabel(item) }))}
-          required
+      <div className="engineering-contract-create-form">
+        <div className="engineering-contract-create-form__row engineering-contract-create-form__row--two">
+          <Select
+            label="Empresa *"
+            value={form.companyId}
+            onChange={event => field('companyId', event.target.value)}
+            options={engineeringCompanies.map(item => ({ value: item.id, label: companyLabel(item) }))}
+            required
+          />
+          <Input
+            label="Nº do contrato *"
+            placeholder="Ex.: 0001"
+            value={form.contractNumber}
+            onChange={event => field('contractNumber', event.target.value)}
+            required
+          />
+        </div>
+
+        <div className="engineering-contract-create-form__block">
+          <Input
+            label="Nome da obra *"
+            placeholder="Digite o nome da obra"
+            value={form.workName}
+            onChange={event => field('workName', event.target.value)}
+            required
+          />
+          <p className="engineering-contract-create-form__hint">A obra será criada automaticamente e vinculada a este contrato.</p>
+        </div>
+
+        <Input
+          label="Cliente"
+          placeholder="Digite o nome do cliente"
+          value={form.clientName}
+          onChange={event => field('clientName', event.target.value)}
         />
-        <Input label="Nome da obra" value={form.workName} onChange={event => field('workName', event.target.value)} required />
-        <Input label="Número do contrato" value={form.contractNumber} onChange={event => field('contractNumber', event.target.value)} required />
-        <Input label="Cliente" value={form.clientName} onChange={event => field('clientName', event.target.value)} />
-        <Input label="Assinatura" type="date" value={form.signedAt} onChange={event => field('signedAt', event.target.value)} />
-        <Input label="Início" type="date" value={form.startDate} onChange={event => field('startDate', event.target.value)} />
-        <Input label="Fim" type="date" value={form.endDate} onChange={event => field('endDate', event.target.value)} />
-        <Input label="INSS (%)" type="number" value={form.inssRate} onChange={event => field('inssRate', event.target.value)} />
-        <Input label="ISS (%)" type="number" value={form.issRate} onChange={event => field('issRate', event.target.value)} />
-        <Input label="Retenção técnica (%)" type="number" value={form.retentionRate} onChange={event => field('retentionRate', event.target.value)} />
-        <Input label="Observações" value={form.notes} onChange={event => field('notes', event.target.value)} />
-        <p className="ui-muted engineering-contract-create-form__hint">
-          O valor do contrato não é digitado aqui. Ele será formado automaticamente pelas quantidades e valores unitários cadastrados nos serviços do contrato.
-        </p>
+
+        <Input
+          label="Assinatura do contrato"
+          type="date"
+          value={form.signedAt}
+          onChange={event => field('signedAt', event.target.value)}
+        />
+
+        <div className="engineering-contract-create-form__row engineering-contract-create-form__row--two">
+          <Input label="Início" type="date" value={form.startDate} onChange={event => field('startDate', event.target.value)} />
+          <Input label="Fim" type="date" value={form.endDate} onChange={event => field('endDate', event.target.value)} />
+        </div>
+
+        <div className="engineering-contract-create-form__row engineering-contract-create-form__row--three">
+          <Input label="INSS (%)" type="number" placeholder="Ex.: 11,00" value={form.inssRate} onChange={event => field('inssRate', event.target.value)} />
+          <Input label="ISS (%)" type="number" placeholder="Ex.: 2,00" value={form.issRate} onChange={event => field('issRate', event.target.value)} />
+          <Input label="Retenção técnica (%)" type="number" placeholder="Ex.: 5,00" value={form.retentionRate} onChange={event => field('retentionRate', event.target.value)} />
+        </div>
+
+        <Input
+          label="Observações"
+          placeholder="Informações adicionais..."
+          value={form.notes}
+          onChange={event => field('notes', event.target.value)}
+        />
+
+        <div className="engineering-contract-create-form__notice">
+          <strong>Valor do contrato calculado automaticamente</strong>
+          <span>O total será formado pelas tabelas de serviços, quantidades e valores unitários cadastrados dentro do contrato.</span>
+        </div>
       </div>
     </Dialog>
   );
