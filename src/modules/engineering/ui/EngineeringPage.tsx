@@ -82,7 +82,7 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
     <NewEngineeringContractDialog
       open={createOpen}
       companies={companies}
-      initialCompanyId={selectedCompany?.id}
+      {...(selectedCompany ? { initialCompanyId: selectedCompany.id } : {})}
       onClose={()=>setCreateOpen(false)}
       onSaved={refresh}
     />
