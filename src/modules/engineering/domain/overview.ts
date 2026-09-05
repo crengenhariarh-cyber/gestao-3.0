@@ -42,6 +42,7 @@ export interface EngineeringProvisionalSummary {
   title: string | null;
   status: string;
   clientName: string | null;
+  negotiatedValue: number;
 }
 
 export interface EngineeringOverview {
