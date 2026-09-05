@@ -9,7 +9,7 @@ import { useEngineeringOperations } from './useEngineeringOperations';
 type TabId='contratos'|'medicoes'|'producao'|'aditivos'|'provisorios';
 type Kind='work'|'structure'|'contract'|'contractStatus'|'service'|'contractService'|'allocation'|'provisional'|'provisionalLine'|'convert'|'addendum'|'addendumLine'|'measurement'|'measurementLine'|'retention'|'measurementStatus'|'receivable'|'receive'|'productionPeriod'|'productionEntry'|'productionStatus'|null;
 type ActionsMode='default'|'contract-create'|'contract-maintenance';
-interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; }
+interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; initialKind?:Exclude<Kind,null>; hideActions?:boolean; onDialogClosed?:()=>void; }
 interface Option { value:string; label:string; }
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const today=()=>new Date().toISOString().slice(0,10);
@@ -17,10 +17,10 @@ const currentMonth=()=>new Date().toISOString().slice(0,7);
 const numberValue=(value:string)=>{const parsed=Number(value.replace(',','.'));return Number.isFinite(parsed)?parsed:0;};
 const options=(items:readonly {id:string;name:string}[],placeholder='Selecione…'):Option[]=>[{value:'',label:placeholder},...items.map(item=>({value:item.id,label:item.name}))];
 
-export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMode='default',focusedContractId=null}:Props){
+export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMode='default',focusedContractId=null,initialKind,hideActions=false,onDialogClosed}:Props){
   const operations=useEngineeringOperations(scope);
   const data=operations.state.data;
-  const [kind,setKind]=useState<Kind>(null);
+  const [kind,setKind]=useState<Kind>(initialKind??null);
   const [form,setForm]=useState<Record<string,string>>({});
   const field=(name:string,value:string)=>setForm(current=>({...current,[name]:value}));
   const workOptions=options(data?.works??[]);
@@ -48,8 +48,8 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     productionPeriod:{workId:'',competence:currentMonth()},productionEntry:{periodId:'',employmentContractId:'',structureId:'',serviceId:'',productionDate:today(),executedQuantity:'',unitValue:'',notes:''},productionStatus:{periodId:'',action:'close',reason:''},
   };
   function open(next:Exclude<Kind,null>){operations.clearFeedback();const base={...defaults[next]};if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;setForm(base);setKind(next);}
-  function close(){setKind(null);operations.clearFeedback();}
-  async function done(action:()=>Promise<unknown>){await action();onChanged();setKind(null);}
+  function close(){setKind(null);operations.clearFeedback();onDialogClosed?.();}
+  async function done(action:()=>Promise<unknown>){await action();onChanged();setKind(null);onDialogClosed?.();}
   async function submit(){
     try{
       switch(kind){
@@ -117,5 +117,5 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     case 'productionStatus':content=<div className="engineering-form-grid">{select('Período','periodId',periodOptions,true)}{select('Ação','action',[{value:'close',label:'Fechar'},{value:'reopen',label:'Reabrir'}],true)}{input('Motivo','reason')}</div>;break;
     default:break;
   }
-  return <><div className="engineering-actions">{actions[activeTab]}</div>{operations.state.errorMessage&&kind===null&&<Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage}/>} {operations.state.successMessage&&kind===null&&<Feedback tone="success" title="Concluído" message={operations.state.successMessage}/>}<Dialog open={kind!==null} title={kind?titles[kind]:'Engenharia'} description="Operação vinculada exclusivamente à empresa selecionada." loading={operations.state.busy} onClose={close} onBack={close} onConfirm={kind?()=>{void submit();}:undefined}>{operations.state.errorMessage&&<Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage}/>} {content}</Dialog></>;
+  return <>{!hideActions&&<div className="engineering-actions">{actions[activeTab]}</div>}{operations.state.errorMessage&&kind===null&&<Feedback tone="danger" title="Operação não concluída" message={operations.state.errorMessage}/>} {operations.state.successMessage&&kind===null&&<Feedback tone="success" title="Concluído" message={operations.state.successMessage}/>}<Dialog open={kind!==null} title={kind?titles[kind]:'Engenharia'} description="Operação vinculada exclusivamente à empresa selecionada." loading={operations.state.busy} onClose={close} onBack={close} onConfirm={kind?()=>{void submit();}:undefined}>{operations.state.errorMessage&&<Feedback tone="danger" title="Não foi possível salvar" message={operations.state.errorMessage}/>} {content}</Dialog></>;
 }
