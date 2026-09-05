@@ -57,7 +57,8 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   function startCreate(companyId:string){setCreateCompanyId(companyId);setCreateNonce(value=>value+1);setCompanyPickerOpen(false);}
   function openCreate(){
     if(selectedCompany&&companyLabel(selectedCompany)!=='Pessoal'){startCreate(selectedCompany.id);return;}
-    if(engineeringCompanies.length===1){startCreate(engineeringCompanies[0].id);return;}
+    const onlyCompany=engineeringCompanies[0];
+    if(onlyCompany&&engineeringCompanies.length===1){startCreate(onlyCompany.id);return;}
     setPendingCompanyId(engineeringCompanies[0]?.id??'');
     setCompanyPickerOpen(true);
   }
