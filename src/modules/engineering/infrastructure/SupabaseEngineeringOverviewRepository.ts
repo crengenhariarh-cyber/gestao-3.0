@@ -22,7 +22,7 @@ export class SupabaseEngineeringOverviewRepository implements EngineeringOvervie
       this.client.from('engineering_measurement_monthly_report').select('measurement_id,competence,status,gross_amount,retained_amount,net_amount').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<MeasurementRow[]>(),
       this.client.from('engineering_employee_production_summary').select('employment_contract_id,competence,executed_quantity,production_value').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProductionRow[]>(),
       this.client.from('contract_addenda').select('id,addendum_number,addendum_type,status,stated_value').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<AddendumRow[]>(),
-      this.client.from('provisional_contracts').select('id,provisional_number,title,status,client_name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProvisionalRow[]>(),
+      this.client.from('provisional_contracts').select('id,provisional_number,title,status,client_name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).neq('status','converted').returns<ProvisionalRow[]>(),
       this.client.from('provisional_contract_lines').select('provisional_id,line_total').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<ProvisionalLineRow[]>(),
     ]);
     for (const result of [contracts,contractMeta,works,measurements,production,addenda,provisionals,provisionalLines]) if (result.error) throw result.error;
