@@ -22,6 +22,9 @@ function currentMonthStart(){const now=new Date();return `${now.getFullYear()}-$
 function isoDate(value:Date){return value.toISOString().slice(0,10);}
 function companyName(company:CompanySummary){return company.tradeName??company.legalName;}
 function cardDisplayName(name:string){return name.replace(/^\s*HISTÓRICO\s*[·•-]\s*/i,'').trim();}
+function normalizeLabel(value:string){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();}
+function isPersonalCompany(label:string){return normalizeLabel(label)==='PESSOAL';}
+function isPersonalBalanceAccount(name:string){const normalized=normalizeLabel(name);return normalized==='NUBANK PESSOAL'||normalized==='DINHEIRO';}
 
 export function useHomeOverview(companies:readonly CompanySummary[],refreshToken=0):HomeOverviewState{
  const finance=useMemo(()=>getFinanceRepositories(),[]); const hr=useMemo(()=>getHrBudgetRepository(),[]); const hrOperations=useMemo(()=>getHrOperationsRepository(),[]); const supabase=useMemo(()=>getSupabaseClient(),[]); const companyKey=companies.map(c=>c.id).sort().join(',');
@@ -35,7 +38,7 @@ export function useHomeOverview(companies:readonly CompanySummary[],refreshToken
    if(limitConsumptionResult.error)throw limitConsumptionResult.error; if(budgetControlResult.error)throw budgetControlResult.error; if(budgetPricingResult.error)throw budgetPricingResult.error; if(planningResult.error)throw planningResult.error;
    return {company,summary,balances,movements,budget,operational,cardLimits,limitConsumption:limitConsumptionResult.data??[],budgetControl:budgetControlResult.data??[],budgetPricing:budgetPricingResult.data??[],planning:planningResult.data??[]};}))
   .then(results=>{if(cancelled)return; let bankBalance=0,incomePlanned=0,incomeRealized=0,expensePlanned=0,expenseRealized=0; const entries:HomeEntry[]=[],balanceMovements:HomeBalanceMovement[]=[],budgets:HomeBudgetItem[]=[],bankAccounts:HomeBankAccount[]=[],cards:HomeCard[]=[];
-   results.forEach(({company,summary,balances,movements,budget,operational,cardLimits,limitConsumption,budgetControl,budgetPricing,planning})=>{const label=companyName(company); const dashboardAccounts=balances.filter(i=>i.status==='active'&&i.includeInDashboard); const ids=new Set(dashboardAccounts.map(i=>i.accountId)); const consumptionByLimit=new Map(limitConsumption.map(row=>[row.limit_id,row]));
+   results.forEach(({company,summary,balances,movements,budget,operational,cardLimits,limitConsumption,budgetControl,budgetPricing,planning})=>{const label=companyName(company); const dashboardAccounts=balances.filter(i=>i.status==='active'&&i.includeInDashboard&&(!isPersonalCompany(label)||isPersonalBalanceAccount(i.name))); const ids=new Set(dashboardAccounts.map(i=>i.accountId)); const consumptionByLimit=new Map(limitConsumption.map(row=>[row.limit_id,row]));
     bankBalance+=dashboardAccounts.reduce((t,i)=>t+i.currentBalance,0); dashboardAccounts.forEach(i=>bankAccounts.push({tenantId:company.tenantId,companyId:company.id,companyName:label,accountId:i.accountId,name:i.name,bankInstitution:i.bankInstitution,currentBalance:i.currentBalance,sortOrder:i.sortOrder}));
     cardLimits.forEach(i=>cards.push({tenantId:company.tenantId,companyId:company.id,companyName:label,cardId:i.cardId,name:cardDisplayName(i.name),creditLimit:i.creditLimit,committedAmount:i.committedAmount,availableLimit:i.availableLimit,sortOrder:i.sortOrder}));
     movements.filter(i=>ids.has(i.accountId)).forEach(i=>balanceMovements.push({movementOn:i.movementOn,signedAmount:i.direction==='inflow'?i.amount:-i.amount}));
