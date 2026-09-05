@@ -52,6 +52,34 @@ export interface CreateCardPurchase extends CompanyScope {
   notes?: string | null;
 }
 
+export interface CardPurchaseDetails extends CompanyScope {
+  transactionId: string;
+  expenseCompanyId: string;
+  cardId: string;
+  purchaseDate: string;
+  description: string;
+  counterpartyName: string | null;
+  categoryId: string;
+  costCenterId: string | null;
+  totalAmount: number;
+  installmentCount: number;
+  notes: string | null;
+}
+
+export interface UpdateCardPurchase extends CompanyScope {
+  transactionId: string;
+  expenseCompanyId: string;
+  cardId: string;
+  purchaseDate: string;
+  description: string;
+  counterpartyName?: string | null;
+  categoryId: string;
+  costCenterId?: string | null;
+  totalAmount: number;
+  installmentCount: number;
+  notes?: string | null;
+}
+
 export interface CreatedCardPurchase {
   transactionId: string;
   firstStatementMonth: string;
