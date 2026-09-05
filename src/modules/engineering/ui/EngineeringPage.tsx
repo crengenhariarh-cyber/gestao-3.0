@@ -13,6 +13,8 @@ import { useEngineeringOverview } from './useEngineeringOverview';
 import './engineering.css';
 
 interface EngineeringPageProps { companies: readonly CompanySummary[]; initialCompanyId?: string; }
+type ContractSection='resumo'|'contrato'|'planilhas'|'provisorios'|'medicao'|'fechamentos'|'impostos'|'saldos';
+
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 function companyLabel(company:CompanySummary){const raw=`${company.tradeName??''} ${company.legalName}`.toLocaleUpperCase('pt-BR');if(raw.includes('PESSOAL'))return'Pessoal';if(raw.includes('PR-HIST')||/(^|\s)PR(\s|$)/.test(raw))return'PR';if(raw.includes('CR-HIST')||/(^|\s)CR(\s|$)/.test(raw))return'CR';return company.tradeName??company.legalName;}
 function statusLabel(status:string){const labels:Record<string,string>={active:'Ativo',draft:'Rascunho',suspended:'Suspenso',completed:'Concluído',cancelled:'Cancelado'};return labels[status]??status;}
@@ -22,6 +24,7 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   const [contractSearch,setContractSearch]=useState('');
   const [contractStatus,setContractStatus]=useState('all');
   const [selectedContract,setSelectedContract]=useState<EngineeringContractSummary|null>(null);
+  const [contractSection,setContractSection]=useState<ContractSection>('resumo');
   const [createOpen,setCreateOpen]=useState(false);
   const selectedCompany=initialCompanyId?companies.find(item=>item.id===initialCompanyId)??null:null;
   const engineeringCompanies=companies.filter(item=>companyLabel(item)!=='Pessoal');
@@ -51,6 +54,46 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   });
   const maintenanceCompany=selectedContract?companies.find(item=>item.id===selectedContract.companyId)??null:null;
   const maintenanceScope=maintenanceCompany?{tenantId:maintenanceCompany.tenantId,companyId:maintenanceCompany.id}:null;
+  const openContract=(contract:EngineeringContractSummary)=>{setContractSection('resumo');setSelectedContract(contract);};
+  const closeContract=()=>{setSelectedContract(null);setContractSection('resumo');};
+  const contractSections:{id:ContractSection;label:string}[]=[
+    {id:'resumo',label:'Resumo'},
+    {id:'contrato',label:'Contrato'},
+    {id:'planilhas',label:'Planilhas'},
+    {id:'provisorios',label:'Provisórios'},
+    {id:'medicao',label:'Medição'},
+    {id:'fechamentos',label:'Fechamentos'},
+    {id:'impostos',label:'Impostos'},
+    {id:'saldos',label:'Saldos'},
+  ];
+
+  const contractContent=selectedContract&&maintenanceScope?(()=>{
+    const progress=Math.max(0,Math.min(100,selectedContract.measuredPercent));
+    if(contractSection==='resumo')return <div className="engineering-contract-workspace__page">
+      <div className="engineering-contract-workspace__kpis">
+        <Card title="Contrato atualizado"><strong>{currency.format(selectedContract.updatedContractValue)}</strong><span>Valor vigente pelos serviços e aditivos</span></Card>
+        <Card title="Total medido"><strong className="engineering-positive">{currency.format(selectedContract.measuredNet)}</strong><span>{selectedContract.measuredPercent.toFixed(1)}% executado</span></Card>
+        <Card title="Saldo a executar"><strong className="engineering-danger">{currency.format(selectedContract.grossBalance)}</strong><span>{(100-progress).toFixed(1)}% restante</span></Card>
+      </div>
+      <Card className="engineering-contract-workspace__progress-card" title="Progresso físico e financeiro">
+        <progress max={100} value={progress} aria-label={`${progress.toFixed(1)}% medido`}/>
+        <div><strong>{progress.toFixed(1)}%</strong><span className="ui-muted"> do contrato já medido</span></div>
+      </Card>
+      <div className="engineering-contract-workspace__quick-grid">
+        <Button variant="secondary" onClick={()=>setContractSection('contrato')}>Dados do contrato</Button>
+        <Button variant="secondary" onClick={()=>setContractSection('planilhas')}>Torres, serviços e aditivos</Button>
+        <Button variant="secondary" onClick={()=>setContractSection('medicao')}>Nova medição</Button>
+        <Button variant="secondary" onClick={()=>setContractSection('saldos')}>Consultar saldos</Button>
+      </div>
+    </div>;
+    if(contractSection==='contrato')return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>DADOS E ESTRUTURA</small><h3>Contrato</h3><p className="ui-muted">Edite status, serviços, distribuição, estruturas e aditivos do contrato.</p></div></div><EngineeringOperationsPanel activeTab="contratos" scope={maintenanceScope} onChanged={refresh} actionsMode="contract-maintenance" focusedContractId={selectedContract.contractId}/></div>;
+    if(contractSection==='planilhas')return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>BASE CONTRATUAL</small><h3>Planilhas e serviços</h3><p className="ui-muted">Cadastre os serviços e distribua por torre, bloco, pavimento ou unidade. O valor do contrato nasce desta base.</p></div></div><EngineeringOperationsPanel activeTab="contratos" scope={maintenanceScope} onChanged={refresh} actionsMode="contract-maintenance" focusedContractId={selectedContract.contractId}/></div>;
+    if(contractSection==='provisorios')return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>NEGOCIAÇÃO</small><h3>Provisórios</h3><p className="ui-muted">Crie, negocie e converta serviços sem alterar o contrato vigente antes da aprovação.</p></div></div><EngineeringOperationsPanel activeTab="provisorios" scope={maintenanceScope} onChanged={refresh}/></div>;
+    if(contractSection==='medicao')return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>EXECUÇÃO</small><h3>Medições</h3><p className="ui-muted">Lance a competência, serviços medidos, valores e fechamento da medição.</p></div></div><EngineeringOperationsPanel activeTab="medicoes" scope={maintenanceScope} onChanged={refresh}/></div>;
+    if(contractSection==='fechamentos')return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>HISTÓRICO FINANCEIRO</small><h3>Fechamentos e contas a receber</h3><p className="ui-muted">Feche, aprove, reabra, gere contas a receber e registre recebimentos das medições.</p></div></div><EngineeringOperationsPanel activeTab="medicoes" scope={maintenanceScope} onChanged={refresh}/></div>;
+    if(contractSection==='impostos')return <div className="engineering-contract-workspace__page"><Card className="engineering-contract-workspace__feature-card" title="INSS, ISS e retenção técnica"><p className="ui-muted">Controle fiscal consolidado do contrato. As retenções definidas no contrato são herdadas pelas novas medições.</p><Button variant="secondary" onClick={()=>setContractSection('contrato')}>Revisar dados do contrato</Button></Card></div>;
+    return <div className="engineering-contract-workspace__page"><div className="engineering-contract-workspace__section-head"><div><small>DISPONIBILIDADE CONTRATUAL</small><h3>Saldos</h3><p className="ui-muted">Visão do contratado, medido e saldo ainda disponível para executar.</p></div></div><div className="engineering-contract-workspace__kpis"><Card title="Contratado"><strong>{currency.format(selectedContract.updatedContractValue)}</strong></Card><Card title="Medido"><strong className="engineering-positive">{currency.format(selectedContract.measuredNet)}</strong></Card><Card title="Saldo"><strong className="engineering-danger">{currency.format(selectedContract.grossBalance)}</strong></Card></div></div>;
+  })():null;
 
   return <section className="engineering-overview engineering-overview--contratos" aria-labelledby="engineering-title">
     <div className="engineering-contracts-reference__title engineering-contracts-reference__title--main"><div><h1 id="engineering-title">Engenharia</h1><p className="ui-muted">Contratos e resultados das obras</p></div><Button onClick={()=>setCreateOpen(true)} disabled={engineeringCompanies.length===0}>＋ Novo contrato</Button></div>
@@ -70,7 +113,7 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
         {filteredContracts.length===0?empty:filteredContracts.map(item=>{
           const company=companies.find(c=>c.id===item.companyId);
           return <Card className="engineering-contract-card" key={item.contractId}>
-            <Button variant="tertiary" className="engineering-contract-card__open" onClick={()=>setSelectedContract(item)}>
+            <Button variant="tertiary" className="engineering-contract-card__open" onClick={()=>openContract(item)}>
               <div className="engineering-contract-card__head"><div className="engineering-contract-card__icon" aria-hidden="true">▥</div><div className="engineering-contract-card__identity"><strong>{item.workName}</strong><span>{item.clientName??item.contractNumber} · {item.contractNumber}{company?` · ${companyLabel(company)}`:''}</span></div><div className="engineering-contract-card__percent">{item.measuredPercent.toFixed(1)}%</div><div className="engineering-contract-card__chevron" aria-hidden="true">›</div></div>
               <progress className="engineering-contract-card__progress" max={100} value={Math.max(0,Math.min(100,item.measuredPercent))} aria-label={`${item.measuredPercent.toFixed(1)}% medido`}/>
               <div className="engineering-contract-card__values"><span>Contratado <strong>{currency.format(item.updatedContractValue)}</strong></span><span>Medido <strong>{currency.format(item.measuredNet)}</strong></span><span>Saldo <strong>{currency.format(item.grossBalance)}</strong></span></div>
@@ -79,15 +122,13 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
         })}
       </div>
     </section>
-    <NewEngineeringContractDialog
-      open={createOpen}
-      companies={companies}
-      {...(selectedCompany ? { initialCompanyId: selectedCompany.id } : {})}
-      onClose={()=>setCreateOpen(false)}
-      onSaved={refresh}
-    />
-    <Dialog open={selectedContract!==null} title={selectedContract?.workName??'Contrato'} description={selectedContract?`${selectedContract.clientName??'Cliente'} · ${selectedContract.contractNumber}`:undefined} onClose={()=>setSelectedContract(null)} onBack={()=>setSelectedContract(null)}>
-      {selectedContract&&maintenanceScope&&<><div className="engineering-contract-dialog-summary"><span>Contratado <strong>{currency.format(selectedContract.updatedContractValue)}</strong></span><span>Medido <strong>{currency.format(selectedContract.measuredNet)}</strong></span><span>Saldo <strong>{currency.format(selectedContract.grossBalance)}</strong></span></div><EngineeringOperationsPanel activeTab="contratos" scope={maintenanceScope} onChanged={refresh} actionsMode="contract-maintenance" focusedContractId={selectedContract.contractId}/></>}
+    <NewEngineeringContractDialog open={createOpen} companies={companies} {...(selectedCompany ? { initialCompanyId: selectedCompany.id } : {})} onClose={()=>setCreateOpen(false)} onSaved={refresh}/>
+    <Dialog open={selectedContract!==null} title={selectedContract?.workName??'Contrato'} description={selectedContract?`${selectedContract.clientName??'Cliente'} · ${selectedContract.contractNumber} · ${statusLabel(selectedContract.status)}`:undefined} onClose={closeContract} onBack={closeContract}>
+      {selectedContract&&maintenanceScope&&<div className="engineering-contract-workspace">
+        <div className="engineering-contract-workspace__summary"><span>Contratado <strong>{currency.format(selectedContract.updatedContractValue)}</strong></span><span>Medido <strong>{currency.format(selectedContract.measuredNet)}</strong></span><span>Saldo <strong>{currency.format(selectedContract.grossBalance)}</strong></span></div>
+        <nav className="engineering-contract-workspace__nav" aria-label="Áreas do contrato">{contractSections.map(section=><Button key={section.id} size="sm" variant={contractSection===section.id?'primary':'secondary'} onClick={()=>setContractSection(section.id)}>{section.label}</Button>)}</nav>
+        {contractContent}
+      </div>}
     </Dialog>
   </section>;
 }
