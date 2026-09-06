@@ -92,7 +92,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
   useEffect(()=>{if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId]);
 
   const origin=useMemo(()=>model?.origins.find(item=>item.id===originId)??null,[model?.origins,originId]);
-  const stages=origin?.services??[];
+  const stages=useMemo(()=>origin?.services??[],[origin]);
   const stage=stages[serviceIndex];
 
   const allStageReferences=useMemo(()=>model&&origin&&stage?stageReferences(model,origin,stage):[],[model,origin,stage]);
