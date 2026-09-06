@@ -42,6 +42,7 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
+  const previousLoadingRef = useRef(loading);
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +61,17 @@ export function Dialog({
       previousActiveElement?.focus();
     };
   }, [open]);
+
+  useEffect(() => {
+    const wasLoading = previousLoadingRef.current;
+    previousLoadingRef.current = loading;
+    if (!open || variant !== 'quick-entry' || !wasLoading || loading) return;
+
+    const content = dialogRef.current?.querySelector<HTMLElement>('.ui-dialog__content');
+    requestAnimationFrame(() => {
+      content?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }, [loading, open, variant]);
 
   if (!open) return null;
 
