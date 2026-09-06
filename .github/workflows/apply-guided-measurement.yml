@@ -24,6 +24,20 @@ jobs:
                   raise SystemExit(f'pattern not found in {path}: {old[:100]}')
               p.write_text(s.replace(old,new,1))
 
+          flow='src/modules/engineering/ui/GuidedMeasurementFlow.tsx'
+          replace_once(flow,
+            "import { useEffect, useMemo, useState } from 'react';",
+            "import { useCallback, useEffect, useMemo, useState } from 'react';")
+          replace_once(flow,
+            "  const descendants=(rootId:string)=>{\n    const found:string[]=[];const queue=[rootId];\n    while(queue.length){const id=queue.shift();if(!id)continue;for(const child of childrenByParent.get(id)??[]){found.push(child.id);queue.push(child.id);}}\n    return found;\n  };",
+            "  const descendants=useCallback((rootId:string)=>{\n    const found:string[]=[];const queue=[rootId];\n    while(queue.length){const id=queue.shift();if(!id)continue;for(const child of childrenByParent.get(id)??[]){found.push(child.id);queue.push(child.id);}}\n    return found;\n  },[childrenByParent]);")
+          replace_once(flow,
+            "  const originScopeIds=useMemo(()=>originId?[originId,...descendants(originId)]:[],[originId,childrenByParent]);\n  const originScopeSet=useMemo(()=>new Set(originScopeIds),[originScopeIds]);\n  const measurementLines=data?.measurementLines??[];",
+            "  const originScopeIds=useMemo(()=>originId?[originId,...descendants(originId)]:[],[originId,descendants]);\n  const originScopeSet=useMemo(()=>new Set(originScopeIds),[originScopeIds]);\n  const measurementLines=useMemo(()=>data?.measurementLines??[],[data?.measurementLines]);")
+          replace_once(flow,
+            "  },[data?.contractServices,contractId,allocations,originScopeSet,measurementLines]);",
+            "  },[data?.contractServices,contractId,allocations,originScopeSet,measurementLines,descendants]);")
+
           domain='src/modules/engineering/application/EngineeringOperationsRepository.ts'
           replace_once(domain,
             "  structures: readonly (EngineeringReferenceItem & { workId: string })[];",
