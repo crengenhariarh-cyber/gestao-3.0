@@ -73,6 +73,41 @@ export function Dialog({
     });
   }, [loading, open, variant]);
 
+  useEffect(() => {
+    if (!open || variant !== 'quick-entry') return;
+    const content = dialogRef.current?.querySelector<HTMLElement>('.ui-dialog__content');
+    if (!content) return;
+
+    const timers = new Map<HTMLElement, number>();
+    const scheduleDismiss = (node: HTMLElement) => {
+      if (timers.has(node)) return;
+      const delay = node.classList.contains('ui-feedback--danger') ? 4000 : 2000;
+      const timer = window.setTimeout(() => {
+        node.style.transition = 'opacity 180ms ease, max-height 180ms ease, margin 180ms ease, padding 180ms ease';
+        node.style.opacity = '0';
+        node.style.maxHeight = '0';
+        node.style.margin = '0';
+        node.style.paddingTop = '0';
+        node.style.paddingBottom = '0';
+        node.style.overflow = 'hidden';
+        window.setTimeout(() => { node.style.display = 'none'; }, 190);
+        timers.delete(node);
+      }, delay);
+      timers.set(node, timer);
+    };
+
+    const scan = () => content.querySelectorAll<HTMLElement>('.ui-feedback').forEach(scheduleDismiss);
+    scan();
+    const observer = new MutationObserver(scan);
+    observer.observe(content, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, [open, variant]);
+
   if (!open) return null;
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
