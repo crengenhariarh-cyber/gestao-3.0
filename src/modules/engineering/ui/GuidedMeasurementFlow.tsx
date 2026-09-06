@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
@@ -22,7 +22,8 @@ interface Props {
 
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const qty=(value:number)=>Number.isInteger(value)?String(value):value.toLocaleString('pt-BR',{maximumFractionDigits:2});
-const normalize=(value:unknown)=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
+const safeText=(value:unknown)=>typeof value==='string'?value:typeof value==='number'||typeof value==='boolean'?String(value):'';
+const normalize=(value:unknown)=>safeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
 const referenceFloor=(reference:string)=>{const match=reference.match(/^(\d{1,2})\d{2}$/);return match?String(Number(match[1])):null;};
 
 function originLabel(origin:MeasurementParityOrigin){
@@ -32,7 +33,7 @@ function originLabel(origin:MeasurementParityOrigin){
 }
 
 function buildOriginReferences(model:MeasurementParityModel,origin:MeasurementParityOrigin):string[]{
-  if(model.enterpriseType==='casas'&&model.houses.length)return Array.from(new Set(model.houses.map(value=>String(value).trim()).filter(Boolean)));
+  if(model.enterpriseType==='casas'&&model.houses.length)return Array.from(new Set(model.houses.map(value=>value.trim()).filter(Boolean)));
   if(origin.type!=='tower')return [];
   const floors=Math.max(0,Number(origin.floorCount||0)+(origin.hasGround?1:0));
   const quantities=origin.services.map(service=>Number(service.contractedQuantity||0)).filter(value=>value>0);
@@ -74,25 +75,25 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
   const [finished,setFinished]=useState(false);
   const [autoOpenNext,setAutoOpenNext]=useState(false);
 
-  async function reload(){
+  const reload=useCallback(async()=>{
     setLoading(true);
     setError(null);
     try{
       const next=await loadMeasurementParity(scope,contractId);
       setModel(next);
-      if(!measurementId){
-        const draft=next.measurements.find(item=>item.status==='draft');
-        setMeasurementId(draft?.id??'');
-      }
-      if(!originId&&next.origins.length)setOriginId(next.origins[0]?.id??'');
       return next;
     }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível carregar a medição.');return null;}
     finally{setLoading(false);}
-  }
+  },[contractId,scope]);
 
-  useEffect(()=>{void reload();},[contractId,scope.tenantId,scope.companyId]);
+  useEffect(()=>{void reload();},[reload]);
 
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
+  useEffect(()=>{
+    if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;
+    setMeasurementId(draftMeasurements[0]?.id??'');
+  },[draftMeasurements,measurementId]);
+
   const origin=useMemo(()=>model?.origins.find(item=>item.id===originId)??null,[model?.origins,originId]);
   const stages=origin?.services??[];
   const stage=stages[serviceIndex];
@@ -129,7 +130,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
     setManualQuantity(currentReferences.length?'':currentQuantity>0?String(currentQuantity).replace('.',','):'');
     setSearch('');
     if(autoOpenNext&&availableReferences.length>0){setPickerOpen(true);setAutoOpenNext(false);}
-  },[stage?.legacyServiceId,measurementId,currentQuantity,autoOpenNext]);
+  },[stage,currentLines,currentQuantity,autoOpenNext,availableReferences.length]);
 
   const normalizedSearch=normalize(search);
   const visibleReferences=availableReferences.filter(reference=>!normalizedSearch||normalize(reference).includes(normalizedSearch));
