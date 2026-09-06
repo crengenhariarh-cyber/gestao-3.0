@@ -69,7 +69,7 @@ jobs:
       - name: Validate changes
         run: |
           git diff --check
-          npm ci
+          npm install --no-package-lock
           npm run typecheck
           npm run lint
       - name: Commit integration
