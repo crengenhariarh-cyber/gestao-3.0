@@ -37,3 +37,9 @@
   .ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form>.budget-workspace__item-values{grid-template-columns:1fr!important;margin:0;padding:8px}
   .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__footer .ui-button{width:100%;min-height:52px}
 }
+
+/* Category maintenance inside annual budget entry. */
+.budget-entry-category-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+.budget-entry-category-actions{display:flex;gap:8px;align-items:center;padding-bottom:1px}
+.budget-entry-category-actions .ui-button{min-height:50px;white-space:nowrap}
+@media(max-width:680px){.budget-entry-category-row{grid-template-columns:1fr}.budget-entry-category-actions{display:grid;grid-template-columns:1fr 1fr}.budget-entry-category-actions .ui-button{width:100%}}
