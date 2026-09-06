@@ -1,0 +1,32 @@
+name: One-time budget category actions patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_budget_category_actions.py'
+      - '.github/workflows/patch-budget-category-actions.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply category actions patch
+        run: python scripts/patch_budget_category_actions.py
+      - name: Commit patched budget modal
+        run: |
+          rm -f scripts/patch_budget_category_actions.py .github/workflows/patch-budget-category-actions.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(budget): edit and delete category inside annual entry"
+          git push origin HEAD:main
