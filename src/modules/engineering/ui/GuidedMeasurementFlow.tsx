@@ -35,7 +35,7 @@ function originLabel(origin:MeasurementParityOrigin){
 function buildTowerReferences(model:MeasurementParityModel,origin:MeasurementParityOrigin):string[]{
   if(model.enterpriseType==='casas'&&model.houses.length)return Array.from(new Set(model.houses.map(value=>value.trim()).filter(Boolean)));
   const floors=Math.max(0,Number(origin.floorCount||0)+(origin.hasGround?1:0));
-  const quantities=origin.services.map(service=>Number(service.contractedQuantity||0)).filter(value=>value>0&&unitBased(service));
+  const quantities=origin.services.filter(unitBased).map(service=>Number(service.contractedQuantity||0)).filter(value=>value>0);
   const perFloor=floors>0&&quantities.length?Math.max(1,Math.round(Math.max(...quantities)/floors)):8;
   const references:string[]=[];
   for(let floor=1;floor<=floors;floor++)for(let unit=1;unit<=perFloor;unit++)references.push(`${floor}${String(unit).padStart(2,'0')}`);
