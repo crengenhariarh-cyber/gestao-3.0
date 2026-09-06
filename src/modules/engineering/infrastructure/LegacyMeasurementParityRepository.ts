@@ -60,10 +60,11 @@ type AddendumLineRow={id:string;addendum_id:string;description:string;unit:strin
 type MeasurementRow={id:string;competence:string;status:string};
 type MeasurementLineRow={id:string;measurement_id:string;contract_service_id:string|null;contract_addendum_line_id:string|null;measured_quantity:number|string;notes:string|null};
 
-const normalize=(value:unknown)=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
-const number=(value:unknown)=>Number(value||0);
+const safeText=(value:unknown)=>typeof value==='string'?value:typeof value==='number'||typeof value==='boolean'?String(value):'';
+const normalize=(value:unknown)=>safeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
+const number=(value:unknown)=>Number(typeof value==='number'||typeof value==='string'?value:0);
 const extractCode=(value:unknown)=>{
-  const text=String(value??'').trim();
+  const text=safeText(value).trim();
   const match=text.match(/^([A-Za-z0-9._-]+)\s*(?:—|-|\||$)/);
   return match?.[1]?.trim()??'';
 };
@@ -156,7 +157,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
       const target=contractTarget??addendumTarget!;
       stages.push({
         legacyServiceId:service.id,
-        code:String(service.codigo??''),
+        code:service.codigo??'',
         name:service.nome,
         description:service.descricao||service.nome,
         unit:service.unidade||target.unit,
@@ -164,8 +165,8 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
         unitPrice:number(target.unit_price||service.valor_unitario),
         scopeActive:Boolean(service.escopo_ativo),
         startFloor:service.pavimento_inicial===null||service.pavimento_inicial===''?null:number(service.pavimento_inicial),
-        scopeFloors:Array.isArray(service.pavimentos_escopo)?service.pavimentos_escopo.map(String):[],
-        scopeUnits:Array.isArray(service.unidades_escopo)?service.unidades_escopo.map(String):[],
+        scopeFloors:Array.isArray(service.pavimentos_escopo)?service.pavimentos_escopo.map(value=>safeText(value)):[],
+        scopeUnits:Array.isArray(service.unidades_escopo)?service.unidades_escopo.map(value=>safeText(value)):[],
         targetKind,
         targetId:target.id,
       });
@@ -176,7 +177,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
       type:originType(origin.tipo),
       floorCount:number(origin.quantidade_pavimentos),
       hasGround:Boolean(origin.possui_terreo),
-      modes:Array.isArray(origin.formas_medicao)?origin.formas_medicao.map(String):[],
+      modes:Array.isArray(origin.formas_medicao)?origin.formas_medicao.map(value=>safeText(value)):[],
       services:stages,
     };
   }).filter(origin=>origin.services.length>0);
@@ -201,7 +202,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
     contractId,
     legacyContractId:legacyContract.id,
     enterpriseType:legacyContract.tipo_empreendimento??'apartamentos',
-    houses:Array.isArray(legacyContract.casas)?legacyContract.casas.map(String):[],
+    houses:Array.isArray(legacyContract.casas)?legacyContract.casas.map(value=>safeText(value)):[],
     measurements:measurements.map(item=>({id:item.id,competence:item.competence,status:item.status})),
     origins,
     lines,
