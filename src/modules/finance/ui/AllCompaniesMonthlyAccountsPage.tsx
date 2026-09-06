@@ -29,6 +29,9 @@ function currentMonthRange() {
   return { start: `${year}-${monthText}-01`, end: `${year}-${monthText}-${String(lastDay).padStart(2, '0')}` };
 }
 function formatDate(value: string): string { const [year, month, day] = value.split('-'); return `${day}/${month}/${year}`; }
+function installmentLabel(item: Pick<FinancialEntryListItem, 'installmentNumber' | 'installmentCount'>): string {
+  return item.installmentCount > 1 ? `Parcela ${item.installmentNumber}/${item.installmentCount}` : 'Parcela única';
+}
 function companyName(company: CompanySummary): string {
   const raw = `${company.tradeName ?? ''} ${company.legalName}`.toLocaleUpperCase('pt-BR');
   if (raw.includes('PESSOAL')) return 'Pessoal';
@@ -141,7 +144,7 @@ export function AllCompaniesMonthlyAccountsPage({ companies }: Props) {
       const paid = balance?.financialStatus === 'paid' || remaining <= 0;
       const overdue = !paid && item.entryType === 'expense' && item.dueDate < today();
       const income = item.entryType === 'income';
-      return <Button variant="tertiary" className={`monthly-entry ${income ? 'monthly-entry--income' : 'monthly-entry--expense'} ${overdue ? 'monthly-entry--overdue' : ''} ${paid ? 'monthly-entry--paid' : ''}`} key={`${item.companyId}:${item.installmentId}`} onClick={() => setSelectedEntry(item)}><span className="monthly-entry__icon">{income ? <ArrowDownLeft aria-hidden="true" /> : <ArrowUpRight aria-hidden="true" />}</span><span className="monthly-entry__main"><strong>{item.description}</strong><small>{item.counterpartyName || (item.installmentCount > 1 ? `Parcela ${item.installmentNumber}/${item.installmentCount}` : 'Parcela única')}</small></span><span className="monthly-account__company">{item.companyLabel}</span><span className="monthly-entry__amount"><small>{formatDate(item.dueDate)}</small><strong>{currency.format(paid ? item.amount : remaining)}</strong></span><ChevronRight className="monthly-entry__chevron" aria-hidden="true" /></Button>;
+      return <Button variant="tertiary" className={`monthly-entry ${income ? 'monthly-entry--income' : 'monthly-entry--expense'} ${overdue ? 'monthly-entry--overdue' : ''} ${paid ? 'monthly-entry--paid' : ''}`} key={`${item.companyId}:${item.installmentId}`} onClick={() => setSelectedEntry(item)}><span className="monthly-entry__icon">{income ? <ArrowDownLeft aria-hidden="true" /> : <ArrowUpRight aria-hidden="true" />}</span><span className="monthly-entry__main"><strong>{item.description}</strong><small>{installmentLabel(item)}{item.counterpartyName ? ` · ${item.counterpartyName}` : ''}</small></span><span className="monthly-account__company">{item.companyLabel}</span><span className="monthly-entry__amount"><small>{formatDate(item.dueDate)}</small><strong>{currency.format(paid ? item.amount : remaining)}</strong></span><ChevronRight className="monthly-entry__chevron" aria-hidden="true" /></Button>;
     })}</div>}
 
     {selectedEntry && selectedCompany && <MonthlyAccountActionDialog company={selectedCompany} entry={selectedEntry} {...(selectedBalance ? { balance: selectedBalance } : {})} open onClose={() => setSelectedEntry(null)} onChanged={() => { setSelectedEntry(null); setRefreshToken((value) => value + 1); }} />}
