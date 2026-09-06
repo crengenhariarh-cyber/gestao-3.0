@@ -4,6 +4,7 @@ import { Button } from '../../../shared/ui/Button';
 import { Card } from '../../../shared/ui/Card';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
+import { GuidedMeasurementFlow } from './GuidedMeasurementFlow';
 import { useEngineeringOperations } from './useEngineeringOperations';
 
 export type EngineeringContractSection='resumo'|'contrato'|'planilhas'|'provisorios'|'medicao'|'fechamentos'|'impostos'|'saldos';
@@ -35,6 +36,7 @@ function monthLabel(value:string){if(!value)return'—';const [y,m]=value.slice(
 export function EngineeringContractWorkspace({section,scope,contract,onChanged,onNavigate}:Props){
   const operations=useEngineeringOperations(scope);
   const [formKind,setFormKind]=useState<FormKind|null>(null);
+  const [guidedMeasurementOpen,setGuidedMeasurementOpen]=useState(false);
   const [search,setSearch]=useState('');
   const [filter,setFilter]=useState('all');
   const data=operations.state.data;
@@ -53,7 +55,7 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
   const progress=Math.max(0,Math.min(100,contract.measuredPercent));
   const servicePriceTotal=contractServices.reduce((sum,item)=>sum+item.unitPrice,0);
 
-  function open(kind:FormKind){setFormKind(kind);}
+  function open(kind:FormKind){if(kind==='measurementLine'){setGuidedMeasurementOpen(true);return;}setFormKind(kind);}
   function changed(){onChanged();void operations.reload().catch(()=>undefined);}
   function match(...values:(string|null|undefined)[]){return normalized.length===0||values.some(value=>(value??'').toLocaleLowerCase('pt-BR').includes(normalized));}
   const emptyRow=(message:string)=><div className="engineering-sheet__empty"><strong>Nenhum registro</strong><span>{message}</span></div>;
@@ -116,5 +118,5 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
     contractStatus:{tab:'contratos',mode:'contract-data'},structure:{tab:'contratos',mode:'contract-data'},contractService:{tab:'contratos',mode:'contract-services'},allocation:{tab:'contratos',mode:'contract-services'},provisional:{tab:'provisorios',mode:'default'},provisionalLine:{tab:'provisorios',mode:'default'},convert:{tab:'provisorios',mode:'default'},addendum:{tab:'contratos',mode:'contract-data'},addendumLine:{tab:'contratos',mode:'contract-services'},measurement:{tab:'medicoes',mode:'measurement-create'},measurementLine:{tab:'medicoes',mode:'measurement-create'},retention:{tab:'medicoes',mode:'contract-taxes'},measurementStatus:{tab:'medicoes',mode:'measurement-close'},receivable:{tab:'medicoes',mode:'measurement-close'},receive:{tab:'medicoes',mode:'measurement-close'},
   } as const;
   const activeForm=formKind?formMode[formKind]:null;
-  return <>{content}{activeForm&&formKind&&<div className="engineering-sheet-form"><div className="engineering-sheet-form__backdrop" onClick={()=>setFormKind(null)}/><div className="engineering-sheet-form__panel"><div className="engineering-sheet-form__head"><div><small>ENGENHARIA</small><strong>{section==='resumo'?'Contrato':sectionMeta[section].title}</strong></div><Button variant="secondary" size="sm" onClick={()=>setFormKind(null)}>Fechar</Button></div><div className="engineering-sheet-form__content"><EngineeringOperationsPanel activeTab={activeForm.tab} scope={scope} onChanged={changed} actionsMode={activeForm.mode} focusedContractId={contract.contractId} initialKind={formKind} hideActions onDialogClosed={()=>setFormKind(null)}/></div></div></div>}</>;
+  return <>{content}{activeForm&&formKind&&<div className="engineering-sheet-form"><div className="engineering-sheet-form__backdrop" onClick={()=>setFormKind(null)}/><div className="engineering-sheet-form__panel"><div className="engineering-sheet-form__head"><div><small>ENGENHARIA</small><strong>{section==='resumo'?'Contrato':sectionMeta[section].title}</strong></div><Button variant="secondary" size="sm" onClick={()=>setFormKind(null)}>Fechar</Button></div><div className="engineering-sheet-form__content"><EngineeringOperationsPanel activeTab={activeForm.tab} scope={scope} onChanged={changed} actionsMode={activeForm.mode} focusedContractId={contract.contractId} initialKind={formKind} hideActions onDialogClosed={()=>setFormKind(null)}/></div></div></div>}{guidedMeasurementOpen&&<GuidedMeasurementFlow scope={scope} contractId={contract.contractId} onChanged={changed} onClose={()=>setGuidedMeasurementOpen(false)}/>}</>;
 }

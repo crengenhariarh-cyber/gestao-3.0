@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
@@ -56,11 +56,11 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
     structures.forEach(item=>{const key=item.parentId??'';map.set(key,[...(map.get(key)??[]),item]);});
     return map;
   },[structures]);
-  const descendants=(rootId:string)=>{
+  const descendants=useCallback((rootId:string)=>{
     const found:string[]=[];const queue=[rootId];
     while(queue.length){const id=queue.shift();if(!id)continue;for(const child of childrenByParent.get(id)??[]){found.push(child.id);queue.push(child.id);}}
     return found;
-  };
+  },[childrenByParent]);
 
   const contractServiceIds=new Set((data?.contractServices??[]).filter(item=>item.contractId===contractId).map(item=>item.id));
   const allocations=(data?.allocations??[]).filter(item=>contractServiceIds.has(item.contractServiceId)&&item.status==='active');
@@ -80,9 +80,9 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
     setOriginId(candidateOrigins[0]?.id??'');setServiceIndex(0);setFinished(false);
   },[candidateOrigins,originId]);
 
-  const originScopeIds=useMemo(()=>originId?[originId,...descendants(originId)]:[],[originId,childrenByParent]);
+  const originScopeIds=useMemo(()=>originId?[originId,...descendants(originId)]:[],[originId,descendants]);
   const originScopeSet=useMemo(()=>new Set(originScopeIds),[originScopeIds]);
-  const measurementLines=data?.measurementLines??[];
+  const measurementLines=useMemo(()=>data?.measurementLines??[],[data?.measurementLines]);
 
   const stages:ServiceStage[]=useMemo(()=>{
     const services=(data?.contractServices??[]).filter(item=>item.contractId===contractId);
@@ -93,7 +93,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
       const measured=measurementLines.filter(line=>line.contractServiceId===service.id&&originScopeSet.has(line.structureId??'')).reduce((sum,line)=>sum+line.measuredQuantity,0);
       return {serviceId:service.id,description:service.description,unit:service.unit,unitPrice:service.unitPrice,allocated,measured,balance:Math.max(0,allocated-measured),eligibleStructureIds};
     }).filter(stage=>stage.allocated>0);
-  },[data?.contractServices,contractId,allocations,originScopeSet,measurementLines]);
+  },[data?.contractServices,contractId,allocations,originScopeSet,measurementLines,descendants]);
 
   useEffect(()=>{if(serviceIndex>=stages.length)setServiceIndex(Math.max(0,stages.length-1));},[serviceIndex,stages.length]);
   const stage=stages[serviceIndex];

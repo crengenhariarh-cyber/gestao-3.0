@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EngineeringOperationalSnapshot, EngineeringOperationsRepository, EngineeringScope } from '../application/EngineeringOperationsRepository';
 
 type WorkRow={id:string;name:string};
-type StructureRow={id:string;name:string;work_id:string};
+type StructureRow={id:string;name:string;work_id:string;parent_id:string|null;structure_type:string;code:string|null};
 type ServiceRow={id:string;name:string;default_unit:string};
 type ContractRow={id:string;contract_number:string;work_id:string;status:string};
 type ContractServiceRow={id:string;contract_id:string;description:string;unit:string;unit_price:number|string};
@@ -12,6 +12,8 @@ type EmployeeRow={id:string;employees:{full_name:string}[]};
 type ProvisionalRow={id:string;provisional_number:string;status:string;work_id:string;title:string|null;client_name:string|null};
 type ProvisionalLineRow={id:string;provisional_id:string;service_id:string|null;description:string;unit:string;quantity:number|string;unit_price:number|string};
 type AddendumRow={id:string;contract_id:string;addendum_number:string;status:string};
+type AllocationRow={id:string;contract_service_id:string;structure_id:string;allocated_quantity:number|string;status:string};
+type MeasurementLineRow={id:string;measurement_id:string;contract_service_id:string;structure_id:string|null;measured_quantity:number|string;gross_value:number|string};
 type AccountRow={account_id:string;name:string;status:string};
 type ContractRetentionRulePayload={tenant_id:string;company_id:string;contract_id:string;retention_type:'inss'|'iss'|'rt';calculation_type:'percentage';rate:number;fixed_amount:null;active:boolean};
 
@@ -25,9 +27,9 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
   constructor(private readonly client:SupabaseClient){}
 
   async getSnapshot(scope:EngineeringScope):Promise<EngineeringOperationalSnapshot>{
-    const [works,structures,services,contracts,contractServices,measurements,periods,employees,provisionals,provisionalLines,addenda,accounts]=await Promise.all([
+    const [works,structures,services,contracts,contractServices,measurements,periods,employees,provisionals,provisionalLines,addenda,accounts,allocations,measurementLines]=await Promise.all([
       this.client.from('works').select('id,name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).neq('status','archived').order('name').returns<WorkRow[]>(),
-      this.client.from('work_structures').select('id,name,work_id').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').order('sort_order').returns<StructureRow[]>(),
+      this.client.from('work_structures').select('id,name,work_id,parent_id,structure_type,code').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').order('sort_order').returns<StructureRow[]>(),
       this.client.from('engineering_services').select('id,name,default_unit').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').order('name').returns<ServiceRow[]>(),
       this.client.from('engineering_contracts').select('id,contract_number,work_id,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).order('created_at',{ascending:false}).returns<ContractRow[]>(),
       this.client.from('contract_services').select('id,contract_id,description,unit,unit_price').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').order('created_at').returns<ContractServiceRow[]>(),
@@ -38,11 +40,15 @@ export class SupabaseEngineeringOperationsRepository implements EngineeringOpera
       this.client.from('provisional_contract_lines').select('id,provisional_id,service_id,description,unit,quantity,unit_price').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).order('created_at').returns<ProvisionalLineRow[]>(),
       this.client.from('contract_addenda').select('id,contract_id,addendum_number,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).order('created_at',{ascending:false}).returns<AddendumRow[]>(),
       this.client.from('financial_account_balances').select('account_id,name,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').order('name').returns<AccountRow[]>(),
+      this.client.from('contract_service_allocations').select('id,contract_service_id,structure_id,allocated_quantity,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('status','active').returns<AllocationRow[]>(),
+      this.client.from('measurement_lines').select('id,measurement_id,contract_service_id,structure_id,measured_quantity,gross_value').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).returns<MeasurementLineRow[]>(),
     ]);
-    const error=[works.error,structures.error,services.error,contracts.error,contractServices.error,measurements.error,periods.error,employees.error,provisionals.error,provisionalLines.error,addenda.error,accounts.error].find(Boolean);if(error)throw error;
+    const error=[works.error,structures.error,services.error,contracts.error,contractServices.error,measurements.error,periods.error,employees.error,provisionals.error,provisionalLines.error,addenda.error,accounts.error,allocations.error,measurementLines.error].find(Boolean);if(error)throw error;
     return {
       works:(works.data??[]).map(row=>({id:row.id,name:row.name})),
-      structures:(structures.data??[]).map(row=>({id:row.id,name:row.name,workId:row.work_id})),
+      structures:(structures.data??[]).map(row=>({id:row.id,name:row.name,workId:row.work_id,parentId:row.parent_id,type:row.structure_type,code:row.code})),
+      allocations:(allocations.data??[]).map(row=>({id:row.id,contractServiceId:row.contract_service_id,structureId:row.structure_id,allocatedQuantity:Number(row.allocated_quantity),status:row.status})),
+      measurementLines:(measurementLines.data??[]).map(row=>({id:row.id,measurementId:row.measurement_id,contractServiceId:row.contract_service_id,structureId:row.structure_id,measuredQuantity:Number(row.measured_quantity),grossValue:Number(row.gross_value)})),
       services:(services.data??[]).map(row=>({id:row.id,name:row.name,unit:row.default_unit})),
       contracts:(contracts.data??[]).map(row=>({id:row.id,contractNumber:row.contract_number,workId:row.work_id,status:row.status})),
       contractServices:(contractServices.data??[]).map(row=>({id:row.id,contractId:row.contract_id,description:row.description,unit:row.unit,unitPrice:Number(row.unit_price)})),
