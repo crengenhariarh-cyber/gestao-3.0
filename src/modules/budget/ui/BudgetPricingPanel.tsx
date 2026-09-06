@@ -7,7 +7,8 @@ import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 
 type ContractRow={id:string;contract_number:string;client_name?:string|null};
-type SettingsRow={id:string;contract_id:string|null;target_markup_percent:number|string};
+type SettingsRow={id:string;contract_id:string|null;target_net_margin_percent:number|string};
+type CompanyRow={trade_name:string|null;legal_name:string};
 type ProjectionRow={annual_expense:number|string;required_net_revenue:number|string;retention_rate_percent:number|string;fixed_retention_amount:number|string;required_gross_revenue:number|string;realized_gross_revenue:number|string;realized_retained_amount:number|string;realized_net_revenue:number|string};
 
 const supabase=getSupabaseClient();
@@ -24,19 +25,26 @@ export function BudgetPricingPanel({tenantId,companyId,costCenterId,budgetYear,a
  const [contractId,setContractId]=useState('');
  const [contracts,setContracts]=useState<ContractRow[]>([]);
  const [projection,setProjection]=useState<ProjectionRow|null>(null);
+ const [isPersonal,setIsPersonal]=useState(false);
 
  const load=useCallback(async()=>{
   if(!tenantId||!companyId)return;
   setLoading(true);setFeedback(null);
-  let settingsQuery=supabase.from('budget_planning_settings').select('id,contract_id,target_markup_percent').eq('tenant_id',tenantId).eq('company_id',companyId).eq('budget_year',budgetYear);
+  let settingsQuery=supabase.from('budget_planning_settings').select('id,contract_id,target_net_margin_percent').eq('tenant_id',tenantId).eq('company_id',companyId).eq('budget_year',budgetYear);
   settingsQuery=costCenterId?settingsQuery.eq('cost_center_id',costCenterId):settingsQuery.is('cost_center_id',null);
-  const [settingsResult,contractsResult]=await Promise.all([
+  const [settingsResult,contractsResult,companyResult]=await Promise.all([
    settingsQuery.maybeSingle(),
    supabase.from('engineering_contracts').select('id,contract_number,client_name').eq('tenant_id',tenantId).eq('company_id',companyId).order('contract_number'),
+   supabase.from('companies').select('trade_name,legal_name').eq('tenant_id',tenantId).eq('id',companyId).maybeSingle(),
   ]);
+  const company=(companyResult.data??null) as CompanyRow|null;
+  const personalName=`${company?.trade_name??''} ${company?.legal_name??''}`.toLocaleUpperCase('pt-BR');
+  const personal=personalName.includes('PESSOAL')||personalName.includes('PAULO ROBERTO');
+  setIsPersonal(personal);
+  if(personal){setSettingsId(null);setContracts([]);setProjection(null);setLoading(false);return;}
   if(settingsResult.error||contractsResult.error){setFeedback({tone:'danger',message:settingsResult.error?.message??contractsResult.error?.message??'Não foi possível carregar a formação de preço.'});setLoading(false);return;}
   const settings=(settingsResult.data??null) as SettingsRow|null;
-  setSettingsId(settings?.id??null);setMarkupPercent(settings?String(numberValue(settings.target_markup_percent)):'20');setContractId(settings?.contract_id??'');
+  setSettingsId(settings?.id??null);setMarkupPercent(settings?String(numberValue(settings.target_net_margin_percent)):'20');setContractId(settings?.contract_id??'');
   setContracts((contractsResult.data??[]) as ContractRow[]);
   if(settings){
    let projectionQuery=supabase.from('budget_required_revenue_projection').select('annual_expense,required_net_revenue,retention_rate_percent,fixed_retention_amount,required_gross_revenue,realized_gross_revenue,realized_retained_amount,realized_net_revenue').eq('tenant_id',tenantId).eq('company_id',companyId).eq('budget_year',budgetYear);
@@ -58,12 +66,14 @@ export function BudgetPricingPanel({tenantId,companyId,costCenterId,budgetYear,a
  const contractOptions=useMemo(()=>[{value:'',label:'Sem contrato / sem retenções'},...contracts.map(item=>({value:item.id,label:item.client_name?`${item.contract_number} · ${item.client_name}`:item.contract_number}))],[contracts]);
 
  async function save(){
-  if(!tenantId||!companyId)return;setSaving(true);setFeedback(null);
-  const payload={tenant_id:tenantId,company_id:companyId,cost_center_id:costCenterId||null,budget_year:budgetYear,contract_id:contractId||null,target_markup_percent:targetNetMargin,updated_at:new Date().toISOString()};
+  if(!tenantId||!companyId||isPersonal)return;setSaving(true);setFeedback(null);
+  const payload={tenant_id:tenantId,company_id:companyId,cost_center_id:costCenterId||null,budget_year:budgetYear,contract_id:contractId||null,target_net_margin_percent:targetNetMargin,updated_at:new Date().toISOString()};
   const result=settingsId?await supabase.from('budget_planning_settings').update(payload).eq('id',settingsId).eq('tenant_id',tenantId).eq('company_id',companyId):await supabase.from('budget_planning_settings').insert(payload).select('id').single();
   if(result.error)setFeedback({tone:'danger',message:result.error.message});else{setFeedback({tone:'success',message:'Margem líquida desejada e retenções vinculadas ao orçamento foram salvas.'});await load();}
   setSaving(false);
  }
+
+ if(isPersonal)return null;
 
  return <Card title="Formação de preço" description="O preço é calculado para que, depois de pagar todas as despesas previstas, reste a margem líquida desejada. Retenções contratuais são compensadas no faturamento bruto.">
   <div style={{display:'grid',gap:12}}>
