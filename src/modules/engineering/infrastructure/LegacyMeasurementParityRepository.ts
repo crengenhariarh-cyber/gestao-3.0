@@ -49,16 +49,14 @@ export interface MeasurementParityModel {
   lines:MeasurementParityLine[];
 }
 
-type LegacyContractRow={id:string;obra:string;cliente:string;numero_contrato:string;tipo_empreendimento:string|null;casas:string[]|null};
-type LegacyOriginRow={id:string;nome:string;tipo:string|null;quantidade_pavimentos:number|string|null;possui_terreo:boolean|null;formas_medicao:string[]|null};
-type LegacyServiceRow={id:string;torre_id:string;codigo:string|null;nome:string;descricao:string|null;observacao:string|null;unidade:string;quantidade_contratada:number|string;valor_unitario:number|string;escopo_ativo:boolean|null;pavimento_inicial:number|string|null;pavimentos_escopo:string[]|null;unidades_escopo:string[]|null};
 type ContractRow={id:string;work_id:string;contract_number:string};
-type WorkRow={id:string;name:string};
 type ContractServiceRow={id:string;description:string;unit:string;contracted_quantity:number|string;unit_price:number|string;notes:string|null};
 type AddendumRow={id:string;addendum_number:string;status:string};
 type AddendumLineRow={id:string;addendum_id:string;description:string;unit:string;quantity_delta:number|string;unit_price:number|string;notes:string|null};
 type MeasurementRow={id:string;competence:string;status:string};
 type MeasurementLineRow={id:string;measurement_id:string;contract_service_id:string|null;contract_addendum_line_id:string|null;measured_quantity:number|string;notes:string|null};
+type OriginProfileRow={id:string;origin_key:string;origin_name:string;origin_type:MeasurementOriginType;floor_count:number|string;has_ground:boolean;modes:string[]|null;enterprise_type:string;houses:string[]|null;legacy_origin_id:string|null};
+type ScopeRow={origin_key:string;service_code:string;scope_active:boolean;start_floor:number|string|null;scope_floors:string[]|null;scope_units:string[]|null};
 
 const safeText=(value:unknown)=>typeof value==='string'?value:typeof value==='number'||typeof value==='boolean'?String(value):'';
 const normalize=(value:unknown)=>safeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
@@ -70,36 +68,56 @@ const extractCode=(value:unknown)=>{
 };
 const referenceFromNotes=(notes:string|null)=>notes?.match(/\[G2PARITY\]\s+reference=([^|]+)/i)?.[1]?.trim()??null;
 
-function originType(value:string|null):MeasurementOriginType{
-  const normalized=normalize(value);
-  if(normalized==='torre'||normalized==='bloco')return 'tower';
-  if(normalized==='aditivo')return 'addendum';
-  if(normalized==='provisorio')return 'provisional';
-  return 'other';
+function originFromNotes(notes:string|null):string{
+  const parts=(notes??'').split('|').map(part=>part.trim()).filter(Boolean);
+  if(parts.length<2)return '';
+  const second=normalize(parts[1]);
+  if(second==='provisorio'||second==='aditivo historico')return parts[2]??'';
+  return parts[1]??'';
 }
 
-function findContractService(rows:readonly ContractServiceRow[],originName:string,service:LegacyServiceRow){
-  const origin=normalize(originName);
-  const code=normalize(service.codigo);
-  const candidates=rows.filter(row=>normalize(row.notes).includes(origin));
-  if(code){
-    const exact=candidates.find(row=>normalize(extractCode(row.description))===code);
-    if(exact)return exact;
-  }
-  const serviceName=normalize(service.nome||service.descricao);
-  return candidates.find(row=>normalize(row.description).includes(serviceName)||serviceName.includes(normalize(row.description)));
+function scopeFor(rows:readonly ScopeRow[],originName:string,code:string){
+  return rows.find(row=>normalize(row.origin_key)===normalize(originName)&&normalize(row.service_code)===normalize(code));
 }
 
-function findAddendumLine(rows:readonly AddendumLineRow[],originName:string,service:LegacyServiceRow){
-  const origin=normalize(originName);
-  const code=normalize(service.codigo);
-  const candidates=rows.filter(row=>normalize(row.notes).includes(origin));
-  if(code){
-    const exact=candidates.find(row=>normalize(extractCode(row.description))===code);
-    if(exact)return exact;
-  }
-  const serviceName=normalize(service.nome||service.descricao);
-  return candidates.find(row=>normalize(row.description).includes(serviceName)||serviceName.includes(normalize(row.description)));
+function stageFromContract(row:ContractServiceRow,scopeRows:readonly ScopeRow[]):MeasurementParityStage{
+  const originName=originFromNotes(row.notes);
+  const code=extractCode(row.description);
+  const scope=scopeFor(scopeRows,originName,code);
+  return {
+    legacyServiceId:row.id,
+    code,
+    name:row.description,
+    description:row.description.replace(/^([A-Za-z0-9._-]+)\s*(?:—|-)\s*/,'').trim()||row.description,
+    unit:row.unit,
+    contractedQuantity:number(row.contracted_quantity),
+    unitPrice:number(row.unit_price),
+    scopeActive:Boolean(scope?.scope_active),
+    startFloor:scope?.start_floor===null||scope?.start_floor===undefined?null:number(scope.start_floor),
+    scopeFloors:Array.isArray(scope?.scope_floors)?scope.scope_floors.map(value=>safeText(value)):[],
+    scopeUnits:Array.isArray(scope?.scope_units)?scope.scope_units.map(value=>safeText(value)):[],
+    targetKind:'contract',
+    targetId:row.id,
+  };
+}
+
+function stageFromAddendum(row:AddendumLineRow):MeasurementParityStage{
+  const code=extractCode(row.description);
+  return {
+    legacyServiceId:row.id,
+    code,
+    name:row.description,
+    description:row.description.replace(/^([A-Za-z0-9._-]+)\s*(?:—|-)\s*/,'').trim()||row.description,
+    unit:row.unit,
+    contractedQuantity:Math.abs(number(row.quantity_delta)),
+    unitPrice:number(row.unit_price),
+    scopeActive:false,
+    startFloor:null,
+    scopeFloors:[],
+    scopeUnits:[],
+    targetKind:'addendum',
+    targetId:row.id,
+  };
 }
 
 export async function loadMeasurementParity(scope:MeasurementParityScope,contractId:string):Promise<MeasurementParityModel>{
@@ -107,34 +125,27 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
   const contractResponse=await client.from('engineering_contracts').select('id,work_id,contract_number').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',contractId).single();
   if(contractResponse.error)throw contractResponse.error;
   const contract=contractResponse.data as ContractRow;
-  const workResponse=await client.from('works').select('id,name').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',contract.work_id).single();
-  if(workResponse.error)throw workResponse.error;
-  const work=workResponse.data as WorkRow;
 
-  const legacyContractsResponse=await client.from('medicao_contratos').select('id,obra,cliente,numero_contrato,tipo_empreendimento,casas').ilike('obra',work.name);
-  if(legacyContractsResponse.error)throw legacyContractsResponse.error;
-  const legacyContracts=(legacyContractsResponse.data??[]) as LegacyContractRow[];
-  const legacyContract=legacyContracts.find(row=>normalize(row.obra)===normalize(work.name))??legacyContracts[0];
-  if(!legacyContract)throw new Error(`Não foi encontrada a estrutura de medição do Gestão 2.0 para ${work.name}.`);
-
-  const [originsResponse,legacyServicesResponse,contractServicesResponse,addendaResponse,measurementsResponse]=await Promise.all([
-    client.from('medicao_torres').select('id,nome,tipo,quantidade_pavimentos,possui_terreo,formas_medicao').eq('contrato_id',legacyContract.id).order('nome'),
-    client.from('medicao_servicos').select('id,torre_id,codigo,nome,descricao,observacao,unidade,quantidade_contratada,valor_unitario,escopo_ativo,pavimento_inicial,pavimentos_escopo,unidades_escopo').eq('contrato_id',legacyContract.id),
-    client.from('contract_services').select('id,description,unit,contracted_quantity,unit_price,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).eq('status','active'),
+  const [profilesResponse,scopesResponse,contractServicesResponse,addendaResponse,measurementsResponse]=await Promise.all([
+    client.from('engineering_measurement_origin_profiles').select('id,origin_key,origin_name,origin_type,floor_count,has_ground,modes,enterprise_type,houses,legacy_origin_id').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('work_id',contract.work_id).eq('status','active').order('origin_name'),
+    client.from('engineering_measurement_service_scopes').select('origin_key,service_code,scope_active,start_floor,scope_floors,scope_units').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('work_id',contract.work_id),
+    client.from('contract_services').select('id,description,unit,contracted_quantity,unit_price,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).eq('status','active').order('created_at'),
     client.from('contract_addenda').select('id,addendum_number,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId),
     client.from('measurements').select('id,competence,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).order('competence',{ascending:false}),
   ]);
-  const firstError=[originsResponse.error,legacyServicesResponse.error,contractServicesResponse.error,addendaResponse.error,measurementsResponse.error].find(Boolean);
+  const firstError=[profilesResponse.error,scopesResponse.error,contractServicesResponse.error,addendaResponse.error,measurementsResponse.error].find(Boolean);
   if(firstError)throw firstError;
-  const legacyOrigins=(originsResponse.data??[]) as LegacyOriginRow[];
-  const legacyServices=(legacyServicesResponse.data??[]) as LegacyServiceRow[];
+
+  const profiles=(profilesResponse.data??[]) as OriginProfileRow[];
+  if(!profiles.length)throw new Error('A estrutura de medição compatível com o Gestão 2.0 ainda não foi preparada para esta obra.');
+  const scopeRows=(scopesResponse.data??[]) as ScopeRow[];
   const contractServices=(contractServicesResponse.data??[]) as ContractServiceRow[];
   const addenda=(addendaResponse.data??[]) as AddendumRow[];
   const measurements=(measurementsResponse.data??[]) as MeasurementRow[];
 
-  const addendumIds=addenda.map(item=>item.id);
+  const addendumIds=addenda.filter(item=>item.status==='effective').map(item=>item.id);
   const addendumLinesResponse=addendumIds.length
-    ? await client.from('contract_addendum_lines').select('id,addendum_id,description,unit,quantity_delta,unit_price,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).in('addendum_id',addendumIds)
+    ? await client.from('contract_addendum_lines').select('id,addendum_id,description,unit,quantity_delta,unit_price,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).in('addendum_id',addendumIds).order('created_at')
     : {data:[],error:null};
   if(addendumLinesResponse.error)throw addendumLinesResponse.error;
   const addendumLines=(addendumLinesResponse.data??[]) as AddendumLineRow[];
@@ -147,38 +158,21 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
   const measurementRows=(linesResponse.data??[]) as MeasurementLineRow[];
   const measurementStatusById=new Map(measurements.map(item=>[item.id,item.status]));
 
-  const origins:MeasurementParityOrigin[]=legacyOrigins.map(origin=>{
-    const stages:MeasurementParityStage[]=[];
-    for(const service of legacyServices.filter(item=>item.torre_id===origin.id)){
-      const contractTarget=findContractService(contractServices,origin.nome,service);
-      const addendumTarget=contractTarget?undefined:findAddendumLine(addendumLines,origin.nome,service);
-      if(!contractTarget&&!addendumTarget)continue;
-      const targetKind:MeasurementTargetKind=contractTarget?'contract':'addendum';
-      const target=contractTarget??addendumTarget!;
-      stages.push({
-        legacyServiceId:service.id,
-        code:service.codigo??'',
-        name:service.nome,
-        description:service.descricao||service.nome,
-        unit:service.unidade||target.unit,
-        contractedQuantity:number(service.quantidade_contratada),
-        unitPrice:number(target.unit_price||service.valor_unitario),
-        scopeActive:Boolean(service.escopo_ativo),
-        startFloor:service.pavimento_inicial===null||service.pavimento_inicial===''?null:number(service.pavimento_inicial),
-        scopeFloors:Array.isArray(service.pavimentos_escopo)?service.pavimentos_escopo.map(value=>safeText(value)):[],
-        scopeUnits:Array.isArray(service.unidades_escopo)?service.unidades_escopo.map(value=>safeText(value)):[],
-        targetKind,
-        targetId:target.id,
-      });
-    }
+  const origins:MeasurementParityOrigin[]=profiles.map(profile=>{
+    const contractStages=contractServices
+      .filter(row=>normalize(originFromNotes(row.notes))===normalize(profile.origin_name))
+      .map(row=>stageFromContract(row,scopeRows));
+    const addendumStages=addendumLines
+      .filter(row=>normalize(originFromNotes(row.notes))===normalize(profile.origin_name))
+      .map(stageFromAddendum);
     return {
-      id:origin.id,
-      name:origin.nome,
-      type:originType(origin.tipo),
-      floorCount:number(origin.quantidade_pavimentos),
-      hasGround:Boolean(origin.possui_terreo),
-      modes:Array.isArray(origin.formas_medicao)?origin.formas_medicao.map(value=>safeText(value)):[],
-      services:stages,
+      id:profile.id,
+      name:profile.origin_name,
+      type:profile.origin_type,
+      floorCount:number(profile.floor_count),
+      hasGround:Boolean(profile.has_ground),
+      modes:Array.isArray(profile.modes)?profile.modes.map(value=>safeText(value)):[],
+      services:[...contractStages,...addendumStages],
     };
   }).filter(origin=>origin.services.length>0);
 
@@ -198,11 +192,12 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
     }];
   });
 
+  const profile=profiles[0];
   return {
     contractId,
-    legacyContractId:legacyContract.id,
-    enterpriseType:legacyContract.tipo_empreendimento??'apartamentos',
-    houses:Array.isArray(legacyContract.casas)?legacyContract.casas.map(value=>safeText(value)):[],
+    legacyContractId:profile?.legacy_origin_id??contractId,
+    enterpriseType:profile?.enterprise_type??'apartamentos',
+    houses:Array.isArray(profile?.houses)?profile.houses.map(value=>safeText(value)):[],
     measurements:measurements.map(item=>({id:item.id,competence:item.competence,status:item.status})),
     origins,
     lines,
