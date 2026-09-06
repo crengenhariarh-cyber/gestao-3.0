@@ -2,3 +2,38 @@
 /* Annual forecast modal: same compact, full-screen mobile form language used by Gestão 3.0. */
 .ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__content{padding:18px 20px}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form{align-content:start;gap:14px}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form>.ui-field{margin:0}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form .ui-input{min-height:58px}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__footer{margin-top:0;padding-top:12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
 @media(max-width:680px){.ui-dialog-backdrop:has(.budget-workspace__form){padding:0}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog{width:100%;height:100dvh;max-width:none;max-height:100dvh;border-radius:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__header{padding:12px 14px;min-height:auto}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__heading h2{font-size:1.18rem;line-height:1.2}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__heading p{font-size:.84rem;line-height:1.3;margin-top:3px}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__content{padding:14px 20px 18px;overflow-y:auto;overscroll-behavior:contain}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form{grid-template-columns:1fr;gap:11px}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form>.ui-field{gap:6px}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form .ui-field__label{font-size:.82rem;font-weight:700}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form .ui-input{min-height:54px;padding-top:10px;padding-bottom:10px}.ui-dialog-backdrop:has(.budget-workspace__form) .budget-workspace__form>.budget-workspace__item-values{margin-top:0}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__footer{position:relative;padding:10px 20px max(10px,env(safe-area-inset-bottom));background:var(--color-surface,#fff);border-top:1px solid var(--color-border,#dfe3eb)}.ui-dialog-backdrop:has(.budget-workspace__form) .ui-dialog__footer .ui-button{width:100%;min-height:54px}}
+
+
+/* Budget mobile correction: filters never compete for width. */
+@media(max-width:680px){
+  .budget-workspace__filters{grid-template-columns:1fr!important;gap:10px!important}
+  .budget-workspace__filters>.ui-field,.budget-workspace__filters>.ui-field:last-child{grid-column:1/-1!important;width:100%!important;max-width:none!important;min-width:0!important;min-height:76px!important}
+  .budget-workspace__filters>.ui-field>.ui-input{width:100%!important;min-width:0!important;font-size:.95rem!important;overflow:visible!important;text-overflow:clip!important}
+}
+
+/* Annual forecast uses the same compact full-screen form language as the other Gestão forms. */
+.ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog{width:min(100%,760px)}
+.ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__content{padding:16px 18px 20px;background:color-mix(in srgb,var(--color-primary,#2563eb) 1.2%,var(--color-surface,#fff))}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start;max-width:720px;width:100%;margin:0 auto}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form>.ui-field{min-width:0;margin:0;gap:6px}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field__label-row{min-height:22px}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field__label{font-size:.84rem;font-weight:750}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field__control{min-height:52px}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-input{height:52px!important;min-height:52px!important;padding-top:8px!important;padding-bottom:8px!important;font-size:1rem!important;border-radius:12px!important}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field__control-icon{width:46px}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field--adorned .ui-input{padding-left:54px!important}
+.ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form>p.ui-muted{margin:0;padding:2px 2px 0;font-size:.9rem}
+.ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__footer{padding-top:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+@media(max-width:680px){
+  .ui-dialog-backdrop[data-variant="budget-entry"]{padding:0}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog{width:100%;height:100dvh;max-width:none;max-height:100dvh;border-radius:0;grid-template-rows:auto minmax(0,1fr) auto}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__header{padding:11px 14px}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__heading h2{font-size:1.16rem;line-height:1.18}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__heading p{font-size:.82rem;line-height:1.28;margin-top:3px}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__content{padding:12px 16px 16px;overflow-y:auto;overscroll-behavior:contain}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form{grid-template-columns:1fr;gap:10px;max-width:none}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-field__control{min-height:50px}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form .ui-input{height:50px!important;min-height:50px!important}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .budget-workspace__form>.budget-workspace__item-values{grid-template-columns:1fr!important;margin:0;padding:8px}
+  .ui-dialog-backdrop[data-variant="budget-entry"] .ui-dialog__footer .ui-button{width:100%;min-height:52px}
+}
