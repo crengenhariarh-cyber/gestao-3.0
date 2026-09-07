@@ -20,7 +20,15 @@ jobs:
         with:
           node-version: 22
       - name: Apply patch
-        run: python scripts/patch-engineering-tower-config.py
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch-engineering-tower-config.py')
+          s=p.read_text().replace("<div style={{gridColumn:'1 / -1'}}>", '<div className="engineering-form-grid__full">')
+          p.write_text(s)
+          PY
+          python scripts/patch-engineering-tower-config.py
       - name: Install dependencies
         run: npm install
       - name: Verify
