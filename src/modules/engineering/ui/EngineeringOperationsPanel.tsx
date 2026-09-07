@@ -63,6 +63,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   ];
   const measurementOriginOptions:Option[]=[{value:'',label:'Selecione…'},...measurementOrigins.map(item=>({value:item.key,label:item.label}))];
   const selectedMeasurementOrigin=measurementOrigins.find(item=>item.key===(form.originKey??''));
+  const suggestedMeasurementNumber=(()=>{if(!focusedContractId)return '';const used=new Set((data?.measurements??[]).filter(item=>item.contractId===focusedContractId).map(item=>Number(item.measurementNumber)).filter(value=>Number.isInteger(value)&&value>0));let next=1;while(used.has(next))next+=1;return String(next).padStart(3,'0');})();
 
   const defaults:Record<Exclude<Kind,null>,Record<string,string>>={
     work:{name:'',code:'',clientName:'',city:'',state:'',notes:''},structure:{workId:'',parentId:'',type:'tower',code:'',name:''},
@@ -79,6 +80,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     const base={...defaults[next]};
     if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;
     if(focusedContract?.workId&&['structure','allocation','provisional','productionPeriod'].includes(next))base.workId=focusedContract.workId;
+    if(next==='measurement'&&suggestedMeasurementNumber)base.measurementNumber=suggestedMeasurementNumber;
     setForm(base);setKind(next);
   }
   function close(){setKind(null);operations.clearFeedback();onDialogClosed?.();}
