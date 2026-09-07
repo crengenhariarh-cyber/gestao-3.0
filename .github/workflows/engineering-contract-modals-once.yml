@@ -3,6 +3,7 @@ name: Engineering contract modals once
 # one-time migration of contract sheets to nested dialogs
 # keep parent sheet modal open after saving quantity
 # make contract addenda prominent and clickable
+# redeploy clickable addenda modal
 on:
   push:
     branches:
