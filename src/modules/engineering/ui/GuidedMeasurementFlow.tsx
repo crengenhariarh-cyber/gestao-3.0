@@ -102,7 +102,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
   useEffect(()=>{if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId]);
   useEffect(()=>{if(initialOriginId&&model?.origins.some(item=>item.id===initialOriginId)){setOriginId(initialOriginId);return;}if(initialOriginName&&model){const match=model.origins.find(item=>normalize(item.name)===normalize(initialOriginName.replace(/^Aditivo\s*·\s*/i,'')));if(match)setOriginId(match.id);}},[initialOriginId,initialOriginName,model]);
-  useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(true);},[measurementId,originId,draftMode,model?.origins]);
+  useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(false);},[measurementId,originId,draftMode,model?.origins]);
 
   const origin=useMemo(()=>model?.origins.find(item=>item.id===originId)??null,[model?.origins,originId]);
   const stages=useMemo(()=>origin?.services??[],[origin]);
@@ -136,7 +136,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
   function resetStage(index:number){setServiceIndex(index);setSelectedUnits([]);setManualQuantity('');setSearch('');setError(null);}
   function changeOrigin(value:string){
     setOriginId(value);resetStage(0);setFinished(false);setUnitPickerOpen(false);setServiceSearch('');
-    setServicePickerOpen(Boolean(value&&(measurementId||draftMode)));
+    setServicePickerOpen(false);
   }
   function chooseService(index:number){
     resetStage(index);setServicePickerOpen(false);setFinished(false);
@@ -200,7 +200,29 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
       {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a origem</strong><span>Escolha Torre 4, Torre 6, provisório ou aditivo. Os serviços daquela origem abrirão em seguida.</span></div>}
       {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
 
-      {(measurementId||draftMode)&&origin&&stage&&!finished&&<>
+      {(measurementId||draftMode)&&origin&&stages.length>0&&<section className="guided-measurement-fullsheet">
+        <header className="guided-measurement-fullsheet__header">
+          <div><small>Origem</small><h3>{originLabel(origin)}</h3></div>
+          <div className="guided-measurement-fullsheet__meta">
+            <span><b>Medição</b> {draftHeader?.measurementNumber||draftMeasurements.find(item=>item.id===measurementId)?.measurementNumber||'—'}</span>
+            <span><b>Competência</b> {draftHeader?.competence||draftMeasurements.find(item=>item.id===measurementId)?.competence?.slice(0,7)||'—'}</span>
+            <span><b>Vencimento</b> {draftHeader?.dueDate||'—'}</span>
+            <span><b>Pagamento</b> {draftHeader?.paymentMethod||'PIX'}</span>
+          </div>
+        </header>
+        <div className="guided-measurement-fullsheet__search"><Input label="Pesquisar serviço" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder="Código ou descrição"/></div>
+        <div className="guided-measurement-fullsheet__table-wrap"><table className="guided-measurement-fullsheet__table"><thead><tr><th>Origem</th><th>Serviço</th><th>Referência</th><th>Contratado</th><th>Medido</th><th>Saldo</th><th>Tipo</th><th>Nesta medição</th><th>Total</th></tr></thead><tbody>{filteredServiceIndexes.map(({item,index})=>{
+          const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId);
+          const previous=lines.filter(line=>line.measurementId!==measurementId&&['draft','closed','approved'].includes(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0);
+          const current=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);
+          const remaining=Math.max(0,item.contractedQuantity-previous);
+          const refs=stageReferences(model,origin,item);
+          return <tr key={`${item.targetKind}:${item.targetId}`} className={index===serviceIndex?'is-current':''}><td>{originLabel(origin)}</td><td><small>{item.code||`#${index+1}`}</small><strong>{item.description}</strong>{item.scopeActive&&<em>Escopo configurado</em>}</td><td>{refs.length?<Button variant="secondary" size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>:<Button variant="secondary" size="sm" onClick={()=>chooseService(index)}>Lançar quantidade</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td>Normal</td><td>{qty(current)}</td><td>{currency.format(current*item.unitPrice)}</td></tr>;
+        })}</tbody></table></div>
+        <footer className="guided-measurement-fullsheet__footer"><span>{stages.length} serviço(s) · {originLabel(origin)}</span><Button variant="secondary" onClick={onClose}>Voltar aos dados</Button></footer>
+      </section>}
+
+      {(measurementId||draftMode)&&origin&&stage&&!finished&&serviceIndex>=0&&!unitPickerOpen&&allStageReferences.length===0&&<>
         <div className="guided-measurement__progress"><span>Serviço {serviceIndex+1} de {stages.length}</span><progress max={stages.length} value={serviceIndex+1}/></div>
         <section className="guided-measurement__service">
           <header><div><small>{originLabel(origin)}</small><h3>{stage.code?`${stage.code} · `:''}{stage.description}</h3></div><span>{stage.unit}</span></header>
