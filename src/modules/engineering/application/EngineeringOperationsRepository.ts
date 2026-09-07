@@ -3,7 +3,7 @@ export interface EngineeringScope { tenantId: string; companyId: string; }
 export interface EngineeringReferenceItem { id: string; name: string; }
 export interface EngineeringContractOption { id: string; contractNumber: string; workId: string; status: string; }
 export interface EngineeringServiceOption { id: string; name: string; unit: string; }
-export interface EngineeringContractServiceOption { id: string; contractId: string; description: string; unit: string; unitPrice: number; }
+export interface EngineeringContractServiceOption { id: string; contractId: string; description: string; unit: string; quantity: number; unitPrice: number; }
 export interface EngineeringMeasurementOption { id: string; contractId: string; competence: string; status: string; }
 export interface EngineeringProductionPeriodOption { id: string; workId: string; competence: string; status: string; }
 export interface EngineeringEmployeeOption { id: string; name: string; }
@@ -13,8 +13,8 @@ export interface EngineeringAddendumOption { id: string; contractId: string; num
 
 export interface EngineeringOperationalSnapshot {
   works: readonly EngineeringReferenceItem[];
-  structures: readonly (EngineeringReferenceItem & { workId:string; parentId:string|null; type:string; code:string|null })[];
-  allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string; notes?:string|null }[];
+  structures: readonly (EngineeringReferenceItem & { workId:string; parentId:string|null; type:string; code:string|null; metadata:Record<string,unknown>|null })[];
+  allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string; notes:string|null; scopeConfig:{active?:boolean;startFloor?:number|null;floors?:string[];units?:string[];scopeQuantity?:number;outsideQuantity?:number}|null }[];
   measurementLines: readonly { id:string; measurementId:string; contractServiceId:string; structureId:string|null; measuredQuantity:number; grossValue:number }[];
   services: readonly EngineeringServiceOption[];
   contracts: readonly EngineeringContractOption[];
@@ -36,7 +36,7 @@ export interface EngineeringOperationsRepository {
   updateContractStatus(scope: EngineeringScope, contractId: string, status: 'draft' | 'active' | 'suspended' | 'completed' | 'cancelled'): Promise<void>;
   createService(scope: EngineeringScope, input: { name: string; unit: string; code?: string | null; category?: string | null; notes?: string | null }): Promise<void>;
   addContractService(scope: EngineeringScope, input: { contractId: string; serviceId?: string | null; description: string; unit: string; quantity: number; unitPrice: number; notes?: string | null }): Promise<void>;
-  allocateContractService(scope: EngineeringScope, input: { workId: string; contractServiceId: string; structureId: string; quantity: number; notes?: string | null }): Promise<void>;
+  allocateContractService(scope: EngineeringScope, input: { workId: string; contractServiceId: string; structureId: string; quantity: number; notes?: string | null; scopeConfig?: {active?:boolean;startFloor?:number|null;floors?:string[];units?:string[];scopeQuantity?:number;outsideQuantity?:number} | null }): Promise<void>;
   createProvisional(scope: EngineeringScope, input: { workId: string; number: string; title?: string | null; clientName?: string | null; notes?: string | null }): Promise<void>;
   updateProvisional(scope: EngineeringScope, input:{ provisionalId:string; title?:string|null; clientName?:string|null; status:'draft'|'negotiation'|'approved'|'cancelled'; notes?:string|null }):Promise<void>;
   addProvisionalLine(scope: EngineeringScope, input: { provisionalId: string; serviceId?: string | null; description: string; unit: string; quantity: number; unitPrice: number; notes?: string | null }): Promise<void>;
