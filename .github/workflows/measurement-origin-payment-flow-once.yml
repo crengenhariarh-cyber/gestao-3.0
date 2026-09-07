@@ -1,5 +1,5 @@
 name: Measurement origin payment flow once
-# rerun after current-form matcher fix
+# publish current main after bot implementation commit
 on:
   push:
     branches: [main]
