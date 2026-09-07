@@ -174,6 +174,9 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     if(model&&origin&&selected&&stageReferences(model,origin,selected).length>0)setUnitPickerOpen(true);
     else setUnitPickerOpen(false);
   }
+  function chooseOrigin(nextOriginId:string){
+    setOriginId(nextOriginId);setServiceIndex(0);setSelectedUnits([]);setManualQuantity('');setSearch('');setServiceSearch('');setTypeFilter('');setStatusFilter('');setError(null);setUnitPickerOpen(false);
+  }
   function toggleReference(reference:string){setSelectedUnits(current=>current.includes(reference)?current.filter(item=>item!==reference):(current.length<maxSelectable?[...current,reference]:current));}
   function selectAvailable(){setSelectedUnits(availableReferences.slice(0,maxSelectable));}
 
@@ -213,16 +216,20 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   }
 
   function closeFlow(){onChanged();onClose();}
+  function backFlow(){
+    if(unitPickerOpen){setUnitPickerOpen(false);return;}
+    if(originId){chooseOrigin('');return;}
+    closeFlow();
+  }
 
   if(loading&&!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={closeFlow} onBack={closeFlow}><LoadingState label="Carregando medição…"/></Dialog>;
   if(!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={closeFlow} onBack={closeFlow}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
 
-
-  return <Dialog open variant="measurement-fullscreen" title={origin?`Medição - ${originLabel(origin)}`:'Medição'} description={origin?'Elabore a medição dos serviços desta origem.':'Selecione a origem da medição.'} onClose={closeFlow} onBack={closeFlow}>
+  return <Dialog open variant="measurement-fullscreen" title={origin?`Medição - ${originLabel(origin)}`:'Medição'} description={origin?'Elabore a medição dos serviços desta origem.':'Selecione a origem da medição.'} onClose={closeFlow} onBack={backFlow}>
     <div className="guided-measurement guided-measurement--parity approved-measurement-sheet">
       {error&&<Feedback tone="danger" title="Não foi possível continuar" message={error}/>} 
       {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” antes de lançar os serviços.</span></div>}
-      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a origem</strong><span>Escolha a torre ou aditivo na etapa anterior.</span></div>}
+      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a torre ou aditivo</strong><span>Escolha abaixo a origem que deseja medir.</span><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'12px',width:'100%',maxWidth:'900px',marginTop:'12px'}}>{model.origins.map(item=><Button key={item.id} variant="secondary" onClick={()=>chooseOrigin(item.id)}>{originLabel(item)}</Button>)}</div></div>}
       {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
       {(measurementId||draftMode)&&origin&&stages.length>0&&<>
         <section className="approved-measurement-sheet__header-fields">
@@ -255,7 +262,6 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
             const currentInput=index===serviceIndex&&!refs.length?manualQuantity:(current>0?String(current).replace('.',','):'');
             return <tr key={`${item.targetKind}:${item.targetId}`}><td>{rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td>{currency.format(item.unitPrice)}</td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(current*item.unitPrice)}</td></tr>;
           })}</tbody></table></div>
-          
         </section>
         <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={closeFlow}>✓ Finalizar medição</Button></div></footer>
       </>}
