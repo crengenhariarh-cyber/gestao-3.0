@@ -42,10 +42,10 @@ jobs:
 
       - name: Verify
         run: |
-          npm ci
+          npm install
           npm run typecheck
           npm run lint
-          npm test -- --run
+          npm test
           npm run build
 
       - name: Commit
