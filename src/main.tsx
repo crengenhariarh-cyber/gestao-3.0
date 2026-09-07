@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import './shared/ui/styles.css';
 import './shared/ui/dialog-variants.css';
+import './shared/ui/measurement-origin-refinement.css';
 
 const root = document.getElementById('root');
 
