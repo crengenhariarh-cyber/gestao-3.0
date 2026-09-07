@@ -104,4 +104,13 @@ render=r'''  return <Dialog open variant="measurement-fullscreen" title={origin?
 
 '''
 s=prefix+render+suffix
+s=s.replace("  const [servicePickerOpen,setServicePickerOpen]=useState(false);","  const [,setServicePickerOpen]=useState(false);")
+s=s.replace("  const [finished,setFinished]=useState(false);","  const [,setFinished]=useState(false);")
+change_start=s.find("  function changeOrigin(value:string){")
+if change_start>=0:
+    change_end=s.find("  function chooseService",change_start)
+    if change_end<0:raise SystemExit('changeOrigin end not found')
+    s=s[:change_start]+s[change_end:]
+s=s.replace("  const measurementOptions=[{value:'',label:'Selecione…'},...draftMeasurements.map(item=>({value:item.id,label:`${item.measurementNumber?`Medição ${item.measurementNumber} · `:''}${item.competence.slice(0,7)} · rascunho`}))];\n","")
+s=s.replace("  const originOptions=[{value:'',label:'Selecione…'},...model.origins.map(item=>({value:item.id,label:originLabel(item)}))];\n","")
 p.write_text(s)
