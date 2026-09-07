@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: publish audited measurement origin service-list flow (2026-09-07)
+# deploy trigger: measurement navigation repair (2026-09-07)
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   VITE_SUPABASE_URL: https://ogmtzxotpukddzowhqwl.supabase.co
@@ -26,6 +26,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Apply measurement navigation repair
+        run: python3 scripts/fix-measurement-flow-navigation.py
+
+      - name: Persist measurement navigation repair
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx; then
+            echo "Navigation source already repaired."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx
+            git commit -m "fix(engineering): keep measurement flow open during internal saves"
+            git push
+          fi
 
       - name: Install dependencies
         run: npm install
@@ -60,6 +76,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Apply measurement navigation repair
+        run: python3 scripts/fix-measurement-flow-navigation.py
 
       - name: Install dependencies
         run: npm install
