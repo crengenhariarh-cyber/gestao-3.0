@@ -3,12 +3,10 @@ from pathlib import Path
 p=Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
 s=p.read_text()
 
-# Add approved stylesheet once.
 needle="import './guided-measurement-flow.css';"
 if "approved-measurement-sheet.css" not in s:
     s=s.replace(needle, needle+"\nimport './approved-measurement-sheet.css';")
 
-# Add filter/pagination state.
 old="""  const [serviceSearch,setServiceSearch]=useState('');
   const [manualQuantity,setManualQuantity]=useState('');"""
 new="""  const [serviceSearch,setServiceSearch]=useState('');
@@ -17,10 +15,8 @@ new="""  const [serviceSearch,setServiceSearch]=useState('');
   const [page,setPage]=useState(1);
   const [showAll,setShowAll]=useState(false);
   const [manualQuantity,setManualQuantity]=useState('');"""
-if old in s:
-    s=s.replace(old,new)
-elif new not in s:
-    raise SystemExit('state insertion point not found')
+if old in s:s=s.replace(old,new)
+elif new not in s:raise SystemExit('state insertion point not found')
 
 old="""  const effectiveQuantity=referenceMode?selectedUnits.length:Number(manualQuantity.replace(',','.'))||0;
   const filteredServiceIndexes=useMemo(()=>stages.map((item,index)=>({item,index})).filter(({item})=>!normalize(serviceSearch)||normalize(`${item.code} ${item.description}`).includes(normalize(serviceSearch))),[stages,serviceSearch]);"""
@@ -55,16 +51,12 @@ new="""  const effectiveQuantity=referenceMode?selectedUnits.length:Number(manua
     const balance=Math.max(0,contracted-measured);
     return {contracted,measured,balance,measuredPct:contracted?measured/contracted*100:0,balancePct:contracted?balance/contracted*100:0};
   },[model,origin,measurementId]);"""
-if old in s:
-    s=s.replace(old,new)
-elif new not in s:
-    raise SystemExit('approved rows insertion point not found')
+if old in s:s=s.replace(old,new)
+elif new not in s:raise SystemExit('approved rows insertion point not found')
 
 start=s.find('  return <Dialog open variant="measurement-fullscreen" title="Lançar medição"')
 unit=s.find('    {unitPickerOpen&&stage&&origin&&<div className="guided-measurement-picker"',start)
-if start<0 or unit<0:
-    raise SystemExit('render block anchors not found')
-
+if start<0 or unit<0:raise SystemExit('render block anchors not found')
 prefix=s[:start]
 suffix=s[unit:]
 render=r'''  return <Dialog open variant="measurement-fullscreen" title={origin?`Medição - ${originLabel(origin)}`:'Medição'} description={origin?'Elabore a medição dos serviços desta origem.':'Selecione a origem da medição.'} onClose={onClose} onBack={onClose}>
@@ -73,7 +65,6 @@ render=r'''  return <Dialog open variant="measurement-fullscreen" title={origin?
       {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” antes de lançar os serviços.</span></div>}
       {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a origem</strong><span>Escolha a torre ou aditivo na etapa anterior.</span></div>}
       {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
-
       {(measurementId||draftMode)&&origin&&stages.length>0&&<>
         <section className="approved-measurement-sheet__header-fields">
           <div><span>Nº da medição</span><strong>{draftHeader?.measurementNumber||draftMeasurements.find(item=>item.id===measurementId)?.measurementNumber||'—'}</strong></div>
@@ -83,21 +74,18 @@ render=r'''  return <Dialog open variant="measurement-fullscreen" title={origin?
           <div><span>Forma de pagamento</span><strong>{draftHeader?.paymentMethod||'PIX'}</strong></div>
           <Button variant="secondary">▣ Observações</Button>
         </section>
-
         <section className="approved-measurement-sheet__summary">
           <div className="approved-measurement-sheet__origin"><span className="approved-measurement-sheet__building">▦</span><div><h3>{originLabel(origin)}</h3><p>{stages.length} serviço(s) nesta origem</p></div></div>
           <div className="approved-measurement-sheet__summary-card"><span>Valor contratado</span><strong>{currency.format(summary.contracted)}</strong></div>
           <div className="approved-measurement-sheet__summary-card"><span>Valor medido</span><strong>{currency.format(summary.measured)}</strong><b>{summary.measuredPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
           <div className="approved-measurement-sheet__summary-card"><span>Saldo a medir</span><strong>{currency.format(summary.balance)}</strong><b>{summary.balancePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
         </section>
-
         <section className="approved-measurement-sheet__toolbar">
-          <Input aria-label="Pesquisar serviço" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder="Pesquisar serviço (código ou descrição)..."/>
-          <Select aria-label="Todos os tipos" value={typeFilter} onChange={event=>setTypeFilter(event.target.value)} options={[{value:'',label:'Todos os tipos'},{value:'global',label:'Global'},{value:'unit',label:'Por unidade'}]}/>
-          <Select aria-label="Todos os status" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} options={[{value:'',label:'Todos os status'},{value:'balance',label:'Com saldo'},{value:'done',label:'Concluído'}]}/>
+          <Input label="Pesquisar serviço" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder="Pesquisar serviço (código ou descrição)..."/>
+          <Select label="Tipo" value={typeFilter} onChange={event=>setTypeFilter(event.target.value)} options={[{value:'',label:'Todos os tipos'},{value:'global',label:'Global'},{value:'unit',label:'Por unidade'}]}/>
+          <Select label="Status" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} options={[{value:'',label:'Todos os status'},{value:'balance',label:'Com saldo'},{value:'done',label:'Concluído'}]}/>
           <Button variant="secondary" onClick={()=>setShowAll(value=>!value)}>↗ {showAll?'Paginar':'Expandir todos'}</Button>
         </section>
-
         <section className="approved-measurement-sheet__table-card">
           <div className="approved-measurement-sheet__table-wrap"><table className="approved-measurement-sheet__table"><thead><tr><th>#</th><th>Código</th><th>Descrição do serviço</th><th>Referência</th><th>Contratado</th><th>Medido</th><th>Saldo</th><th>Tipo</th><th>Nesta medição</th><th>Total</th><th>Ações</th></tr></thead><tbody>{approvedPagedRows.map(({item,index},rowPosition)=>{
             const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId);
@@ -110,7 +98,6 @@ render=r'''  return <Dialog open variant="measurement-fullscreen" title={origin?
           })}</tbody></table></div>
           <footer className="approved-measurement-sheet__pagination"><span>Exibindo {approvedPagedRows.length} de {approvedRows.length} serviços</span>{!showAll&&<div><button disabled={page<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>‹</button>{Array.from({length:Math.min(totalPages,5)},(_,i)=>i+1).map(value=><button key={value} className={page===value?'is-active':''} onClick={()=>setPage(value)}>{value}</button>)}<button disabled={page>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>›</button></div>}</footer>
         </section>
-
         <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={onClose}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={onClose}>✓ Finalizar medição</Button></div></footer>
       </>}
     </div>
