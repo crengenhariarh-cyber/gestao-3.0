@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: latest Engenharia fixes (2026-09-07)
+# deploy trigger: measurement hub flow (2026-09-07 16:32 BRT)
 on:
   push:
     branches: [main]
