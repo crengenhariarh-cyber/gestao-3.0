@@ -27,6 +27,13 @@ function toNumber(value: string, label: string) {
   return parsed;
 }
 
+function normalizeDecimalInput(value: string) {
+  const sanitized = value.replace(/[^0-9,.]/g, '').replace('.', ',');
+  const [integer = '', ...decimalParts] = sanitized.split(',');
+  const decimal = decimalParts.join('').slice(0, 4);
+  return decimalParts.length ? `${integer},${decimal}` : integer;
+}
+
 export function EditEngineeringContractRetentionDialog({ open, scope, contractId, contractNumber, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>({ inss: '', iss: '', rt: '' });
   const [loading, setLoading] = useState(false);
@@ -90,9 +97,9 @@ export function EditEngineeringContractRetentionDialog({ open, scope, contractId
         <div className="engineering-contract-create-form">
           {errorMessage && <Feedback tone="danger" title="Não foi possível salvar" message={errorMessage} />}
           <div className="engineering-contract-create-form__row engineering-contract-create-form__row--three">
-            <Input label="INSS (%)" type="number" inputMode="decimal" value={form.inss} onChange={event => setForm(current => ({ ...current, inss: event.target.value }))} />
-            <Input label="ISS (%)" type="number" inputMode="decimal" value={form.iss} onChange={event => setForm(current => ({ ...current, iss: event.target.value }))} />
-            <Input label="Retenção técnica (%)" type="number" inputMode="decimal" value={form.rt} onChange={event => setForm(current => ({ ...current, rt: event.target.value }))} />
+            <Input label="INSS (%)" type="text" inputMode="decimal" value={form.inss} onChange={event => setForm(current => ({ ...current, inss: normalizeDecimalInput(event.target.value) }))} placeholder="Ex.: 3,5" />
+            <Input label="ISS (%)" type="text" inputMode="decimal" value={form.iss} onChange={event => setForm(current => ({ ...current, iss: normalizeDecimalInput(event.target.value) }))} placeholder="Ex.: 5" />
+            <Input label="Retenção técnica (%)" type="text" inputMode="decimal" value={form.rt} onChange={event => setForm(current => ({ ...current, rt: normalizeDecimalInput(event.target.value) }))} placeholder="Ex.: 5" />
           </div>
           <div className="engineering-contract-create-form__notice">
             <strong>Regra do contrato</strong>
