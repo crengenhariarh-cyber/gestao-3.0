@@ -1,4 +1,4 @@
-name: Fix engineering allocation scope once
+name: Fix engineering allocation validation once
 
 on:
   push:
@@ -16,101 +16,38 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Apply engineering allocation fix
+      - name: Patch allocation validation
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          def patch(path, replacements):
-              p=Path(path)
-              s=p.read_text()
-              for old,new in replacements:
-                  if old not in s:
-                      raise SystemExit(f'Missing expected fragment in {path}: {old[:160]}')
-                  s=s.replace(old,new,1)
-              p.write_text(s)
-
-          patch('src/modules/engineering/application/EngineeringOperationsRepository.ts', [
-            ("export interface EngineeringContractServiceOption { id: string; contractId: string; description: string; unit: string; unitPrice: number; }",
-             "export interface EngineeringContractServiceOption { id: string; contractId: string; description: string; unit: string; quantity: number; unitPrice: number; }"),
-            ("structures: readonly (EngineeringReferenceItem & { workId:string; parentId:string|null; type:string; code:string|null })[];",
-             "structures: readonly (EngineeringReferenceItem & { workId:string; parentId:string|null; type:string; code:string|null; metadata:Record<string,unknown>|null })[];"),
-            ("allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string; notes?:string|null }[];",
-             "allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string; notes:string|null; scopeConfig:{active?:boolean;startFloor?:number|null;floors?:string[];units?:string[];scopeQuantity?:number;outsideQuantity?:number}|null }[];"),
-            ("allocateContractService(scope: EngineeringScope, input: { workId: string; contractServiceId: string; structureId: string; quantity: number; notes?: string | null }): Promise<void>;",
-             "allocateContractService(scope: EngineeringScope, input: { workId: string; contractServiceId: string; structureId: string; quantity: number; notes?: string | null; scopeConfig?: {active?:boolean;startFloor?:number|null;floors?:string[];units?:string[];scopeQuantity?:number;outsideQuantity?:number} | null }): Promise<void>;")
-          ])
-
-          patch('src/modules/engineering/infrastructure/SupabaseEngineeringOperationsRepository.ts', [
-            ("type StructureRow={id:string;name:string;work_id:string;parent_id:string|null;structure_type:string;code:string|null};",
-             "type StructureRow={id:string;name:string;work_id:string;parent_id:string|null;structure_type:string;code:string|null;metadata:Record<string,unknown>|null};"),
-            ("type ContractServiceRow={id:string;contract_id:string;description:string;unit:string;unit_price:number|string};",
-             "type ContractServiceRow={id:string;contract_id:string;description:string;unit:string;contracted_quantity:number|string;unit_price:number|string};"),
-            ("type AllocationRow={id:string;contract_service_id:string;structure_id:string;allocated_quantity:number|string;status:string};",
-             "type AllocationRow={id:string;contract_service_id:string;structure_id:string;allocated_quantity:number|string;status:string;notes:string|null;scope_config:Record<string,unknown>|null};"),
-            (".from('work_structures').select('id,name,work_id,parent_id,structure_type,code')",
-             ".from('work_structures').select('id,name,work_id,parent_id,structure_type,code,metadata')"),
-            (".from('contract_services').select('id,contract_id,description,unit,unit_price')",
-             ".from('contract_services').select('id,contract_id,description,unit,contracted_quantity,unit_price')"),
-            (".from('contract_service_allocations').select('id,contract_service_id,structure_id,allocated_quantity,status')",
-             ".from('contract_service_allocations').select('id,contract_service_id,structure_id,allocated_quantity,status,notes,scope_config')"),
-            ("structures:(structures.data??[]).map(row=>({id:row.id,name:row.name,workId:row.work_id,parentId:row.parent_id,type:row.structure_type,code:row.code})),",
-             "structures:(structures.data??[]).map(row=>({id:row.id,name:row.name,workId:row.work_id,parentId:row.parent_id,type:row.structure_type,code:row.code,metadata:row.metadata})),"),
-            ("allocations:(allocations.data??[]).map(row=>({id:row.id,contractServiceId:row.contract_service_id,structureId:row.structure_id,allocatedQuantity:Number(row.allocated_quantity),status:row.status})),",
-             "allocations:(allocations.data??[]).map(row=>({id:row.id,contractServiceId:row.contract_service_id,structureId:row.structure_id,allocatedQuantity:Number(row.allocated_quantity),status:row.status,notes:row.notes,scopeConfig:row.scope_config as EngineeringOperationalSnapshot['allocations'][number]['scopeConfig']})),"),
-            ("contractServices:(contractServices.data??[]).map(row=>({id:row.id,contractId:row.contract_id,description:row.description,unit:row.unit,unitPrice:Number(row.unit_price)})),",
-             "contractServices:(contractServices.data??[]).map(row=>({id:row.id,contractId:row.contract_id,description:row.description,unit:row.unit,quantity:Number(row.contracted_quantity),unitPrice:Number(row.unit_price)})),"),
-            ("async allocateContractService(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['allocateContractService']>[1]){const r=await this.client.from('contract_service_allocations').upsert({tenant_id:scope.tenantId,company_id:scope.companyId,work_id:required(input.workId,'Obra'),contract_service_id:required(input.contractServiceId,'Serviço do contrato'),structure_id:required(input.structureId,'Estrutura'),allocated_quantity:positive(input.quantity,'Quantidade'),notes:input.notes||null,status:'active'},{onConflict:'tenant_id,company_id,contract_service_id,structure_id'});if(r.error)throw r.error;}",
-             "async allocateContractService(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['allocateContractService']>[1]){const contractServiceId=required(input.contractServiceId,'Serviço do contrato');const structureId=required(input.structureId,'Estrutura');const payload={allocated_quantity:positive(input.quantity,'Quantidade'),notes:input.notes||null,scope_config:input.scopeConfig??{},status:'active',updated_at:new Date().toISOString()};const existing=await this.client.from('contract_service_allocations').select('id').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_service_id',contractServiceId).eq('structure_id',structureId).maybeSingle();if(existing.error)throw existing.error;if(existing.data?.id){const r=await this.client.from('contract_service_allocations').update(payload).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',existing.data.id);if(r.error)throw r.error;return;}const r=await this.client.from('contract_service_allocations').insert({tenant_id:scope.tenantId,company_id:scope.companyId,work_id:required(input.workId,'Obra'),contract_service_id:contractServiceId,structure_id:structureId,...payload});if(r.error)throw r.error;}"),
-          ])
-
           p=Path('src/modules/engineering/ui/EngineeringContractWorkspace.tsx')
           s=p.read_text()
-          def rep(old,new):
-              global s
-              if old not in s:
-                  raise SystemExit(f'Missing workspace fragment: {old[:180]}')
-              s=s.replace(old,new,1)
-
-          rep("type AllocationEdit={contractServiceId:string;structureId:string;serviceLabel:string;structureLabel:string;quantity:string;notes:string}|null;",
-              "type AllocationEdit={contractServiceId:string;structureId:string;serviceLabel:string;structureLabel:string;unit:string;quantity:string;maxQuantity:number;notes:string;availableFloors:string[];selectedFloors:string[];unitsPerFloor:number}|null;")
-          rep("function numberValue(value:string){const parsed=Number(value.replace(',','.'));return Number.isFinite(parsed)?parsed:0;}",
-              "function numberValue(value:string){const parsed=Number(value.replace(',','.'));return Number.isFinite(parsed)?parsed:0;}\nfunction towerConfig(metadata:Record<string,unknown>|null|undefined){const raw=metadata?.towerConfig;if(!raw||typeof raw!=='object')return null;const cfg=raw as Record<string,unknown>;const floorCount=Number(cfg.floorCount);const unitsPerFloor=Number(cfg.unitsPerFloor);const firstFloor=Number(cfg.firstFloor??1);return Number.isFinite(floorCount)&&floorCount>0&&Number.isFinite(unitsPerFloor)&&unitsPerFloor>0?{floorCount,unitsPerFloor,firstFloor}:null;}")
-          rep("  const [allocationSaving,setAllocationSaving]=useState(false);",
-              "  const [allocationSaving,setAllocationSaving]=useState(false);\n  const [allocationError,setAllocationError]=useState<string|null>(null);")
-          rep("  async function saveAllocationEdit(){\n    if(!allocationEdit||allocationSaving)return;\n    setAllocationSaving(true);\n    try{\n      await operations.allocateContractService({workId,contractServiceId:allocationEdit.contractServiceId,structureId:allocationEdit.structureId,quantity:numberValue(allocationEdit.quantity),notes:allocationEdit.notes||null});\n      setAllocationEdit(null);\n      changed();\n    }finally{setAllocationSaving(false);}\n  }",
-              "  async function saveAllocationEdit(){\n    if(!allocationEdit||allocationSaving)return;\n    const nextQuantity=numberValue(allocationEdit.quantity);\n    if(nextQuantity<=0){setAllocationError('Informe um quantitativo maior que zero.');return;}\n    if(nextQuantity>allocationEdit.maxQuantity){setAllocationError(`O máximo contratado para este serviço é ${quantity.format(allocationEdit.maxQuantity)}. Selecione apenas os pavimentos que pertencem ao seu escopo.`);return;}\n    setAllocationError(null);setAllocationSaving(true);\n    try{\n      const floors=[...allocationEdit.selectedFloors].sort((a,b)=>Number(a)-Number(b));\n      const totalTowerCapacity=allocationEdit.availableFloors.length*allocationEdit.unitsPerFloor;\n      await operations.allocateContractService({workId,contractServiceId:allocationEdit.contractServiceId,structureId:allocationEdit.structureId,quantity:nextQuantity,notes:allocationEdit.notes||null,scopeConfig:allocationEdit.availableFloors.length?{active:floors.length>0,startFloor:floors.length?Number(floors[0]):null,floors,units:[],scopeQuantity:nextQuantity,outsideQuantity:Math.max(0,totalTowerCapacity-nextQuantity)}:null});\n      setAllocationEdit(null);changed();\n    }catch(error){setAllocationError(error instanceof Error?error.message:'Não foi possível salvar o quantitativo.');}\n    finally{setAllocationSaving(false);}\n  }\n  function toggleAllocationFloor(floor:string){setAllocationError(null);setAllocationEdit(current=>{if(!current)return current;const selected=current.selectedFloors.includes(floor)?current.selectedFloors.filter(item=>item!==floor):[...current.selectedFloors,floor];const derived=current.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&current.unitsPerFloor>0?selected.length*current.unitsPerFloor:numberValue(current.quantity);return {...current,selectedFloors:selected,quantity:String(derived)};});}")
-          old_open="onClick={()=>setAllocationEdit({contractServiceId:row.service.id,structureId:selectedStructure.id,serviceLabel:row.service.description,structureLabel:selectedStructure.name,quantity:String(row.allocation.allocatedQuantity),notes:row.allocation.notes??''})}"
-          new_open="onClick={()=>{const cfg=towerConfig(selectedStructure.metadata);const availableFloors=cfg?Array.from({length:cfg.floorCount},(_,offset)=>String(cfg.firstFloor+offset)):[];const savedFloors=Array.isArray(row.allocation.scopeConfig?.floors)?row.allocation.scopeConfig.floors.map(String):[];setAllocationError(null);setAllocationEdit({contractServiceId:row.service.id,structureId:selectedStructure.id,serviceLabel:row.service.description,structureLabel:selectedStructure.name,unit:row.service.unit,quantity:String(row.allocation.allocatedQuantity),maxQuantity:row.service.quantity,notes:row.allocation.notes??'',availableFloors,selectedFloors:savedFloors,unitsPerFloor:cfg?.unitsPerFloor??0});}}"
-          rep(old_open,new_open)
-          old_modal="<div className=\"engineering-sheet-form__content\"><div className=\"engineering-sheet__subsection\"><div className=\"engineering-sheet__subhead\"><div><strong>{allocationEdit.serviceLabel}</strong><span>Serviço e torre já definidos pela linha selecionada.</span></div></div><label><span>Quantitativo</span><input autoFocus inputMode=\"decimal\" value={allocationEdit.quantity} onChange={event=>setAllocationEdit(current=>current?{...current,quantity:event.target.value}:current)}/></label><label><span>Observações</span><textarea rows={3} value={allocationEdit.notes} onChange={event=>setAllocationEdit(current=>current?{...current,notes:event.target.value}:current)}/></label><div style={{display:'flex',justifyContent:'flex-end',gap:8}}><Button variant=\"secondary\" disabled={allocationSaving} onClick={()=>setAllocationEdit(null)}>Cancelar</Button><Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0} onClick={()=>void saveAllocationEdit()}>{allocationSaving?'Salvando…':'Salvar quantitativo'}</Button></div></div></div>"
-          new_modal="<div className=\"engineering-sheet-form__content\"><div className=\"engineering-sheet__subsection engineering-allocation-editor\"><div className=\"engineering-sheet__subhead\"><div><strong>{allocationEdit.serviceLabel}</strong><span>Serviço e torre já definidos pela linha selecionada.</span></div></div>{allocationEdit.availableFloors.length>0&&<div className=\"engineering-allocation-editor__floors\"><div><strong>Distribuição por pavimento</strong><span>Selecione os pavimentos deste serviço, como no Gestão 2.0.</span></div><div className=\"engineering-allocation-editor__floor-grid\">{allocationEdit.availableFloors.map(floor=><button key={floor} type=\"button\" className={allocationEdit.selectedFloors.includes(floor)?'is-selected':''} onClick={()=>toggleAllocationFloor(floor)}>{floor}º</button>)}</div>{allocationEdit.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&allocationEdit.unitsPerFloor>0&&<small>{allocationEdit.selectedFloors.length} pavimento(s) × {allocationEdit.unitsPerFloor} aptos = {quantity.format(numberValue(allocationEdit.quantity))} · máximo contratado {quantity.format(allocationEdit.maxQuantity)}</small>}</div>}<label><span>Quantitativo</span><input autoFocus inputMode=\"decimal\" value={allocationEdit.quantity} onChange={event=>{setAllocationError(null);setAllocationEdit(current=>current?{...current,quantity:event.target.value}:current);}}/></label>{allocationError&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}<label><span>Observações</span><textarea rows={3} value={allocationEdit.notes} onChange={event=>setAllocationEdit(current=>current?{...current,notes:event.target.value}:current)}/></label><div style={{display:'flex',justifyContent:'flex-end',gap:8}}><Button variant=\"secondary\" disabled={allocationSaving} onClick={()=>setAllocationEdit(null)}>Cancelar</Button><Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0} onClick={()=>void saveAllocationEdit()}>{allocationSaving?'Salvando…':'Salvar quantitativo'}</Button></div></div></div>"
-          rep(old_modal,new_modal)
+          old="const nextQuantity=numberValue(allocationEdit.quantity);"
+          new="const nextQuantity=allocationEdit.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&allocationEdit.unitsPerFloor>0&&allocationEdit.selectedFloors.length>0?allocationEdit.selectedFloors.length*allocationEdit.unitsPerFloor:numberValue(allocationEdit.quantity);"
+          if old not in s: raise SystemExit('save quantity fragment not found')
+          s=s.replace(old,new,1)
+          old="function toggleAllocationFloor(floor:string){setAllocationError(null);setAllocationEdit(current=>{if(!current)return current;const selected=current.selectedFloors.includes(floor)?current.selectedFloors.filter(item=>item!==floor):[...current.selectedFloors,floor];const derived=current.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&current.unitsPerFloor>0?selected.length*current.unitsPerFloor:numberValue(current.quantity);return {...current,selectedFloors:selected,quantity:String(derived)};});}"
+          new="function toggleAllocationFloor(floor:string){setAllocationEdit(current=>{if(!current)return current;const selected=current.selectedFloors.includes(floor)?current.selectedFloors.filter(item=>item!==floor):[...current.selectedFloors,floor];const derived=current.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&current.unitsPerFloor>0?selected.length*current.unitsPerFloor:numberValue(current.quantity);setAllocationError(derived>current.maxQuantity?`O máximo contratado para este serviço é ${quantity.format(current.maxQuantity)}. Selecione apenas os pavimentos que pertencem ao seu escopo.`:null);return {...current,selectedFloors:selected,quantity:String(derived)};});}"
+          if old not in s: raise SystemExit('toggle fragment not found')
+          s=s.replace(old,new,1)
+          old="{allocationError&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}"
+          new="{allocationError&&(!allocationError.startsWith('O máximo contratado')||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity)&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}"
+          if old not in s: raise SystemExit('error render fragment not found')
+          s=s.replace(old,new,1)
+          old="<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0} onClick={()=>void saveAllocationEdit()}>"
+          new="<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity} onClick={()=>void saveAllocationEdit()}>"
+          if old not in s: raise SystemExit('save button fragment not found')
+          s=s.replace(old,new,1)
           p.write_text(s)
-
-          css=Path('src/modules/engineering/ui/engineering-contract-workspace.css')
-          c=css.read_text()
-          c += "\n.engineering-allocation-editor__floors{display:grid;gap:9px;padding:11px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}.engineering-allocation-editor__floors>div:first-child{display:grid;gap:2px}.engineering-allocation-editor__floors strong{font-size:.82rem}.engineering-allocation-editor__floors span,.engineering-allocation-editor__floors small{font-size:.7rem;color:var(--muted)}.engineering-allocation-editor__floor-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:7px}.engineering-allocation-editor__floor-grid button{min-height:38px;border:1px solid var(--border);border-radius:10px;background:var(--surface-subtle);color:var(--text);font-weight:800;cursor:pointer}.engineering-allocation-editor__floor-grid button.is-selected{border-color:var(--primary);background:var(--info-bg);color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 10%,transparent 90%)}.engineering-allocation-editor__error{padding:9px 11px;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--border) 70%);border-radius:10px;background:var(--danger-bg);color:var(--danger-text);font-size:.74rem;font-weight:800}\n"
-          css.write_text(c)
           PY
-
-      - name: Install dependencies
-        run: npm install
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
-      - name: Test
-        run: npm test
-      - name: Build
-        run: npm run build
-      - name: Commit fix
-        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test -- --run
+          npm run build
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/modules/engineering/application/EngineeringOperationsRepository.ts src/modules/engineering/infrastructure/SupabaseEngineeringOperationsRepository.ts src/modules/engineering/ui/EngineeringContractWorkspace.tsx src/modules/engineering/ui/engineering-contract-workspace.css
-          git diff --cached --quiet && exit 1
-          git commit -m "fix(engineering): save allocation and distribute by floor"
+          git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx
+          git commit -m "fix(engineering): recalculate allocation validation live"
           git push
