@@ -1,0 +1,1 @@
+.budget-pricing__stack{display:grid;gap:12px}.budget-pricing__metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.budget-pricing__controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:end}.budget-pricing__hint{margin:0}
