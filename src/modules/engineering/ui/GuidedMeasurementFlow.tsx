@@ -25,7 +25,9 @@ const qty=(value:number)=>Number.isInteger(value)?String(value):value.toLocaleSt
 const safeText=(value:unknown)=>typeof value==='string'?value:typeof value==='number'||typeof value==='boolean'?String(value):'';
 const normalize=(value:unknown)=>safeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');
 const referenceFloor=(reference:string)=>{const match=reference.match(/^(\d{1,2})\d{2}$/);return match?String(Number(match[1])):null;};
-const unitBased=(stage:MeasurementParityStage)=>/^(un|und|unid|unidade|unidades)$/i.test(stage.unit.trim());
+const referenceLevel=(reference:string)=>reference.startsWith('TR-')?'TR':referenceFloor(reference)??'OUTROS';
+const referenceLevelLabel=(level:string)=>level==='TR'?'Térreo':level==='OUTROS'?'Outras unidades':`${level}º pavimento`;
+const unitBased=(stage:MeasurementParityStage)=>/^(apto|apt|apartamento|apartamentos|un|und|unid|unidade|unidades)$/i.test(stage.unit.trim());
 
 function originLabel(origin:MeasurementParityOrigin){
   if(origin.type==='addendum')return `Aditivo · ${origin.name}`;
@@ -34,11 +36,13 @@ function originLabel(origin:MeasurementParityOrigin){
 
 function buildTowerReferences(model:MeasurementParityModel,origin:MeasurementParityOrigin):string[]{
   if(model.enterpriseType==='casas'&&model.houses.length)return Array.from(new Set(model.houses.map(value=>value.trim()).filter(Boolean)));
-  const floors=Math.max(0,Number(origin.floorCount||0)+(origin.hasGround?1:0));
+  const numericFloors=Math.max(0,Number(origin.floorCount||0));
+  const levelCount=numericFloors+(origin.hasGround?1:0);
   const quantities=origin.services.filter(unitBased).map(service=>Number(service.contractedQuantity||0)).filter(value=>value>0);
-  const perFloor=floors>0&&quantities.length?Math.max(1,Math.round(Math.max(...quantities)/floors)):8;
+  const perFloor=levelCount>0&&quantities.length?Math.max(1,Math.round(Math.max(...quantities)/levelCount)):8;
   const references:string[]=[];
-  for(let floor=1;floor<=floors;floor++)for(let unit=1;unit<=perFloor;unit++)references.push(`${floor}${String(unit).padStart(2,'0')}`);
+  if(origin.hasGround)for(let unit=1;unit<=perFloor;unit++)references.push(`TR-${String(unit).padStart(2,'0')}`);
+  for(let floor=1;floor<=numericFloors;floor++)for(let unit=1;unit<=perFloor;unit++)references.push(`${floor}${String(unit).padStart(2,'0')}`);
   return references;
 }
 
@@ -116,6 +120,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
   },[stage,currentLines,currentQuantity]);
 
   const visibleReferences=availableReferences.filter(reference=>!normalize(search)||normalize(reference).includes(normalize(search)));
+  const groupedVisibleReferences=useMemo(()=>{const groups=new Map<string,string[]>();for(const reference of visibleReferences){const level=referenceLevel(reference);groups.set(level,[...(groups.get(level)??[]),reference]);}const rank=(level:string)=>level==='TR'?-1:level==='OUTROS'?9999:Number(level);return [...groups.entries()].sort((a,b)=>rank(a[0])-rank(b[0]));},[visibleReferences]);
   const effectiveQuantity=referenceMode?selectedUnits.length:Number(manualQuantity.replace(',','.'))||0;
   const filteredServiceIndexes=useMemo(()=>stages.map((item,index)=>({item,index})).filter(({item})=>!normalize(serviceSearch)||normalize(`${item.code} ${item.description}`).includes(normalize(serviceSearch))),[stages,serviceSearch]);
 
@@ -154,13 +159,13 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
     finally{setSaving(false);}
   }
 
-  if(loading&&!model)return <Dialog open title="Lançar medição" onClose={onClose} onBack={onClose}><LoadingState label="Carregando medição…"/></Dialog>;
-  if(!model)return <Dialog open title="Lançar medição" onClose={onClose} onBack={onClose}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
+  if(loading&&!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><LoadingState label="Carregando medição…"/></Dialog>;
+  if(!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
 
   const measurementOptions=[{value:'',label:'Selecione…'},...draftMeasurements.map(item=>({value:item.id,label:`${item.competence.slice(0,7)} · rascunho`}))];
   const originOptions=[{value:'',label:'Selecione…'},...model.origins.map(item=>({value:item.id,label:originLabel(item)}))];
 
-  return <Dialog open title="Lançar medição" description="Fluxo sequencial por origem, serviço e unidade" onClose={onClose} onBack={onClose}>
+  return <Dialog open variant="measurement-fullscreen" title="Lançar medição" description="Fluxo sequencial por origem, serviço e unidade" onClose={onClose} onBack={onClose}>
     <div className="guided-measurement guided-measurement--parity">
       {error&&<Feedback tone="danger" title="Não foi possível continuar" message={error}/>} 
       <div className="guided-measurement__selectors">
@@ -205,7 +210,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
       <header><div><small>{originLabel(origin)} · Serviço {serviceIndex+1}/{stages.length}</small><h3>Selecionar apartamentos/unidades</h3><p>{stage.description}</p></div><Button variant="secondary" size="sm" onClick={()=>setUnitPickerOpen(false)}>✕</Button></header>
       {stage.scopeActive&&<div className="guided-measurement__scope-note guided-measurement__scope-note--picker">Escopo deste serviço: {stage.scopeFloors.length?`somente pavimentos ${stage.scopeFloors.join(', ')}`:stage.startFloor!==null?`somente ${stage.startFloor}º em diante`:'somente unidades definidas'}.</div>}
       <div className="guided-measurement-picker__bar"><Input label="Pesquisar apartamento/unidade" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Ex.: 501"/><div><Button variant="secondary" onClick={selectAvailable}>Selecionar até {maxSelectable} disponível(is)</Button><Button variant="tertiary" onClick={()=>setSelectedUnits([])}>Limpar seleção</Button></div><p>Selecione no máximo <strong>{maxSelectable}</strong> unidade(s). Selecionadas: <strong>{selectedUnits.length}/{maxSelectable}</strong>.</p></div>
-      <div className="guided-measurement-picker__list">{visibleReferences.map(reference=><label key={reference} className={selectedUnits.includes(reference)?'is-selected':''}><input type="checkbox" checked={selectedUnits.includes(reference)} disabled={!selectedUnits.includes(reference)&&selectedUnits.length>=maxSelectable} onChange={()=>toggleReference(reference)}/><span>{reference}</span></label>)}</div>
+      <div className="guided-measurement-picker__list guided-measurement-picker__list--floors">{groupedVisibleReferences.map(([level,references])=><section className="guided-measurement-floor" key={level}><header><strong>{referenceLevelLabel(level)}</strong><span>{references.filter(reference=>selectedUnits.includes(reference)).length}/{references.length} selecionado(s)</span></header><div className="guided-measurement-floor__units">{references.map(reference=><label key={reference} className={selectedUnits.includes(reference)?'is-selected':''}><input type="checkbox" checked={selectedUnits.includes(reference)} disabled={!selectedUnits.includes(reference)&&selectedUnits.length>=maxSelectable} onChange={()=>toggleReference(reference)}/><span>{reference.startsWith('TR-')?`Apto ${reference.slice(3)}`:`Apto ${reference}`}</span></label>)}</div></section>)}</div>
       <footer><Button onClick={()=>void saveCurrent()} disabled={saving||selectedUnits.length===0}>{saving?'Salvando…':'Confirmar e próximo serviço →'}</Button></footer>
     </div></div>}
   </Dialog>;
