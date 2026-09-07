@@ -4,6 +4,7 @@ import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
+import { useEngineeringOperations } from './useEngineeringOperations';
 import {
   loadMeasurementParity,
   replaceMeasurementParityStage,
@@ -17,6 +18,9 @@ interface Props {
   scope:{tenantId:string;companyId:string};
   contractId:string;
   initialOriginId?:string;
+  initialOriginName?:string;
+  draftHeader?:Record<string,string>|null;
+  onDraftPersisted?:()=>void;
   onChanged:()=>void;
   onClose:()=>void;
 }
@@ -69,7 +73,7 @@ function stageReferences(model:MeasurementParityModel,origin:MeasurementParityOr
   return base;
 }
 
-export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onChanged,onClose}:Props){
+export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initialOriginName='',draftHeader=null,onDraftPersisted,onChanged,onClose}:Props){
   const [model,setModel]=useState<MeasurementParityModel|null>(null);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -84,6 +88,8 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onCha
   const [serviceSearch,setServiceSearch]=useState('');
   const [manualQuantity,setManualQuantity]=useState('');
   const [finished,setFinished]=useState(false);
+  const operations=useEngineeringOperations(scope);
+  const draftMode=Boolean(draftHeader);
 
   const reload=useCallback(async()=>{
     setLoading(true);setError(null);
@@ -95,8 +101,8 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onCha
   useEffect(()=>{void reload();},[reload]);
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
   useEffect(()=>{if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId]);
-  useEffect(()=>{if(!initialOriginId||!model?.origins.some(item=>item.id===initialOriginId))return;setOriginId(initialOriginId);},[initialOriginId,model?.origins]);
-  useEffect(()=>{if(measurementId&&originId&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(true);},[measurementId,originId,model?.origins]);
+  useEffect(()=>{if(initialOriginId&&model?.origins.some(item=>item.id===initialOriginId)){setOriginId(initialOriginId);return;}if(initialOriginName&&model){const match=model.origins.find(item=>normalize(item.name)===normalize(initialOriginName.replace(/^Aditivo\s*·\s*/i,'')));if(match)setOriginId(match.id);}},[initialOriginId,initialOriginName,model]);
+  useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(true);},[measurementId,originId,draftMode,model?.origins]);
 
   const origin=useMemo(()=>model?.origins.find(item=>item.id===originId)??null,[model?.origins,originId]);
   const stages=useMemo(()=>origin?.services??[],[origin]);
@@ -130,7 +136,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onCha
   function resetStage(index:number){setServiceIndex(index);setSelectedUnits([]);setManualQuantity('');setSearch('');setError(null);}
   function changeOrigin(value:string){
     setOriginId(value);resetStage(0);setFinished(false);setUnitPickerOpen(false);setServiceSearch('');
-    setServicePickerOpen(Boolean(value&&measurementId));
+    setServicePickerOpen(Boolean(value&&(measurementId||draftMode)));
   }
   function chooseService(index:number){
     resetStage(index);setServicePickerOpen(false);setFinished(false);
@@ -142,13 +148,27 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onCha
   function selectAvailable(){setSelectedUnits(availableReferences.slice(0,maxSelectable));}
 
   async function saveCurrent(){
-    if(!measurementId){setError('Crie ou selecione uma medição em rascunho antes de lançar os serviços.');return;}
+    let activeMeasurementId=measurementId;
     if(!origin||!stage){setError('Selecione uma origem e um serviço.');return;}
+    if(!activeMeasurementId&&draftMode){
+      const measurementNumber=(draftHeader?.measurementNumber??'').trim();
+      if(!measurementNumber){setError('Volte em Dados e informe o Nº da medição antes de salvar o primeiro serviço.');return;}
+      const competence=(draftHeader?.competence??'').trim();
+      if(!competence){setError('Volte em Dados e informe a competência antes de salvar o primeiro serviço.');return;}
+      try{
+        await operations.createMeasurement({contractId,competence,measurementNumber,dueDate:draftHeader?.dueDate||null,expectedPaymentDate:draftHeader?.expectedPaymentDate||null,paymentMethod:draftHeader?.paymentMethod||'PIX',originLabel:originLabel(origin),notes:draftHeader?.notes||null});
+        const refreshed=await loadMeasurementParity(scope,contractId);
+        const created=refreshed.measurements.find(item=>item.measurementNumber===measurementNumber&&item.status==='draft');
+        if(!created)throw new Error('A medição foi criada, mas não pôde ser reaberta para lançar os serviços.');
+        activeMeasurementId=created.id;setMeasurementId(created.id);setModel(refreshed);onDraftPersisted?.();onChanged();
+      }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível criar a medição.');return;}
+    }
+    if(!activeMeasurementId){setError('Crie ou selecione uma medição em rascunho antes de lançar os serviços.');return;}
     if(effectiveQuantity<=0){setError(referenceMode?'Selecione ao menos uma unidade.':'Informe a quantidade medida.');return;}
     if(effectiveQuantity>balance+0.0001){setError(`A quantidade excede o saldo disponível de ${qty(balance)}.`);return;}
     setSaving(true);setError(null);
     try{
-      await replaceMeasurementParityStage(scope,{measurementId,targetKind:stage.targetKind,targetId:stage.targetId,quantity:effectiveQuantity,references:referenceMode?selectedUnits:[],originName:origin.name,legacyServiceId:stage.legacyServiceId});
+      await replaceMeasurementParityStage(scope,{measurementId:activeMeasurementId,targetKind:stage.targetKind,targetId:stage.targetId,quantity:effectiveQuantity,references:referenceMode?selectedUnits:[],originName:origin.name,legacyServiceId:stage.legacyServiceId});
       const nextModel=await reload();onChanged();setUnitPickerOpen(false);
       const nextOrigin=nextModel?.origins.find(item=>item.id===origin.id);
       const nextStages=nextOrigin?.services??stages;
@@ -176,11 +196,11 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onCha
         <Select label="Torre / aditivo / provisório" value={originId} onChange={event=>changeOrigin(event.target.value)} options={originOptions}/>
       </div>
 
-      {!measurementId&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” e depois selecione a origem.</span></div>}
-      {measurementId&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a origem</strong><span>Escolha Torre 4, Torre 6, provisório ou aditivo. Os serviços daquela origem abrirão em seguida.</span></div>}
-      {measurementId&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
+      {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” e depois selecione a origem.</span></div>}
+      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a origem</strong><span>Escolha Torre 4, Torre 6, provisório ou aditivo. Os serviços daquela origem abrirão em seguida.</span></div>}
+      {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
 
-      {measurementId&&origin&&stage&&!finished&&<>
+      {(measurementId||draftMode)&&origin&&stage&&!finished&&<>
         <div className="guided-measurement__progress"><span>Serviço {serviceIndex+1} de {stages.length}</span><progress max={stages.length} value={serviceIndex+1}/></div>
         <section className="guided-measurement__service">
           <header><div><small>{originLabel(origin)}</small><h3>{stage.code?`${stage.code} · `:''}{stage.description}</h3></div><span>{stage.unit}</span></header>
