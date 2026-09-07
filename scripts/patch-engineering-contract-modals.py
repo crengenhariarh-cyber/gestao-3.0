@@ -37,11 +37,6 @@ if 'allocationEdit&&<Dialog' not in s:
     if count != 1:
         raise SystemExit(f'allocation modal replacement count={count}')
 
-# Saving a quantity must close only the editor modal and keep the selected
-# tower/structure sheet modal mounted. Calling changed() triggers the parent
-# overview refresh, temporarily unmounting EngineeringContractWorkspace and
-# clearing sheetGroup. A local reload is sufficient because allocation edits
-# do not change the contract overview totals.
 s = s.replace("      setAllocationEdit(null);changed();", "      setAllocationEdit(null);void operations.reload().catch(()=>undefined);", 1)
 
 old_tail = "{guidedMeasurementOpen&&<GuidedMeasurementFlow scope={scope} contractId={contract.contractId} onChanged={changed} onClose={()=>setGuidedMeasurementOpen(false)}/>}</>;"
@@ -49,5 +44,28 @@ if 'contractRetentionEditOpen&&<EditEngineeringContractRetentionDialog' not in s
     if old_tail not in s:
         raise SystemExit('tail anchor not found')
     s = s.replace(old_tail, "{contractRetentionEditOpen&&<EditEngineeringContractRetentionDialog open scope={scope} contractId={contract.contractId} contractNumber={contract.contractNumber} onClose={()=>setContractRetentionEditOpen(false)} onSaved={changed}/>}" + old_tail, 1)
+
+# Contract tab: make addenda prominent and clickable, opening the same sheet dialog used in Planilhas.
+retention_state = "  const [contractRetentionEditOpen,setContractRetentionEditOpen]=useState(false);"
+if "contractAddendumId" not in s:
+    s = s.replace(retention_state, retention_state + "\n  const [contractAddendumId,setContractAddendumId]=useState<string|null>(null);", 1)
+
+addenda_line = "  const addenda=(data?.addenda??[]).filter(item=>item.contractId===contract.contractId);"
+if "contractSelectedAddendum" not in s:
+    s = s.replace(addenda_line, addenda_line + "\n  const contractSelectedAddendum=contractAddendumId?addenda.find(item=>item.id===contractAddendumId):undefined;", 1)
+
+old_contract_addenda = "<div className=\"engineering-sheet__subsection\"><div className=\"engineering-sheet__subhead\"><div><strong>Aditivos do contrato</strong><span>Alterações contratuais preservando o histórico.</span></div><Button size=\"sm\" variant=\"secondary\" onClick={()=>open('addendumLine')}>＋ Item de aditivo</Button></div><div className=\"engineering-sheet__chips\">{addenda.length?addenda.map(item=><span key={item.id}><b>{item.number}</b>{labelStatus(item.status)}</span>):<em>Nenhum aditivo cadastrado.</em>}</div></div>"
+new_contract_addenda = "<div className=\"engineering-sheet__subsection engineering-sheet__group-card\"><div className=\"engineering-sheet__subhead\"><div><strong>Aditivos do contrato</strong><span>Abra um aditivo para consultar seus serviços, valores e quantitativos.</span></div><Button size=\"sm\" variant=\"secondary\" onClick={()=>open('addendumLine')}>＋ Item de aditivo</Button></div><div className=\"engineering-sheet__chips engineering-sheet__chips--interactive\">{addenda.length?addenda.map(item=><button key={item.id} type=\"button\" className=\"engineering-status engineering-status--approved\" onClick={()=>setContractAddendumId(item.id)}><b>Aditivo {item.number}</b><span>{labelStatus(item.status)} · Abrir</span></button>):<em>Nenhum aditivo cadastrado.</em>}</div></div>"
+if old_contract_addenda in s:
+    s = s.replace(old_contract_addenda, new_contract_addenda, 1)
+elif "setContractAddendumId(item.id)" not in s:
+    raise SystemExit('contract addenda block not found')
+
+modal_anchor = "{contractRetentionEditOpen&&<EditEngineeringContractRetentionDialog open scope={scope} contractId={contract.contractId} contractNumber={contract.contractNumber} onClose={()=>setContractRetentionEditOpen(false)} onSaved={changed}/>}"
+contract_addendum_modal = "{contractSelectedAddendum&&<EngineeringAddendumSheetDialog open scope={scope} addendumId={contractSelectedAddendum.id} addendumNumber={contractSelectedAddendum.number} statusLabel={labelStatus(contractSelectedAddendum.status)} onClose={()=>setContractAddendumId(null)} onEditLine={()=>open('addendumLine')}/>}"
+if "contractSelectedAddendum&&<EngineeringAddendumSheetDialog" not in s:
+    if modal_anchor not in s:
+        raise SystemExit('modal anchor not found')
+    s = s.replace(modal_anchor, modal_anchor + contract_addendum_modal, 1)
 
 p.write_text(s)
