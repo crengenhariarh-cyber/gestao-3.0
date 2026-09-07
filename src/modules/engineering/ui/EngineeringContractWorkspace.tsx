@@ -83,7 +83,7 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
   const measurementValue=(measurementId:string)=>(data?.measurementLines??[]).filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.grossValue,0);
   const draftMeasurementValue=measurements.filter(item=>item.status==='draft').reduce((sum,item)=>sum+measurementValue(item.id),0);
 
-  function open(kind:FormKind){if(kind==='measurementLine'){setGuidedMeasurementOpen(true);return;}setFormKind(kind);}
+  function open(kind:FormKind){if(kind==='measurementLine'){setGuidedMeasurementId('');setGuidedMeasurementOriginId('');setGuidedMeasurementOriginName('');setGuidedMeasurementDraft(null);setGuidedMeasurementOpen(true);return;}setFormKind(kind);}
   function openExistingMeasurement(measurementId:string){setGuidedMeasurementId(measurementId);setGuidedMeasurementOriginName('');setGuidedMeasurementOriginId('');setGuidedMeasurementDraft(null);setGuidedMeasurementOpen(true);}
   async function confirmDeleteMeasurement(){if(!measurementDeleteId)return;await operations.deleteMeasurement(measurementDeleteId);setMeasurementDeleteId(null);onChanged();}
   function changed(){onChanged();void operations.reload().catch(()=>undefined);}
