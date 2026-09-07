@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
-import { getSupabaseClient } from '../../../shared/infrastructure/supabase/client';
+import { loadContractRetentions, saveContractRetentions } from '../infrastructure/EngineeringContractModalRepository';
 
 interface Props {
   open: boolean;
@@ -12,8 +12,6 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
 }
-
-type RetentionType = 'inss' | 'iss' | 'rt';
 
 interface FormState {
   inss: string;
@@ -40,23 +38,14 @@ export function EditEngineeringContractRetentionDialog({ open, scope, contractId
     let active = true;
     setLoading(true);
     setErrorMessage(null);
-    const client = getSupabaseClient();
-    void client
-      .from('engineering_contract_retention_rules')
-      .select('retention_type,rate')
-      .eq('tenant_id', scope.tenantId)
-      .eq('company_id', scope.companyId)
-      .eq('contract_id', contractId)
-      .eq('active', true)
-      .then(result => {
+    void loadContractRetentions(scope, contractId)
+      .then(values => {
         if (!active) return;
-        if (result.error) throw result.error;
-        const values: FormState = { inss: '', iss: '', rt: '' };
-        for (const row of result.data ?? []) {
-          const type = row.retention_type as RetentionType;
-          if (type in values) values[type] = row.rate == null ? '' : String(row.rate).replace('.', ',');
-        }
-        setForm(values);
+        setForm({
+          inss: values.inss ? String(values.inss).replace('.', ',') : '',
+          iss: values.iss ? String(values.iss).replace('.', ',') : '',
+          rt: values.rt ? String(values.rt).replace('.', ',') : '',
+        });
       })
       .catch(error => {
         if (active) setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar as retenções do contrato.');
@@ -65,69 +54,18 @@ export function EditEngineeringContractRetentionDialog({ open, scope, contractId
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [open, scope.tenantId, scope.companyId, contractId]);
+  }, [open, scope, contractId]);
 
   async function save() {
     if (saving) return;
     setSaving(true);
     setErrorMessage(null);
     try {
-      const client = getSupabaseClient();
-      const values: Array<{ type: RetentionType; rate: number; label: string }> = [
-        { type: 'inss', rate: toNumber(form.inss, 'INSS'), label: 'INSS' },
-        { type: 'iss', rate: toNumber(form.iss, 'ISS'), label: 'ISS' },
-        { type: 'rt', rate: toNumber(form.rt, 'Retenção técnica'), label: 'Retenção técnica' },
-      ];
-
-      for (const item of values) {
-        const existing = await client
-          .from('engineering_contract_retention_rules')
-          .select('id')
-          .eq('tenant_id', scope.tenantId)
-          .eq('company_id', scope.companyId)
-          .eq('contract_id', contractId)
-          .eq('retention_type', item.type)
-          .eq('active', true)
-          .maybeSingle();
-        if (existing.error) throw existing.error;
-
-        if (item.rate === 0) {
-          if (existing.data?.id) {
-            const disabled = await client
-              .from('engineering_contract_retention_rules')
-              .update({ active: false, updated_at: new Date().toISOString() })
-              .eq('tenant_id', scope.tenantId)
-              .eq('company_id', scope.companyId)
-              .eq('id', existing.data.id);
-            if (disabled.error) throw disabled.error;
-          }
-          continue;
-        }
-
-        if (existing.data?.id) {
-          const updated = await client
-            .from('engineering_contract_retention_rules')
-            .update({ calculation_type: 'percentage', rate: item.rate, fixed_amount: null, updated_at: new Date().toISOString() })
-            .eq('tenant_id', scope.tenantId)
-            .eq('company_id', scope.companyId)
-            .eq('id', existing.data.id);
-          if (updated.error) throw updated.error;
-        } else {
-          const inserted = await client.from('engineering_contract_retention_rules').insert({
-            tenant_id: scope.tenantId,
-            company_id: scope.companyId,
-            contract_id: contractId,
-            retention_type: item.type,
-            calculation_type: 'percentage',
-            rate: item.rate,
-            fixed_amount: null,
-            description: item.label,
-            active: true,
-          });
-          if (inserted.error) throw inserted.error;
-        }
-      }
-
+      await saveContractRetentions(scope, contractId, {
+        inss: toNumber(form.inss, 'INSS'),
+        iss: toNumber(form.iss, 'ISS'),
+        rt: toNumber(form.rt, 'Retenção técnica'),
+      });
       onSaved();
       onClose();
     } catch (error) {
@@ -141,7 +79,7 @@ export function EditEngineeringContractRetentionDialog({ open, scope, contractId
     <Dialog
       open={open}
       title={`Editar contrato ${contractNumber}`}
-      description="Altere as retenções fiscais e técnicas aplicadas às novas medições deste contrato."
+      description="Altere INSS, ISS e a retenção técnica padrão deste contrato."
       loading={saving}
       onClose={onClose}
       onBack={onClose}
