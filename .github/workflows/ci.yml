@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: measurement navigation repair (2026-09-07)
+# deploy trigger: approved measurement unit picker (2026-09-07)
 on:
   push:
     branches: [main]
@@ -30,16 +30,19 @@ jobs:
       - name: Apply measurement navigation repair
         run: python3 scripts/fix-measurement-flow-navigation.py
 
-      - name: Persist measurement navigation repair
+      - name: Apply approved unit picker
+        run: python3 scripts/apply-approved-unit-picker.py
+
+      - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx; then
-            echo "Navigation source already repaired."
+          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css; then
+            echo "Measurement source already updated."
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx
-            git commit -m "fix(engineering): keep measurement flow open during internal saves"
+            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css
+            git commit -m "feat(engineering): apply approved apartment selector"
             git push
           fi
 
@@ -79,6 +82,9 @@ jobs:
 
       - name: Apply measurement navigation repair
         run: python3 scripts/fix-measurement-flow-navigation.py
+
+      - name: Apply approved unit picker
+        run: python3 scripts/apply-approved-unit-picker.py
 
       - name: Install dependencies
         run: npm install
