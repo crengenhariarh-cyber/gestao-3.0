@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: full tower measurement scope + compact unit selector (2026-09-07)
+# deploy trigger: launched-only measurement edit (2026-09-07)
 on:
   push:
     branches: [main]
@@ -36,6 +36,9 @@ jobs:
       - name: Apply full tower measurement scope
         run: python3 scripts/fix-measurement-full-tower-scope.py
 
+      - name: Apply launched-only measurement edit
+        run: python3 scripts/fix-measurement-edit-launched-only.py
+
       - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -45,7 +48,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css
-            git commit -m "fix(engineering): sync full tower units in measurement picker"
+            git commit -m "fix(engineering): edit only launched measurement quantities"
             git push
           fi
 
@@ -91,6 +94,9 @@ jobs:
 
       - name: Apply full tower measurement scope
         run: python3 scripts/fix-measurement-full-tower-scope.py
+
+      - name: Apply launched-only measurement edit
+        run: python3 scripts/fix-measurement-edit-launched-only.py
 
       - name: Install dependencies
         run: npm install
