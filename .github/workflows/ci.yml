@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: complete measurement flow audit (2026-09-07)
+# deploy trigger: publish audited measurement origin service-list flow (2026-09-07)
 on:
   push:
     branches: [main]
