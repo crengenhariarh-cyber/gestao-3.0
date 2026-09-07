@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { EmptyState, LoadingState } from '../../../shared/ui/Feedback';
-import { getSupabaseClient } from '../../../shared/infrastructure/supabase/client';
+import { loadAddendumSheetLines, type AddendumSheetLine } from '../infrastructure/EngineeringContractModalRepository';
 
 interface Props {
   open: boolean;
@@ -14,19 +14,11 @@ interface Props {
   onEditLine: () => void;
 }
 
-interface AddendumLine {
-  id: string;
-  description: string;
-  unit: string;
-  quantityDelta: number;
-  unitPrice: number;
-}
-
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const quantity = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 
 export function EngineeringAddendumSheetDialog({ open, scope, addendumId, addendumNumber, statusLabel, onClose, onEditLine }: Props) {
-  const [rows, setRows] = useState<AddendumLine[]>([]);
+  const [rows, setRows] = useState<AddendumSheetLine[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -36,31 +28,14 @@ export function EngineeringAddendumSheetDialog({ open, scope, addendumId, addend
     let active = true;
     setLoading(true);
     setErrorMessage(null);
-    const client = getSupabaseClient();
-    void client
-      .from('contract_addendum_lines')
-      .select('id,description,unit,quantity_delta,unit_price')
-      .eq('tenant_id', scope.tenantId)
-      .eq('company_id', scope.companyId)
-      .eq('addendum_id', addendumId)
-      .order('created_at', { ascending: true })
-      .then(result => {
-        if (!active) return;
-        if (result.error) throw result.error;
-        setRows((result.data ?? []).map(row => ({
-          id: String(row.id),
-          description: String(row.description ?? ''),
-          unit: String(row.unit ?? ''),
-          quantityDelta: Number(row.quantity_delta ?? 0),
-          unitPrice: Number(row.unit_price ?? 0),
-        })));
-      })
+    void loadAddendumSheetLines(scope, addendumId)
+      .then(data => { if (active) setRows(data); })
       .catch(error => {
         if (active) setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar a planilha do aditivo.');
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [open, scope.tenantId, scope.companyId, addendumId]);
+  }, [open, scope, addendumId]);
 
   const normalized = search.trim().toLocaleLowerCase('pt-BR');
   const filtered = useMemo(() => rows.filter(row => !normalized || `${row.description} ${row.unit} ${row.quantityDelta}`.toLocaleLowerCase('pt-BR').includes(normalized)), [rows, normalized]);
