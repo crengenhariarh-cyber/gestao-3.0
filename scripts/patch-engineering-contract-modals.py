@@ -37,6 +37,13 @@ if 'allocationEdit&&<Dialog' not in s:
     if count != 1:
         raise SystemExit(f'allocation modal replacement count={count}')
 
+# Saving a quantity must close only the editor modal and keep the selected
+# tower/structure sheet modal mounted. Calling changed() triggers the parent
+# overview refresh, temporarily unmounting EngineeringContractWorkspace and
+# clearing sheetGroup. A local reload is sufficient because allocation edits
+# do not change the contract overview totals.
+s = s.replace("      setAllocationEdit(null);changed();", "      setAllocationEdit(null);void operations.reload().catch(()=>undefined);", 1)
+
 old_tail = "{guidedMeasurementOpen&&<GuidedMeasurementFlow scope={scope} contractId={contract.contractId} onChanged={changed} onClose={()=>setGuidedMeasurementOpen(false)}/>}</>;"
 if 'contractRetentionEditOpen&&<EditEngineeringContractRetentionDialog' not in s:
     if old_tail not in s:
