@@ -229,7 +229,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     <div className="guided-measurement guided-measurement--parity approved-measurement-sheet">
       {error&&<Feedback tone="danger" title="Não foi possível continuar" message={error}/>} 
       {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” antes de lançar os serviços.</span></div>}
-      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a torre ou aditivo</strong><span>Escolha abaixo a origem que deseja medir.</span><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'12px',width:'100%',maxWidth:'900px',marginTop:'12px'}}>{model.origins.map(item=><Button key={item.id} variant="secondary" onClick={()=>chooseOrigin(item.id)}>{originLabel(item)}</Button>)}</div></div>}
+      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a torre ou aditivo</strong><span>Escolha abaixo a origem que deseja medir.</span><div className="guided-measurement__selectors">{model.origins.map(item=><Button key={item.id} variant="secondary" onClick={()=>chooseOrigin(item.id)}>{originLabel(item)}</Button>)}</div></div>}
       {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
       {(measurementId||draftMode)&&origin&&stages.length>0&&<>
         <section className="approved-measurement-sheet__header-fields">
