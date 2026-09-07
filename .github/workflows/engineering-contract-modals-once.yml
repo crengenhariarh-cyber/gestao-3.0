@@ -35,6 +35,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx src/styles/engineering.css
+          git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx
           git commit -m "feat(engineering): open sheets and quantity editor as nested modals"
           git push
