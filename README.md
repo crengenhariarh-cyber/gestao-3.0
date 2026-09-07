@@ -30,3 +30,5 @@ Reconstrução limpa e profissional do sistema Gestão.
 Fase 3 — Fundação Técnica.
 
 Este repositório começa do zero. O Gestão 2.0 permanece apenas como referência funcional e fonte para futura migração controlada de dados.
+
+Fluxos de contrato e planilhas utilizam os componentes compartilhados do sistema.
