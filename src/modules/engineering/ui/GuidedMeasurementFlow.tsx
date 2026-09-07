@@ -16,6 +16,7 @@ import './guided-measurement-flow.css';
 interface Props {
   scope:{tenantId:string;companyId:string};
   contractId:string;
+  initialOriginId?:string;
   onChanged:()=>void;
   onClose:()=>void;
 }
@@ -68,13 +69,13 @@ function stageReferences(model:MeasurementParityModel,origin:MeasurementParityOr
   return base;
 }
 
-export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props){
+export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',onChanged,onClose}:Props){
   const [model,setModel]=useState<MeasurementParityModel|null>(null);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [measurementId,setMeasurementId]=useState('');
-  const [originId,setOriginId]=useState('');
+  const [originId,setOriginId]=useState(initialOriginId);
   const [serviceIndex,setServiceIndex]=useState(0);
   const [servicePickerOpen,setServicePickerOpen]=useState(false);
   const [unitPickerOpen,setUnitPickerOpen]=useState(false);
@@ -94,6 +95,8 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
   useEffect(()=>{void reload();},[reload]);
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
   useEffect(()=>{if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId]);
+  useEffect(()=>{if(!initialOriginId||!model?.origins.some(item=>item.id===initialOriginId))return;setOriginId(initialOriginId);},[initialOriginId,model?.origins]);
+  useEffect(()=>{if(measurementId&&originId&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(true);},[measurementId,originId,model?.origins]);
 
   const origin=useMemo(()=>model?.origins.find(item=>item.id===originId)??null,[model?.origins,originId]);
   const stages=useMemo(()=>origin?.services??[],[origin]);

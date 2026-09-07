@@ -9,7 +9,7 @@ import { useEngineeringOperations } from './useEngineeringOperations';
 type TabId='contratos'|'medicoes'|'producao'|'aditivos'|'provisorios';
 type Kind='work'|'structure'|'contract'|'contractStatus'|'service'|'contractService'|'allocation'|'provisional'|'provisionalLine'|'convert'|'addendum'|'addendumLine'|'measurement'|'measurementLine'|'retention'|'measurementStatus'|'receivable'|'receive'|'productionPeriod'|'productionEntry'|'productionStatus'|null;
 type ActionsMode='default'|'contract-create'|'contract-maintenance'|'contract-data'|'contract-services'|'measurement-create'|'measurement-close'|'contract-taxes';
-interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; initialKind?:Exclude<Kind,null>; hideActions?:boolean; onDialogClosed?:()=>void; }
+interface Props { activeTab:TabId; scope:{tenantId:string;companyId:string}; onChanged:()=>void; actionsMode?:ActionsMode; focusedContractId?:string|null; initialKind?:Exclude<Kind,null>; hideActions?:boolean; onDialogClosed?:()=>void; onMeasurementCreated?:(originId:string)=>void; }
 interface Option { value:string; label:string; }
 
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
@@ -25,7 +25,7 @@ const descriptions:Record<Exclude<Kind,null>,string>={
   work:'Cadastre os dados principais da obra.',structure:'Cadastre torre, bloco, pavimento, unidade ou outra estrutura da obra.',contract:'Cadastre os dados contratuais e as retenções padrão.',contractStatus:'Altere a situação atual do contrato.',service:'Cadastre um serviço para reutilização nas planilhas.',contractService:'Inclua quantidade e valor unitário na base contratual.',allocation:'Distribua a quantidade contratada por torre, pavimento ou unidade.',provisional:'Crie uma negociação antes de virar contrato ou aditivo.',provisionalLine:'Inclua um serviço na composição do provisório.',convert:'Converta o provisório aprovado preservando o histórico.',addendum:'Cadastre uma alteração vinculada ao contrato.',addendumLine:'Inclua o item que altera a composição contratual.',measurement:'Abra uma nova competência de medição.',measurementLine:'Registre quantidade e valor efetivamente medidos.',retention:'Registre INSS, ISS, retenção técnica ou outra retenção.',measurementStatus:'Feche, aprove, reabra ou cancele uma medição.',receivable:'Gere a conta a receber da medição aprovada.',receive:'Registre o recebimento financeiro da medição.',productionPeriod:'Abra uma competência para produção da equipe.',productionEntry:'Registre a produção executada por colaborador.',productionStatus:'Feche ou reabra o período de produção.',
 };
 
-export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMode='default',focusedContractId=null,initialKind,hideActions=false,onDialogClosed}:Props){
+export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMode='default',focusedContractId=null,initialKind,hideActions=false,onDialogClosed,onMeasurementCreated}:Props){
   const operations=useEngineeringOperations(scope);
   const data=operations.state.data;
   const [kind,setKind]=useState<Kind>(initialKind??null);
@@ -47,6 +47,22 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   const effectiveContractId=form.contractId||focusedContractId||'';
   const contractServiceOptions=options((data?.contractServices??[]).filter(item=>!effectiveContractId||item.contractId===effectiveContractId).map(item=>({id:item.id,name:`${item.description} · ${currency.format(item.unitPrice)}/${item.unit}`})));
   const structureOptions=options((data?.structures??[]).filter(item=>!selectedWork||item.workId===selectedWork));
+  const measurementContractId=form.contractId||focusedContractId||'';
+  const measurementContract=data?.contracts.find(item=>item.id===measurementContractId);
+  const measurementWorkId=measurementContract?.workId??'';
+  const paymentMethodOptions:Option[]=[
+    {value:'PIX',label:'PIX'},
+    {value:'TRANSFERENCIA',label:'Transferência bancária'},
+    {value:'BOLETO',label:'Boleto'},
+    {value:'DINHEIRO',label:'Dinheiro'},
+    {value:'CHEQUE',label:'Cheque'},
+  ];
+  const measurementOrigins=[
+    ...(data?.structures??[]).filter(item=>item.workId===measurementWorkId&&['tower','block'].includes(item.type)).map(item=>({key:`structure:${item.id}`,id:item.id,label:item.name})),
+    ...(data?.addenda??[]).filter(item=>item.contractId===measurementContractId).map(item=>({key:`addendum:${item.id}`,id:item.id,label:`Aditivo · ${item.number}`})),
+  ];
+  const measurementOriginOptions:Option[]=[{value:'',label:'Selecione…'},...measurementOrigins.map(item=>({value:item.key,label:item.label}))];
+  const selectedMeasurementOrigin=measurementOrigins.find(item=>item.key===(form.originKey??''));
 
   const defaults:Record<Exclude<Kind,null>,Record<string,string>>={
     work:{name:'',code:'',clientName:'',city:'',state:'',notes:''},structure:{workId:'',parentId:'',type:'tower',code:'',name:''},
@@ -54,7 +70,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     service:{name:'',unit:'un',code:'',category:'',notes:''},contractService:{contractId:'',serviceId:'',description:'',unit:'un',quantity:'',unitPrice:'',notes:''},allocation:{contractId:'',workId:'',contractServiceId:'',structureId:'',quantity:'',notes:''},
     provisional:{workId:'',number:'',title:'',clientName:'',notes:''},provisionalLine:{provisionalId:'',serviceId:'',description:'',unit:'un',quantity:'',unitPrice:'',notes:''},convert:{provisionalId:'',destination:'contract',number:'',contractId:'',addendumType:'increase'},
     addendum:{contractId:'',number:'',type:'increase',effectiveDate:today(),statedValue:'',notes:''},addendumLine:{addendumId:'',contractId:'',contractServiceId:'',serviceId:'',description:'',unit:'un',quantityDelta:'',unitPrice:'',notes:''},
-    measurement:{contractId:'',competence:currentMonth(),measurementNumber:'',dueDate:'',expectedPaymentDate:'',paymentMethod:'PIX',originLabel:'',notes:''},measurementLine:{measurementId:'',contractId:'',contractServiceId:'',structureId:'',measuredQuantity:'',unitPrice:'',notes:''},retention:{measurementId:'',retentionType:'inss',calculationType:'percentage',rate:'',fixedAmount:'',description:'',notes:''},measurementStatus:{measurementId:'',action:'close',reason:''},receivable:{measurementId:'',dueDate:today()},receive:{measurementId:'',accountId:'',receivedOn:today(),amount:''},
+    measurement:{contractId:'',competence:currentMonth(),measurementNumber:'',dueDate:'',expectedPaymentDate:'',paymentMethod:'PIX',originKey:'',notes:''},measurementLine:{measurementId:'',contractId:'',contractServiceId:'',structureId:'',measuredQuantity:'',unitPrice:'',notes:''},retention:{measurementId:'',retentionType:'inss',calculationType:'percentage',rate:'',fixedAmount:'',description:'',notes:''},measurementStatus:{measurementId:'',action:'close',reason:''},receivable:{measurementId:'',dueDate:today()},receive:{measurementId:'',accountId:'',receivedOn:today(),amount:''},
     productionPeriod:{workId:'',competence:currentMonth()},productionEntry:{periodId:'',employmentContractId:'',structureId:'',serviceId:'',productionDate:today(),executedQuantity:'',unitValue:'',notes:''},productionStatus:{periodId:'',action:'close',reason:''},
   };
 
@@ -66,7 +82,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     setForm(base);setKind(next);
   }
   function close(){setKind(null);operations.clearFeedback();onDialogClosed?.();}
-  async function done(action:()=>Promise<unknown>){await action();onChanged();setKind(null);onDialogClosed?.();}
+  async function done(action:()=>Promise<unknown>,after?:()=>void){await action();onChanged();after?.();setKind(null);onDialogClosed?.();}
   async function submit(){
     try{
       switch(kind){
@@ -82,7 +98,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
         case 'convert':await done(()=>operations.convertProvisional({provisionalId:form.provisionalId??'',destination:(form.destination??'contract') as 'contract'|'addendum',number:form.number??'',contractId:form.contractId||focusedContractId||null,addendumType:(form.addendumType||null) as 'increase'|'reduction'|'adjustment'|null}));break;
         case 'addendum':await done(()=>operations.createAddendum({contractId:form.contractId||focusedContractId||'',number:form.number??'',type:(form.type??'increase') as 'increase'|'reduction'|'adjustment',effectiveDate:form.effectiveDate||null,statedValue:form.statedValue?numberValue(form.statedValue):null,notes:form.notes||null}));break;
         case 'addendumLine':await done(()=>operations.addAddendumLine({addendumId:form.addendumId??'',contractServiceId:form.contractServiceId||null,serviceId:form.serviceId||null,description:form.description??'',unit:form.unit??'un',quantityDelta:numberValue(form.quantityDelta??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
-        case 'measurement':await done(()=>operations.createMeasurement({contractId:form.contractId||focusedContractId||'',competence:form.competence??currentMonth(),measurementNumber:form.measurementNumber??'',dueDate:form.dueDate||null,expectedPaymentDate:form.expectedPaymentDate||null,paymentMethod:form.paymentMethod||null,originLabel:form.originLabel||null,notes:form.notes||null}));break;
+        case 'measurement':await done(()=>operations.createMeasurement({contractId:form.contractId||focusedContractId||'',competence:form.competence??currentMonth(),measurementNumber:form.measurementNumber??'',dueDate:form.dueDate||null,expectedPaymentDate:form.expectedPaymentDate||null,paymentMethod:form.paymentMethod||null,originLabel:selectedMeasurementOrigin?.label??null,notes:form.notes||null}),()=>onMeasurementCreated?.(selectedMeasurementOrigin?.id??''));break;
         case 'measurementLine':await done(()=>operations.addMeasurementLine({measurementId:form.measurementId??'',contractServiceId:form.contractServiceId??'',structureId:form.structureId||null,measuredQuantity:numberValue(form.measuredQuantity??''),unitPrice:numberValue(form.unitPrice??''),notes:form.notes||null}));break;
         case 'retention':await done(()=>operations.addRetention({measurementId:form.measurementId??'',retentionType:(form.retentionType??'inss') as 'inss'|'iss'|'rt'|'other',calculationType:(form.calculationType??'percentage') as 'percentage'|'fixed',rate:form.rate?numberValue(form.rate):null,fixedAmount:form.fixedAmount?numberValue(form.fixedAmount):null,description:form.description||null,notes:form.notes||null}));break;
         case 'measurementStatus':await done(()=>operations.setMeasurementStatus(form.measurementId??'',(form.action??'close') as 'close'|'approve'|'cancel'|'reopen',form.reason||null));break;
@@ -131,7 +147,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     case 'convert':content=shell(<>{select('Provisório','provisionalId',provisionalOptions,true)}{select('Converter em','destination',[{value:'contract',label:'Contrato'},{value:'addendum',label:'Aditivo'}],true)}{input('Número de destino','number','text',true)}{form.destination==='addendum'&&!focusedContractId&&select('Contrato','contractId',contractOptions,true)}{form.destination==='addendum'&&select('Tipo','addendumType',[{value:'increase',label:'Acréscimo'},{value:'reduction',label:'Redução'},{value:'adjustment',label:'Ajuste'}],true)}</>,'A conversão preserva o histórico do provisório e de seus itens.');break;
     case 'addendum':content=shell(<>{!focusedContractId&&select('Contrato','contractId',contractOptions,true)}{input('Número','number','text',true)}{select('Tipo','type',[{value:'increase',label:'Acréscimo'},{value:'reduction',label:'Redução'},{value:'adjustment',label:'Ajuste'}],true)}{input('Vigência','effectiveDate','date')}{input('Valor declarado','statedValue','number')}{input('Observações','notes')}</>);break;
     case 'addendumLine':content=shell(<>{select('Aditivo','addendumId',addendumOptions,true)}{select('Serviço do contrato','contractServiceId',contractServiceOptions)}{select('Serviço novo','serviceId',serviceOptions)}{input('Descrição','description','text',true)}{input('Unidade','unit','text',true)}{input('Variação quantidade (+/-)','quantityDelta','number',true)}{input('Valor unitário','unitPrice','number',true)}{input('Observações','notes')}</>);break;
-    case 'measurement':content=shell(<>{!focusedContractId&&select('Contrato','contractId',contractOptions,true)}{input('Nº da medição','measurementNumber','text',true)}{input('Competência','competence','month',true)}{input('Torre / Aditivo / Provisório','originLabel')}{input('Vencimento previsto','dueDate','date')}{input('Data prevista para pagamento','expectedPaymentDate','date')}{input('Forma de pagamento','paymentMethod')}{input('Observações','notes')}</>,'Dados principais da medição. INSS, ISS e retenção técnica serão tratados na etapa de valores/impostos.');break;
+    case 'measurement':content=shell(<>{!focusedContractId&&select('Contrato','contractId',contractOptions,true)}{input('Nº da medição','measurementNumber','text',true)}{input('Competência','competence','month',true)}{select('Torre / Aditivo','originKey',measurementOriginOptions,true)}{input('Vencimento previsto','dueDate','date')}{input('Data prevista para pagamento','expectedPaymentDate','date')}{select('Forma de pagamento','paymentMethod',paymentMethodOptions,true)}{input('Observações','notes')}</>,'Dados principais da medição. INSS, ISS e retenção técnica serão tratados na etapa de valores/impostos.');break;
     case 'measurementLine':content=shell(<>{select('Medição','measurementId',measurementOptions,true)}{select('Serviço do contrato','contractServiceId',contractServiceOptions,true)}{select('Estrutura','structureId',structureOptions)}{input('Quantidade medida','measuredQuantity','number',true)}{input('Valor unitário','unitPrice','number',true)}{input('Observações','notes')}</>);break;
     case 'retention':content=shell(<>{select('Medição','measurementId',measurementOptions,true)}{select('Retenção','retentionType',[{value:'inss',label:'INSS'},{value:'iss',label:'ISS'},{value:'rt',label:'RT'},{value:'other',label:'Outra'}],true)}{select('Cálculo','calculationType',[{value:'percentage',label:'Percentual'},{value:'fixed',label:'Valor fixo'}],true)}{form.calculationType==='fixed'?input('Valor','fixedAmount','number',true):input('Percentual','rate','number',true)}{input('Descrição','description')}{input('Observações','notes')}</>);break;
     case 'measurementStatus':content=shell(<>{select('Medição','measurementId',measurementOptions,true)}{select('Ação','action',[{value:'close',label:'Fechar'},{value:'approve',label:'Aprovar'},{value:'reopen',label:'Reabrir'},{value:'cancel',label:'Cancelar'}],true)}{input('Motivo','reason')}</>);break;
