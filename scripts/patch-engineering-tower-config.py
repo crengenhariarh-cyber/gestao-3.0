@@ -2,29 +2,34 @@ from pathlib import Path
 
 repo = Path('src/modules/engineering/application/EngineeringOperationsRepository.ts')
 s = repo.read_text()
-old = "  createStructure(scope: EngineeringScope, input: { workId: string; parentId?: string | null; type: 'tower'|'block'|'sector'|'quad'|'floor'|'unit'|'house'|'area'|'basement'|'ground_floor'|'roof'|'other'; code?: string | null; name: string }): Promise<void>;"
-new = old + "\n  updateStructure(scope: EngineeringScope, input: { structureId: string; code?: string | null; name: string; metadata?: Record<string, unknown> | null }): Promise<void>;"
 if 'updateStructure(scope: EngineeringScope' not in s:
-    assert old in s
-    s = s.replace(old, new)
+    marker = "  createStructure(scope: EngineeringScope, input: { workId: string; parentId?: string | null; type: 'tower'|'block'|'sector'|'quad'|'floor'|'unit'|'house'|'area'|'basement'|'ground_floor'|'roof'|'other'; code?: string | null; name: string }): Promise<void>;"
+    assert marker in s
+    s = s.replace(marker, marker + "\n  updateStructure(scope: EngineeringScope, input: { structureId: string; code?: string | null; name: string; metadata?: Record<string, unknown> | null }): Promise<void>;")
 repo.write_text(s)
 
 infra = Path('src/modules/engineering/infrastructure/SupabaseEngineeringOperationsRepository.ts')
 s = infra.read_text()
-anchor = "  async createStructure(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['createStructure']>[1]){const r=await this.client.from('work_structures').insert({tenant_id:scope.tenantId,company_id:scope.companyId,work_id:input.workId,parent_id:input.parentId||null,type:input.type,code:input.code||null,name:required(input.name,'Estrutura')});if(r.error)throw r.error;}"
-addition = anchor + "\n  async updateStructure(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['updateStructure']>[1]){const r=await this.client.from('work_structures').update({code:input.code||null,name:required(input.name,'Estrutura'),metadata:input.metadata??null}).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',input.structureId);if(r.error)throw r.error;}"
 if "async updateStructure(scope:EngineeringScope" not in s:
-    assert anchor in s
-    s = s.replace(anchor, addition)
+    lines = s.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("  async createStructure(scope:EngineeringScope"):
+            lines.insert(i + 1, "  async updateStructure(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['updateStructure']>[1]){const r=await this.client.from('work_structures').update({code:input.code||null,name:required(input.name,'Estrutura'),metadata:input.metadata??null,updated_at:new Date().toISOString()}).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',required(input.structureId,'Estrutura'));if(r.error)throw r.error;}")
+            break
+    else: raise AssertionError('createStructure not found')
+    s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
 infra.write_text(s)
 
 hook = Path('src/modules/engineering/ui/useEngineeringOperations.ts')
 s = hook.read_text()
-anchor = "    createStructure:(input:Parameters<typeof repository.createStructure>[1])=>execute(()=>repository.createStructure(scope,input),'Estrutura cadastrada.'),"
-addition = anchor + "\n    updateStructure:(input:Parameters<typeof repository.updateStructure>[1])=>execute(()=>repository.updateStructure(scope,input),'Estrutura atualizada.'),"
 if 'updateStructure:(input:' not in s:
-    assert anchor in s
-    s = s.replace(anchor, addition)
+    lines = s.splitlines()
+    for i, line in enumerate(lines):
+        if 'createStructure:(input:' in line:
+            lines.insert(i + 1, "    updateStructure:(input:Parameters<typeof repository.updateStructure>[1])=>execute(()=>repository.updateStructure(scope,input),'Estrutura atualizada.'),")
+            break
+    else: raise AssertionError('createStructure hook not found')
+    s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
 hook.write_text(s)
 
 component = Path('src/modules/engineering/ui/EditEngineeringStructureDialog.tsx')
