@@ -1,4 +1,4 @@
-name: Fix engineering allocation validation once
+name: Fix engineering allocation scope once
 
 on:
   push:
@@ -16,38 +16,42 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch allocation validation
+
+      - name: Apply scope edit fix
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+
+          repo=Path('src/modules/engineering/infrastructure/SupabaseEngineeringOperationsRepository.ts')
+          s=repo.read_text()
+          old="async allocateContractService(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['allocateContractService']>[1]){const contractServiceId=required(input.contractServiceId,'Serviço do contrato');const structureId=required(input.structureId,'Estrutura');const payload={allocated_quantity:positive(input.quantity,'Quantidade'),notes:input.notes||null,scope_config:input.scopeConfig??{},status:'active',updated_at:new Date().toISOString()};const existing=await this.client.from('contract_service_allocations').select('id').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_service_id',contractServiceId).eq('structure_id',structureId).maybeSingle();if(existing.error)throw existing.error;if(existing.data?.id){const r=await this.client.from('contract_service_allocations').update(payload).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',existing.data.id);if(r.error)throw r.error;return;}const r=await this.client.from('contract_service_allocations').insert({tenant_id:scope.tenantId,company_id:scope.companyId,work_id:required(input.workId,'Obra'),contract_service_id:contractServiceId,structure_id:structureId,...payload});if(r.error)throw r.error;}"
+          new="async allocateContractService(scope:EngineeringScope,input:Parameters<EngineeringOperationsRepository['allocateContractService']>[1]){const contractServiceId=required(input.contractServiceId,'Serviço do contrato');const structureId=required(input.structureId,'Estrutura');const nextQuantity=positive(input.quantity,'Quantidade');const serviceUpdate=await this.client.from('contract_services').update({contracted_quantity:nextQuantity,updated_at:new Date().toISOString()}).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',contractServiceId);if(serviceUpdate.error)throw serviceUpdate.error;const payload={allocated_quantity:nextQuantity,notes:input.notes||null,scope_config:input.scopeConfig??{},status:'active',updated_at:new Date().toISOString()};const existing=await this.client.from('contract_service_allocations').select('id').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_service_id',contractServiceId).eq('structure_id',structureId).maybeSingle();if(existing.error)throw existing.error;if(existing.data?.id){const r=await this.client.from('contract_service_allocations').update(payload).eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',existing.data.id);if(r.error)throw r.error;return;}const r=await this.client.from('contract_service_allocations').insert({tenant_id:scope.tenantId,company_id:scope.companyId,work_id:required(input.workId,'Obra'),contract_service_id:contractServiceId,structure_id:structureId,...payload});if(r.error)throw r.error;}"
+          if old not in s: raise SystemExit('allocateContractService fragment not found')
+          repo.write_text(s.replace(old,new,1))
+
           p=Path('src/modules/engineering/ui/EngineeringContractWorkspace.tsx')
           s=p.read_text()
-          old="const nextQuantity=numberValue(allocationEdit.quantity);"
-          new="const nextQuantity=allocationEdit.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&allocationEdit.unitsPerFloor>0&&allocationEdit.selectedFloors.length>0?allocationEdit.selectedFloors.length*allocationEdit.unitsPerFloor:numberValue(allocationEdit.quantity);"
-          if old not in s: raise SystemExit('save quantity fragment not found')
-          s=s.replace(old,new,1)
-          old="function toggleAllocationFloor(floor:string){setAllocationError(null);setAllocationEdit(current=>{if(!current)return current;const selected=current.selectedFloors.includes(floor)?current.selectedFloors.filter(item=>item!==floor):[...current.selectedFloors,floor];const derived=current.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&current.unitsPerFloor>0?selected.length*current.unitsPerFloor:numberValue(current.quantity);return {...current,selectedFloors:selected,quantity:String(derived)};});}"
-          new="function toggleAllocationFloor(floor:string){setAllocationEdit(current=>{if(!current)return current;const selected=current.selectedFloors.includes(floor)?current.selectedFloors.filter(item=>item!==floor):[...current.selectedFloors,floor];const derived=current.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&current.unitsPerFloor>0?selected.length*current.unitsPerFloor:numberValue(current.quantity);setAllocationError(derived>current.maxQuantity?`O máximo contratado para este serviço é ${quantity.format(current.maxQuantity)}. Selecione apenas os pavimentos que pertencem ao seu escopo.`:null);return {...current,selectedFloors:selected,quantity:String(derived)};});}"
-          if old not in s: raise SystemExit('toggle fragment not found')
-          s=s.replace(old,new,1)
-          old="{allocationError&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}"
-          new="{allocationError&&(!allocationError.startsWith('O máximo contratado')||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity)&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}"
-          if old not in s: raise SystemExit('error render fragment not found')
-          s=s.replace(old,new,1)
-          old="<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0} onClick={()=>void saveAllocationEdit()}>"
-          new="<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity} onClick={()=>void saveAllocationEdit()}>"
-          if old not in s: raise SystemExit('save button fragment not found')
-          s=s.replace(old,new,1)
+          s=s.replace("    if(nextQuantity>allocationEdit.maxQuantity){setAllocationError(`O máximo contratado para este serviço é ${quantity.format(allocationEdit.maxQuantity)}. Selecione apenas os pavimentos que pertencem ao seu escopo.`);return;}\n","")
+          s=s.replace("setAllocationError(derived>current.maxQuantity?`O máximo contratado para este serviço é ${quantity.format(current.maxQuantity)}. Selecione apenas os pavimentos que pertencem ao seu escopo.`:null);","setAllocationError(null);")
+          s=s.replace("{allocationError&&(!allocationError.startsWith('O máximo contratado')||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity)&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}","{allocationError&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}")
+          s=s.replace("<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0||numberValue(allocationEdit.quantity)>allocationEdit.maxQuantity} onClick={()=>void saveAllocationEdit()}>","<Button disabled={allocationSaving||numberValue(allocationEdit.quantity)<=0} onClick={()=>void saveAllocationEdit()}>")
+          s=s.replace("· máximo contratado {quantity.format(allocationEdit.maxQuantity)}","· quantitativo anterior {quantity.format(allocationEdit.maxQuantity)}")
           p.write_text(s)
           PY
+
+      - name: Verify
+        run: |
           npm ci
           npm run typecheck
           npm run lint
           npm test -- --run
           npm run build
+
+      - name: Commit
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx
-          git commit -m "fix(engineering): recalculate allocation validation live"
+          git add src/modules/engineering/infrastructure/SupabaseEngineeringOperationsRepository.ts src/modules/engineering/ui/EngineeringContractWorkspace.tsx
+          git diff --cached --quiet || git commit -m "fix(engineering): edit scope and contracted quantity together"
           git push
