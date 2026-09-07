@@ -37,6 +37,7 @@ export function useEngineeringOperations(scope: EngineeringScope) {
     createAddendum:(input:Parameters<typeof repository.createAddendum>[1])=>execute(()=>repository.createAddendum(scope,input),'Aditivo criado.'),
     addAddendumLine:(input:Parameters<typeof repository.addAddendumLine>[1])=>execute(()=>repository.addAddendumLine(scope,input),'Item adicionado ao aditivo.'),
     createMeasurement:(input:Parameters<typeof repository.createMeasurement>[1])=>execute(()=>repository.createMeasurement(scope,input),'Medição criada.'),
+    updateMeasurement:(input:Parameters<typeof repository.updateMeasurement>[1])=>execute(()=>repository.updateMeasurement(scope,input),'Dados da medição atualizados.'),
     deleteMeasurement:(id:string)=>execute(()=>repository.deleteMeasurement(scope,id),'Medição excluída.'),
     addMeasurementLine:(input:Parameters<typeof repository.addMeasurementLine>[1])=>execute(()=>repository.addMeasurementLine(scope,input),'Item incluído na medição.'),
     addRetention:(input:Parameters<typeof repository.addRetention>[1])=>execute(()=>repository.addRetention(scope,input),'Retenção incluída.'),

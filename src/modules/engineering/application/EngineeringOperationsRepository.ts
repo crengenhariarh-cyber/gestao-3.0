@@ -4,7 +4,7 @@ export interface EngineeringReferenceItem { id: string; name: string; }
 export interface EngineeringContractOption { id: string; contractNumber: string; workId: string; status: string; }
 export interface EngineeringServiceOption { id: string; name: string; unit: string; }
 export interface EngineeringContractServiceOption { id: string; contractId: string; description: string; unit: string; quantity: number; unitPrice: number; }
-export interface EngineeringMeasurementOption { id:string; contractId:string; competence:string; status:string; measurementNumber:string; dueDate:string|null; expectedPaymentDate:string|null; paymentMethod:string|null; originLabel:string|null; }
+export interface EngineeringMeasurementOption { id:string; contractId:string; competence:string; status:string; measurementNumber:string; dueDate:string|null; expectedPaymentDate:string|null; paymentMethod:string|null; originLabel:string|null; notes:string|null; }
 export interface EngineeringProductionPeriodOption { id: string; workId: string; competence: string; status: string; }
 export interface EngineeringEmployeeOption { id: string; name: string; }
 export interface EngineeringProvisionalOption { id: string; number: string; status: string; workId: string; title: string|null; clientName:string|null; }
@@ -46,6 +46,7 @@ export interface EngineeringOperationsRepository {
   createAddendum(scope: EngineeringScope, input: { contractId: string; number: string; type: 'increase' | 'reduction' | 'adjustment'; effectiveDate?: string | null; statedValue?: number | null; notes?: string | null }): Promise<void>;
   addAddendumLine(scope: EngineeringScope, input: { addendumId: string; contractServiceId?: string | null; serviceId?: string | null; description: string; unit: string; quantityDelta: number; unitPrice: number; notes?: string | null }): Promise<void>;
   createMeasurement(scope: EngineeringScope, input: { contractId:string; competence:string; measurementNumber:string; dueDate?:string|null; expectedPaymentDate?:string|null; paymentMethod?:string|null; originLabel?:string|null; notes?:string|null }): Promise<void>;
+  updateMeasurement(scope: EngineeringScope, input: { measurementId:string; competence:string; measurementNumber:string; dueDate?:string|null; expectedPaymentDate?:string|null; paymentMethod?:string|null; notes?:string|null }): Promise<void>;
   deleteMeasurement(scope: EngineeringScope, measurementId:string): Promise<void>;
   addMeasurementLine(scope: EngineeringScope, input: { measurementId: string; contractServiceId: string; structureId?: string | null; measuredQuantity: number; unitPrice: number; notes?: string | null }): Promise<void>;
   addRetention(scope: EngineeringScope, input: { measurementId: string; retentionType: 'inss' | 'iss' | 'rt' | 'other'; calculationType: 'percentage' | 'fixed'; rate?: number | null; fixedAmount?: number | null; description?: string | null; notes?: string | null }): Promise<void>;
