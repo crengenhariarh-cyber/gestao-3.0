@@ -32,6 +32,7 @@ export interface EngineeringOperationsRepository {
   getSnapshot(scope: EngineeringScope): Promise<EngineeringOperationalSnapshot>;
   createWork(scope: EngineeringScope, input: { name: string; code?: string | null; clientName?: string | null; city?: string | null; state?: string | null; notes?: string | null }): Promise<void>;
   createStructure(scope: EngineeringScope, input: { workId: string; parentId?: string | null; type: 'tower'|'block'|'sector'|'quad'|'floor'|'unit'|'house'|'area'|'basement'|'ground_floor'|'roof'|'other'; code?: string | null; name: string }): Promise<void>;
+  updateStructure(scope: EngineeringScope, input: { structureId: string; code?: string | null; name: string; metadata?: Record<string, unknown> | null }): Promise<void>;
   createContract(scope: EngineeringScope, input: { workId: string; contractNumber: string; clientName?: string | null; signedAt?: string | null; startDate?: string | null; endDate?: string | null; inssRate?: number | null; issRate?: number | null; retentionRate?: number | null; notes?: string | null }): Promise<void>;
   updateContractStatus(scope: EngineeringScope, contractId: string, status: 'draft' | 'active' | 'suspended' | 'completed' | 'cancelled'): Promise<void>;
   createService(scope: EngineeringScope, input: { name: string; unit: string; code?: string | null; category?: string | null; notes?: string | null }): Promise<void>;

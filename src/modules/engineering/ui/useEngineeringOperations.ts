@@ -23,6 +23,7 @@ export function useEngineeringOperations(scope: EngineeringScope) {
     state,reload,clearFeedback:()=>setState(current=>({...current,errorMessage:null,successMessage:null})),
     createWork:(input:Parameters<typeof repository.createWork>[1])=>execute(()=>repository.createWork(scope,input),'Obra cadastrada.'),
     createStructure:(input:Parameters<typeof repository.createStructure>[1])=>execute(()=>repository.createStructure(scope,input),'Estrutura cadastrada.'),
+    updateStructure:(input:Parameters<typeof repository.updateStructure>[1])=>execute(()=>repository.updateStructure(scope,input),'Estrutura atualizada.'),
     createContract:(input:Parameters<typeof repository.createContract>[1])=>execute(()=>repository.createContract(scope,input),'Contrato cadastrado.'),
     updateContractStatus:(id:string,status:Parameters<typeof repository.updateContractStatus>[2])=>execute(()=>repository.updateContractStatus(scope,id,status),'Status do contrato atualizado.'),
     createService:(input:Parameters<typeof repository.createService>[1])=>execute(()=>repository.createService(scope,input),'Serviço cadastrado.'),
