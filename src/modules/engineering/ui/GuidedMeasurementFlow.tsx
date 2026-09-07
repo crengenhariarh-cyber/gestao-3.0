@@ -156,16 +156,19 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     });
   },[filteredServiceIndexes,model,origin,measurementId,typeFilter,statusFilter]);
   const summary=useMemo(()=>{
-    if(!model||!origin)return {contracted:0,measured:0,balance:0,measuredPct:0,balancePct:0};
-    let contracted=0,measured=0;
+    if(!model||!origin)return {contracted:0,previousMeasured:0,currentMeasurement:0,balance:0,currentPct:0,balancePct:0};
+    let contracted=0,previousMeasured=0,persistedCurrent=0;
     for(const item of origin.services){
       contracted+=item.contractedQuantity*item.unitPrice;
-      const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId&&line.measurementId!==measurementId&&['draft','closed','approved'].includes(line.measurementStatus));
-      measured+=lines.reduce((sum,line)=>sum+line.measuredQuantity,0)*item.unitPrice;
+      const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId);
+      previousMeasured+=lines.filter(line=>line.measurementId!==measurementId&&['draft','closed','approved'].includes(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0)*item.unitPrice;
+      persistedCurrent+=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0)*item.unitPrice;
     }
-    const balance=Math.max(0,contracted-measured);
-    return {contracted,measured,balance,measuredPct:contracted?measured/contracted*100:0,balancePct:contracted?balance/contracted*100:0};
-  },[model,origin,measurementId]);
+    const previewDelta=stage?(effectiveQuantity-currentQuantity)*stage.unitPrice:0;
+    const currentMeasurement=Math.max(0,persistedCurrent+previewDelta);
+    const balance=Math.max(0,contracted-previousMeasured-currentMeasurement);
+    return {contracted,previousMeasured,currentMeasurement,balance,currentPct:contracted?currentMeasurement/contracted*100:0,balancePct:contracted?balance/contracted*100:0};
+  },[model,origin,measurementId,stage,effectiveQuantity,currentQuantity]);
 
   function resetStage(index:number){setServiceIndex(index);setSelectedUnits([]);setManualQuantity('');setSearch('');setError(null);}
   function chooseService(index:number){
@@ -243,8 +246,8 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
         <section className="approved-measurement-sheet__summary">
           <div className="approved-measurement-sheet__origin"><span className="approved-measurement-sheet__building">▦</span><div><h3>{originLabel(origin)}</h3><p>{stages.length} serviço(s) nesta origem</p></div></div>
           <div className="approved-measurement-sheet__summary-card"><span>Valor contratado</span><strong>{currency.format(summary.contracted)}</strong></div>
-          <div className="approved-measurement-sheet__summary-card"><span>Valor medido</span><strong>{currency.format(summary.measured)}</strong><b>{summary.measuredPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
-          <div className="approved-measurement-sheet__summary-card"><span>Saldo a medir</span><strong>{currency.format(summary.balance)}</strong><b>{summary.balancePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
+          <div className="approved-measurement-sheet__summary-card"><span>Valor desta medição</span><strong>{currency.format(summary.currentMeasurement)}</strong><b>{summary.currentPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
+          <div className="approved-measurement-sheet__summary-card"><span>Saldo após esta medição</span><strong>{currency.format(summary.balance)}</strong><b>{summary.balancePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
         </section>
         <section className="approved-measurement-sheet__toolbar">
           <Input label="Pesquisar serviço" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder="Pesquisar serviço (código ou descrição)..."/>
@@ -259,8 +262,9 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
             const current=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);
             const remaining=Math.max(0,item.contractedQuantity-previous);
             const refs=stageReferences(model,origin,item);
+            const displayedCurrent=index===serviceIndex?effectiveQuantity:current;
             const currentInput=index===serviceIndex&&!refs.length?manualQuantity:(current>0?String(current).replace('.',','):'');
-            return <tr key={`${item.targetKind}:${item.targetId}`}><td>{rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td>{currency.format(item.unitPrice)}</td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(current*item.unitPrice)}</td></tr>;
+            return <tr key={`${item.targetKind}:${item.targetId}`}><td>{rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td>{currency.format(item.unitPrice)}</td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(displayedCurrent*item.unitPrice)}</td></tr>;
           })}</tbody></table></div>
         </section>
         <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={closeFlow}>✓ Finalizar medição</Button></div></footer>
