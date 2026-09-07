@@ -2,6 +2,7 @@ name: Engineering contract modals once
 
 # one-time migration of contract sheets to nested dialogs
 # keep parent sheet modal open after saving quantity
+# make contract addenda prominent and clickable
 on:
   push:
     branches:
@@ -38,5 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx
-          git commit -m "fix(engineering): keep sheet modal after quantity save"
+          git commit -m "fix(engineering): open addenda from contract tab"
           git push
