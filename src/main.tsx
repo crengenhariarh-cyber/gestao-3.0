@@ -4,6 +4,7 @@ import { App } from './app/App';
 import './shared/ui/styles.css';
 import './shared/ui/dialog-variants.css';
 import './shared/ui/measurement-origin-refinement.css';
+import './shared/ui/approved-measurement-origin-modal.css';
 
 const root = document.getElementById('root');
 
