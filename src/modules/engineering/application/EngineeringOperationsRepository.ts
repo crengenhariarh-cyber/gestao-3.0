@@ -14,7 +14,7 @@ export interface EngineeringAddendumOption { id: string; contractId: string; num
 export interface EngineeringOperationalSnapshot {
   works: readonly EngineeringReferenceItem[];
   structures: readonly (EngineeringReferenceItem & { workId:string; parentId:string|null; type:string; code:string|null })[];
-  allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string }[];
+  allocations: readonly { id:string; contractServiceId:string; structureId:string; allocatedQuantity:number; status:string; notes?:string|null }[];
   measurementLines: readonly { id:string; measurementId:string; contractServiceId:string; structureId:string|null; measuredQuantity:number; grossValue:number }[];
   services: readonly EngineeringServiceOption[];
   contracts: readonly EngineeringContractOption[];
