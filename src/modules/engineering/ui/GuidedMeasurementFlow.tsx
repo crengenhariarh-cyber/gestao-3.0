@@ -89,8 +89,6 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
   const [serviceSearch,setServiceSearch]=useState('');
   const [typeFilter,setTypeFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
-  const [page,setPage]=useState(1);
-  const [showAll,setShowAll]=useState(false);
   const [manualQuantity,setManualQuantity]=useState('');
   const [,setFinished]=useState(false);
   const operations=useEngineeringOperations(scope);
@@ -151,10 +149,6 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
       return true;
     });
   },[filteredServiceIndexes,model,origin,measurementId,typeFilter,statusFilter]);
-  const pageSize=12;
-  const totalPages=Math.max(1,Math.ceil(approvedRows.length/pageSize));
-  const approvedPagedRows=showAll?approvedRows:approvedRows.slice((Math.min(page,totalPages)-1)*pageSize,Math.min(page,totalPages)*pageSize);
-  useEffect(()=>{setPage(1);},[serviceSearch,typeFilter,statusFilter]);
   const summary=useMemo(()=>{
     if(!model||!origin)return {contracted:0,measured:0,balance:0,measuredPct:0,balancePct:0};
     let contracted=0,measured=0;
@@ -194,7 +188,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
       }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível criar a medição.');return;}
     }
     if(!activeMeasurementId){setError('Crie ou selecione uma medição em rascunho antes de lançar os serviços.');return;}
-    if(effectiveQuantity<=0){setError(referenceMode?'Selecione ao menos uma unidade.':'Informe a quantidade medida.');return;}
+    if(effectiveQuantity<=0&&currentLines.length===0){setError(referenceMode?'Selecione ao menos uma unidade.':'Informe a quantidade medida.');return;}
     if(effectiveQuantity>balance+0.0001){setError(`A quantidade excede o saldo disponível de ${qty(balance)}.`);return;}
     setSaving(true);setError(null);
     try{
@@ -241,19 +235,19 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
           <Input label="Pesquisar serviço" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder="Pesquisar serviço (código ou descrição)..."/>
           <Select label="Tipo" value={typeFilter} onChange={event=>setTypeFilter(event.target.value)} options={[{value:'',label:'Todos os tipos'},{value:'global',label:'Global'},{value:'unit',label:'Por unidade'}]}/>
           <Select label="Status" value={statusFilter} onChange={event=>setStatusFilter(event.target.value)} options={[{value:'',label:'Todos os status'},{value:'balance',label:'Com saldo'},{value:'done',label:'Concluído'}]}/>
-          <Button variant="secondary" onClick={()=>setShowAll(value=>!value)}>↗ {showAll?'Paginar':'Expandir todos'}</Button>
+          <Button variant="secondary" onClick={()=>{setServiceSearch('');setTypeFilter('');setStatusFilter('');}}>Limpar filtros</Button>
         </section>
         <section className="approved-measurement-sheet__table-card">
-          <div className="approved-measurement-sheet__table-wrap"><table className="approved-measurement-sheet__table"><thead><tr><th>#</th><th>Código</th><th>Descrição do serviço</th><th>Referência</th><th>Contratado</th><th>Medido</th><th>Saldo</th><th>Tipo</th><th>Nesta medição</th><th>Total</th><th>Ações</th></tr></thead><tbody>{approvedPagedRows.map(({item,index},rowPosition)=>{
+          <div className="approved-measurement-sheet__table-wrap"><table className="approved-measurement-sheet__table"><thead><tr><th>#</th><th>Código</th><th>Descrição do serviço</th><th>Referência</th><th>Contratado</th><th>Medido</th><th>Saldo</th><th>Tipo</th><th>Valor unitário</th><th>Nesta medição</th><th>Total</th></tr></thead><tbody>{approvedRows.map(({item,index},rowPosition)=>{
             const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId);
             const previous=lines.filter(line=>line.measurementId!==measurementId&&['draft','closed','approved'].includes(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0);
             const current=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);
             const remaining=Math.max(0,item.contractedQuantity-previous);
             const refs=stageReferences(model,origin,item);
             const currentInput=index===serviceIndex&&!refs.length?manualQuantity:(current>0?String(current).replace('.',','):'');
-            return <tr key={`${item.targetKind}:${item.targetId}`}><td>{showAll?rowPosition+1:(page-1)*pageSize+rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(current*item.unitPrice)}</td><td><div className="approved-measurement-sheet__row-actions"><button type="button" onClick={()=>chooseService(index)}>▣</button><button type="button" onClick={()=>chooseService(index)}>•••</button></div></td></tr>;
+            return <tr key={`${item.targetKind}:${item.targetId}`}><td>{rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td>{currency.format(item.unitPrice)}</td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(current*item.unitPrice)}</td></tr>;
           })}</tbody></table></div>
-          <footer className="approved-measurement-sheet__pagination"><span>Exibindo {approvedPagedRows.length} de {approvedRows.length} serviços</span>{!showAll&&<div><button disabled={page<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>‹</button>{Array.from({length:Math.min(totalPages,5)},(_,i)=>i+1).map(value=><button key={value} className={page===value?'is-active':''} onClick={()=>setPage(value)}>{value}</button>)}<button disabled={page>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>›</button></div>}</footer>
+          
         </section>
         <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={onClose}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={onClose}>✓ Finalizar medição</Button></div></footer>
       </>}
@@ -264,7 +258,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
       {stage.scopeActive&&<div className="guided-measurement__scope-note guided-measurement__scope-note--picker">Escopo deste serviço: {stage.scopeFloors.length?`somente pavimentos ${stage.scopeFloors.join(', ')}`:stage.startFloor!==null?`somente ${stage.startFloor}º em diante`:'somente unidades definidas'}.</div>}
       <div className="guided-measurement-picker__bar"><Input label="Pesquisar apartamento/unidade" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Ex.: 501"/><div><Button variant="secondary" onClick={selectAvailable}>Selecionar até {maxSelectable} disponível(is)</Button><Button variant="tertiary" onClick={()=>setSelectedUnits([])}>Limpar seleção</Button></div><p>Selecione no máximo <strong>{maxSelectable}</strong> unidade(s). Selecionadas: <strong>{selectedUnits.length}/{maxSelectable}</strong>.</p></div>
       <div className="guided-measurement-picker__list guided-measurement-picker__list--floors">{groupedVisibleReferences.map(([level,references])=><section className="guided-measurement-floor" key={level}><header><strong>{referenceLevelLabel(level)}</strong><span>{references.filter(reference=>selectedUnits.includes(reference)).length}/{references.length} selecionado(s)</span></header><div className="guided-measurement-floor__units">{references.map(reference=><label key={reference} className={selectedUnits.includes(reference)?'is-selected':''}><input type="checkbox" checked={selectedUnits.includes(reference)} disabled={!selectedUnits.includes(reference)&&selectedUnits.length>=maxSelectable} onChange={()=>toggleReference(reference)}/><span>{reference.startsWith('TR-')?`Apto ${reference.slice(3)}`:`Apto ${reference}`}</span></label>)}</div></section>)}</div>
-      <footer><Button onClick={()=>void saveCurrent()} disabled={saving||selectedUnits.length===0}>{saving?'Salvando…':'Confirmar e próximo serviço →'}</Button></footer>
+      <footer><Button onClick={()=>void saveCurrent()} disabled={saving||(selectedUnits.length===0&&currentLines.length===0)}>{saving?'Salvando…':selectedUnits.length===0&&currentLines.length>0?'Remover seleção salva':'Confirmar e próximo serviço →'}</Button></footer>
     </div></div>}
   </Dialog>;
 }
