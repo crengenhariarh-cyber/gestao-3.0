@@ -1,0 +1,40 @@
+name: Engineering contract approved layout once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/engineering-contract-approved-layout-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply approved layout
+        run: python scripts/patch-engineering-contract-approved-layout.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install
+      - name: Verify
+        run: |
+          node scripts/architecture-guard.mjs
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/engineering/ui/EngineeringContractWorkspace.tsx src/modules/engineering/ui/engineering-contract-workspace.css
+          git commit -m "feat(engineering): apply approved contract layout"
+          git push
