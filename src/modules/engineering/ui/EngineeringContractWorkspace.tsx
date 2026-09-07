@@ -9,6 +9,7 @@ import { useEngineeringOperations } from './useEngineeringOperations';
 
 export type EngineeringContractSection='resumo'|'contrato'|'planilhas'|'provisorios'|'medicao'|'fechamentos'|'impostos'|'saldos';
 type FormKind='contractStatus'|'structure'|'contractService'|'allocation'|'provisional'|'provisionalLine'|'convert'|'addendum'|'addendumLine'|'measurement'|'measurementLine'|'retention'|'measurementStatus'|'receivable'|'receive';
+type SheetGroup={type:'structure'|'addendum';id:string}|null;
 
 interface Props {
   section: EngineeringContractSection;
@@ -19,10 +20,11 @@ interface Props {
 }
 
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const quantity=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3});
 const statusLabels:Record<string,string>={draft:'Rascunho',active:'Ativo',suspended:'Suspenso',completed:'Concluído',cancelled:'Cancelado',negotiation:'Negociação',approved:'Aprovado',closed:'Fechado',converted:'Convertido',open:'Aberto'};
 const sectionMeta:Record<Exclude<EngineeringContractSection,'resumo'>,{eyebrow:string;title:string;description:string}>={
   contrato:{eyebrow:'DADOS E ESTRUTURA',title:'Contrato',description:'Dados, estruturas, torres, blocos, pavimentos e aditivos vinculados ao contrato.'},
-  planilhas:{eyebrow:'BASE CONTRATUAL',title:'Planilhas e serviços',description:'Serviços, unidades, valores e distribuição por estrutura em uma única base operacional.'},
+  planilhas:{eyebrow:'BASE CONTRATUAL',title:'Planilhas e serviços',description:'Planilhas separadas por torre, estrutura e aditivo, com acesso direto aos quantitativos.'},
   provisorios:{eyebrow:'NEGOCIAÇÃO',title:'Provisórios',description:'Propostas em negociação, itens, valores e conversão para contrato ou aditivo.'},
   medicao:{eyebrow:'EXECUÇÃO',title:'Medições',description:'Competências, serviços medidos e evolução da execução contratual.'},
   fechamentos:{eyebrow:'HISTÓRICO FINANCEIRO',title:'Fechamentos e contas a receber',description:'Fechamento, aprovação, geração de contas e registro de recebimentos.'},
@@ -39,12 +41,15 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
   const [guidedMeasurementOpen,setGuidedMeasurementOpen]=useState(false);
   const [search,setSearch]=useState('');
   const [filter,setFilter]=useState('all');
+  const [sheetGroup,setSheetGroup]=useState<SheetGroup>(null);
   const data=operations.state.data;
   const normalized=search.trim().toLocaleLowerCase('pt-BR');
   const activeContract=data?.contracts.find(item=>item.id===contract.contractId);
   const workId=activeContract?.workId??'';
   const structures=(data?.structures??[]).filter(item=>item.workId===workId);
   const contractServices=(data?.contractServices??[]).filter(item=>item.contractId===contract.contractId);
+  const contractServiceIds=new Set(contractServices.map(item=>item.id));
+  const allocations=(data?.allocations??[]).filter(item=>contractServiceIds.has(item.contractServiceId));
   const measurements=(data?.measurements??[]).filter(item=>item.contractId===contract.contractId);
   const addenda=(data?.addenda??[]).filter(item=>item.contractId===contract.contractId);
   const provisionals=(data?.provisionals??[]).filter(item=>item.workId===workId);
@@ -94,8 +99,21 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
       const rows=structures.filter(item=>match(item.name));
       body=<>{toolbar('Nova estrutura','structure',{label:'Novo aditivo',kind:'addendum'})}{sheetHead(structures.length,'Aditivos',String(addenda.length))}<div className="engineering-sheet__table-wrap"><table className="engineering-sheet__table"><thead><tr><th>Estrutura</th><th>Obra</th><th>Situação</th><th>Ações</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong>{item.name}</strong></td><td>{contract.workName}</td><td><span className="engineering-status engineering-status--active">Ativa</span></td><td><Button size="sm" variant="tertiary" onClick={()=>open('structure')}>Editar</Button></td></tr>)}</tbody></table>{rows.length===0&&emptyRow('Cadastre torres, blocos, pavimentos ou unidades.')}</div><div className="engineering-sheet__subsection"><div className="engineering-sheet__subhead"><div><strong>Aditivos do contrato</strong><span>Alterações contratuais preservando o histórico.</span></div><Button size="sm" variant="secondary" onClick={()=>open('addendumLine')}>＋ Item de aditivo</Button></div><div className="engineering-sheet__chips">{addenda.length?addenda.map(item=><span key={item.id}><b>{item.number}</b>{labelStatus(item.status)}</span>):<em>Nenhum aditivo cadastrado.</em>}</div></div></>;
     } else if(section==='planilhas'){
-      const rows=contractServices.filter(item=>match(item.description,item.unit));
-      body=<>{toolbar('Adicionar serviço','contractService',{label:'Distribuir',kind:'allocation'})}{sheetHead(contractServices.length,'Soma preços unit.',currency.format(servicePriceTotal))}<div className="engineering-sheet__table-wrap"><table className="engineering-sheet__table engineering-sheet__table--services"><thead><tr><th>#</th><th>Serviço</th><th>Unidade</th><th>Valor unit.</th><th>Estrutura</th><th>Ações</th></tr></thead><tbody>{rows.map((item,index)=><tr key={item.id}><td>{String(index+1).padStart(3,'0')}</td><td><strong>{item.description}</strong></td><td>{item.unit}</td><td>{currency.format(item.unitPrice)}</td><td><span className="engineering-status">Distribuição</span></td><td><Button size="sm" variant="tertiary" onClick={()=>open('allocation')}>Distribuir</Button></td></tr>)}</tbody></table>{rows.length===0&&emptyRow('Adicione os serviços da planilha contratual.')}</div><div className="engineering-sheet__footer"><div><span>Serviços cadastrados</span><strong>{contractServices.length}</strong></div><div className="engineering-sheet__progress"><span>Progresso medido: <b>{progress.toFixed(1)}%</b></span><progress max={100} value={progress}/></div></div></>;
+      const selectedStructure=sheetGroup?.type==='structure'?structures.find(item=>item.id===sheetGroup.id):undefined;
+      const selectedAddendum=sheetGroup?.type==='addendum'?addenda.find(item=>item.id===sheetGroup.id):undefined;
+      const structureAllocations=selectedStructure?allocations.filter(item=>item.structureId===selectedStructure.id):[];
+      const structureRows=selectedStructure?contractServices.map((service,index)=>({service,index,allocation:structureAllocations.find(item=>item.contractServiceId===service.id)})).filter(row=>match(row.service.description,row.service.unit,selectedStructure.name)):[];
+      body=<>{toolbar('Adicionar serviço','contractService',{label:'Distribuir quantitativo',kind:'allocation'})}{sheetHead(contractServices.length,'Distribuições',String(allocations.length))}
+        <div className="engineering-sheet__subsection"><div className="engineering-sheet__subhead"><div><strong>Planilhas por torre / estrutura</strong><span>Abra uma torre para consultar e alterar os quantitativos distribuídos.</span></div></div>
+          <div className="engineering-sheet__chips">{structures.length?structures.map(item=>{const count=allocations.filter(allocation=>allocation.structureId===item.id).length;const active=sheetGroup?.type==='structure'&&sheetGroup.id===item.id;return <button key={item.id} type="button" className={active?'engineering-status engineering-status--active':'engineering-status'} onClick={()=>setSheetGroup({type:'structure',id:item.id})}><b>{item.name}</b> · {count} item(ns)</button>}):<em>Nenhuma torre ou estrutura cadastrada.</em>}</div>
+        </div>
+        <div className="engineering-sheet__subsection"><div className="engineering-sheet__subhead"><div><strong>Aditivos</strong><span>Cada aditivo permanece separado da planilha-base do contrato.</span></div><Button size="sm" variant="secondary" onClick={()=>open('addendum')}>＋ Novo aditivo</Button></div>
+          <div className="engineering-sheet__chips">{addenda.length?addenda.map(item=>{const active=sheetGroup?.type==='addendum'&&sheetGroup.id===item.id;return <button key={item.id} type="button" className={active?'engineering-status engineering-status--approved':'engineering-status'} onClick={()=>setSheetGroup({type:'addendum',id:item.id})}><b>Aditivo {item.number}</b> · {labelStatus(item.status)}</button>}):<em>Nenhum aditivo cadastrado.</em>}</div>
+        </div>
+        {!sheetGroup&&emptyRow('Selecione uma torre/estrutura ou um aditivo para abrir a planilha correspondente.')}
+        {selectedStructure&&<><div className="engineering-sheet__subhead"><div><strong>{selectedStructure.name}</strong><span>Quantitativos desta estrutura. O mesmo serviço/estrutura é atualizado, não duplicado.</span></div><Button size="sm" onClick={()=>open('allocation')}>Editar quantitativo</Button></div><div className="engineering-sheet__table-wrap"><table className="engineering-sheet__table engineering-sheet__table--services"><thead><tr><th>#</th><th>Serviço</th><th>Unidade</th><th>Valor unit.</th><th>Quantitativo</th><th>Ações</th></tr></thead><tbody>{structureRows.map(row=><tr key={row.service.id}><td>{String(row.index+1).padStart(3,'0')}</td><td><strong>{row.service.description}</strong></td><td>{row.service.unit}</td><td>{currency.format(row.service.unitPrice)}</td><td><strong>{row.allocation?quantity.format(row.allocation.allocatedQuantity):'—'}</strong></td><td><Button size="sm" variant="tertiary" onClick={()=>open('allocation')}>{row.allocation?'Editar quantitativo':'Definir quantitativo'}</Button></td></tr>)}</tbody></table>{structureRows.length===0&&emptyRow('Nenhum serviço encontrado para esta estrutura.')}</div></>}
+        {selectedAddendum&&<div className="engineering-sheet__subsection"><div className="engineering-sheet__subhead"><div><strong>Aditivo {selectedAddendum.number}</strong><span>{labelStatus(selectedAddendum.status)} · planilha de alterações contratuais separada da base.</span></div><Button size="sm" onClick={()=>open('addendumLine')}>Editar quantitativo</Button></div><div className="engineering-sheet__empty"><strong>Planilha do aditivo</strong><span>Use “Editar quantitativo” para incluir ou ajustar as linhas quantitativas deste aditivo.</span></div></div>}
+        <div className="engineering-sheet__footer"><div><span>Serviços cadastrados</span><strong>{contractServices.length}</strong></div><div className="engineering-sheet__progress"><span>Progresso medido: <b>{progress.toFixed(1)}%</b></span><progress max={100} value={progress}/></div></div></>;
     } else if(section==='provisorios'){
       const rows=provisionalRows.filter(item=>(filter==='all'||item.status===filter)&&match(item.number,item.title,item.clientName,item.status));
       body=<>{toolbar('Novo provisório','provisional',{label:'Adicionar item',kind:'provisionalLine'})}{sheetHead(provisionals.length,'Valor em negociação',currency.format(provisionalRows.reduce((sum,item)=>sum+item.total,0)))}<div className="engineering-sheet__table-wrap"><table className="engineering-sheet__table"><thead><tr><th>Número</th><th>Descrição</th><th>Cliente</th><th>Itens</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong>{item.number}</strong></td><td>{item.title??'Provisório'}</td><td>{item.clientName??'—'}</td><td>{item.itemCount}</td><td>{currency.format(item.total)}</td><td><span className={`engineering-status engineering-status--${item.status}`}>{labelStatus(item.status)}</span></td><td><Button size="sm" variant="tertiary" onClick={()=>open('convert')}>Converter</Button></td></tr>)}</tbody></table>{rows.length===0&&emptyRow('Crie um provisório para iniciar uma negociação.')}</div></>;
