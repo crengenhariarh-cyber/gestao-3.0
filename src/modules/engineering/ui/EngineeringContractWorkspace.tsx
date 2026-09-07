@@ -58,7 +58,6 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
     return {...item,itemCount:lines.length,total:lines.reduce((sum,line)=>sum+(line.quantity*line.unitPrice),0)};
   }),[provisionals,data?.provisionalLines]);
   const progress=Math.max(0,Math.min(100,contract.measuredPercent));
-  const servicePriceTotal=contractServices.reduce((sum,item)=>sum+item.unitPrice,0);
 
   function open(kind:FormKind){if(kind==='measurementLine'){setGuidedMeasurementOpen(true);return;}setFormKind(kind);}
   function changed(){onChanged();void operations.reload().catch(()=>undefined);}
