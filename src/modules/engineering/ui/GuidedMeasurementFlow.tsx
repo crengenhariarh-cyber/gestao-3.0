@@ -5,6 +5,7 @@ import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 import { useEngineeringOperations } from './useEngineeringOperations';
+import { loadContractRetentions } from '../infrastructure/EngineeringContractModalRepository';
 import {
   loadMeasurementParity,
   replaceMeasurementParityStage,
@@ -97,6 +98,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   const [statusFilter,setStatusFilter]=useState('');
   const [manualQuantity,setManualQuantity]=useState('');
   const [,setFinished]=useState(false);
+  const [retentions,setRetentions]=useState({inss:0,iss:0,rt:0});
   const operations=useEngineeringOperations(scope);
   const draftMode=Boolean(draftHeader);
 
@@ -108,6 +110,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   },[contractId,scope]);
 
   useEffect(()=>{void reload();},[reload]);
+  useEffect(()=>{void loadContractRetentions(scope,contractId).then(setRetentions).catch(()=>setRetentions({inss:0,iss:0,rt:0}));},[scope,contractId]);
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
   useEffect(()=>{if(initialMeasurementId&&draftMeasurements.some(item=>item.id===initialMeasurementId)){setMeasurementId(initialMeasurementId);return;}if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId,initialMeasurementId]);
   useEffect(()=>{if(initialOriginId&&model?.origins.some(item=>item.id===initialOriginId)){setOriginId(initialOriginId);return;}if(initialOriginName&&model){const match=model.origins.find(item=>normalize(item.name)===normalize(initialOriginName.replace(/^Aditivo\s*·\s*/i,'')));if(match)setOriginId(match.id);}},[initialOriginId,initialOriginName,model]);
@@ -155,6 +158,14 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
       return true;
     });
   },[filteredServiceIndexes,model,origin,measurementId,typeFilter,statusFilter]);
+  const stagePriceByTarget=useMemo(()=>{const map=new Map<string,number>();for(const itemOrigin of model?.origins??[])for(const item of itemOrigin.services)map.set(`${item.targetKind}:${item.targetId}`,item.unitPrice);return map;},[model]);
+  const measurementGross=useMemo(()=>{if(!model||!measurementId)return 0;return model.lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity*(stagePriceByTarget.get(`${line.targetKind}:${line.targetId}`)??0),0);},[model,measurementId,stagePriceByTarget]);
+  const inssValue=measurementGross*retentions.inss/100;
+  const issValue=measurementGross*retentions.iss/100;
+  const rtValue=measurementGross*retentions.rt/100;
+  const measurementNet=Math.max(0,measurementGross-inssValue-issValue-rtValue);
+  const originRows=useMemo(()=>{if(!model||!measurementId)return [];return model.origins.map(itemOrigin=>{const keys=new Set(itemOrigin.services.map(item=>`${item.targetKind}:${item.targetId}`));const lines=model.lines.filter(line=>line.measurementId===measurementId&&keys.has(`${line.targetKind}:${line.targetId}`));const gross=lines.reduce((sum,line)=>sum+line.measuredQuantity*(stagePriceByTarget.get(`${line.targetKind}:${line.targetId}`)??0),0);const serviceCount=new Set(lines.map(line=>`${line.targetKind}:${line.targetId}`)).size;return {origin:itemOrigin,gross,serviceCount};}).filter(row=>row.serviceCount>0||row.gross>0);},[model,measurementId,stagePriceByTarget]);
+
   const summary=useMemo(()=>{
     if(!model||!origin)return {contracted:0,previousMeasured:0,currentMeasurement:0,balance:0,currentPct:0,balancePct:0};
     let contracted=0,previousMeasured=0,persistedCurrent=0;
@@ -232,7 +243,32 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     <div className="guided-measurement guided-measurement--parity approved-measurement-sheet">
       {error&&<Feedback tone="danger" title="Não foi possível continuar" message={error}/>} 
       {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” antes de lançar os serviços.</span></div>}
-      {(measurementId||draftMode)&&!originId&&<div className="guided-measurement__empty"><strong>Selecione a torre ou aditivo</strong><span>Escolha abaixo a origem que deseja medir.</span><div className="guided-measurement__selectors">{model.origins.map(item=><Button key={item.id} variant="secondary" onClick={()=>chooseOrigin(item.id)}>{originLabel(item)}</Button>)}</div></div>}
+      {(measurementId||draftMode)&&!originId&&<div className="measurement-hub">
+        <section className="approved-measurement-sheet__header-fields">
+          <div><span>Nº da medição</span><strong>{draftHeader?.measurementNumber||draftMeasurements.find(item=>item.id===measurementId)?.measurementNumber||'—'}</strong></div>
+          <div><span>Competência</span><strong>{draftHeader?.competence||draftMeasurements.find(item=>item.id===measurementId)?.competence?.slice(0,7)||'—'}</strong></div>
+          <div><span>Vencimento previsto</span><strong>{draftHeader?.dueDate||'—'}</strong></div>
+          <div><span>Data prevista para pagamento</span><strong>{draftHeader?.expectedPaymentDate||'—'}</strong></div>
+          <div><span>Forma de pagamento</span><strong>{draftHeader?.paymentMethod||'PIX'}</strong></div>
+          <Button variant="secondary">▣ Observações</Button>
+        </section>
+        <section className="measurement-hub__financial">
+          <div><span>Bruto da medição</span><strong>{currency.format(measurementGross)}</strong></div>
+          <div><span>INSS ({retentions.inss.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(inssValue)}</strong></div>
+          <div><span>ISS ({retentions.iss.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(issValue)}</strong></div>
+          <div><span>Retenção ({retentions.rt.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(rtValue)}</strong></div>
+          <div className="is-net"><span>Líquido da medição</span><strong>{currency.format(measurementNet)}</strong></div>
+        </section>
+        <section className="measurement-hub__origin-picker">
+          <div><strong>Selecionar origem</strong><span>Escolha a torre ou aditivo para lançar os serviços desta medição.</span></div>
+          <Select label="Torre / Aditivo" value="" onChange={event=>chooseOrigin(event.target.value)} options={[{value:'',label:'Selecione uma torre ou aditivo…'},...model.origins.map(item=>({value:item.id,label:originLabel(item)}))]}/>
+        </section>
+        <section className="measurement-hub__origins">
+          <header><div><strong>Origens já adicionadas nesta medição</strong><span>Salve uma origem e escolha a próxima sem sair da medição.</span></div></header>
+          {originRows.length===0?<div className="measurement-hub__empty">Nenhuma torre ou aditivo lançado ainda.</div>:<div className="measurement-hub__origin-list">{originRows.map(row=><button key={row.origin.id} type="button" onClick={()=>chooseOrigin(row.origin.id)}><span><strong>{originLabel(row.origin)}</strong><small>{row.serviceCount} serviço(s) lançado(s)</small></span><b>{currency.format(row.gross)}</b><em>Editar ›</em></button>)}</div>}
+        </section>
+        <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button variant="secondary" onClick={onChanged}>▣ Salvar rascunho</Button><Button onClick={closeFlow}>✓ Finalizar medição</Button></div></footer>
+      </div>}
       {(measurementId||draftMode)&&originId&&stages.length===0&&<div className="guided-measurement__empty"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}
       {(measurementId||draftMode)&&origin&&stages.length>0&&<>
         <section className="approved-measurement-sheet__header-fields">
@@ -267,7 +303,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
             return <tr key={`${item.targetKind}:${item.targetId}`}><td>{rowPosition+1}</td><td><strong>{item.code||`#${index+1}`}</strong></td><td>{item.description}</td><td><span className="approved-measurement-sheet__unit">{item.unit}</span>{refs.length>0&&<Button size="sm" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td><span className={`approved-measurement-sheet__type ${refs.length?'is-unit':'is-global'}`}>{refs.length?'Por unidade':'Global'}</span></td><td>{currency.format(item.unitPrice)}</td><td><input className="approved-measurement-sheet__quantity" inputMode="decimal" value={currentInput} readOnly={refs.length>0} onFocus={()=>{if(!refs.length)resetStage(index);}} onChange={event=>{resetStage(index);setManualQuantity(event.target.value);}} placeholder="0,00"/></td><td>{currency.format(displayedCurrent*item.unitPrice)}</td></tr>;
           })}</tbody></table></div>
         </section>
-        <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={closeFlow}>✓ Finalizar medição</Button></div></footer>
+        <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={()=>chooseOrigin('')}>← Voltar à medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar serviço'}</Button><Button onClick={()=>chooseOrigin('')}>✓ Salvar {originLabel(origin)}</Button></div></footer>
       </>}
     </div>
 
