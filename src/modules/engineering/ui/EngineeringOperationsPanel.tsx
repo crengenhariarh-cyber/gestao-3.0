@@ -59,7 +59,7 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   ];
   const measurementOrigins=[
     ...(data?.structures??[]).filter(item=>item.workId===measurementWorkId&&['tower','block'].includes(item.type)).map(item=>({key:`structure:${item.id}`,id:item.id,label:item.name})),
-    ...(data?.addenda??[]).filter(item=>item.contractId===measurementContractId).map(item=>({key:`addendum:${item.id}`,id:item.id,label:`Aditivo · ${item.number}`})),
+    ...(data?.addenda??[]).filter(item=>item.contractId===measurementContractId).map(item=>({key:`addendum:${item.id}`,id:item.id,label:item.number})),
   ];
   const measurementOriginOptions:Option[]=[{value:'',label:'Selecione…'},...measurementOrigins.map(item=>({value:item.key,label:item.label}))];
   const selectedMeasurementOrigin=measurementOrigins.find(item=>item.key===(form.originKey??''));
