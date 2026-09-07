@@ -63,7 +63,23 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
   ];
   const measurementOriginOptions:Option[]=[{value:'',label:'Selecione…'},...measurementOrigins.map(item=>({value:item.key,label:item.label}))];
   const selectedMeasurementOrigin=measurementOrigins.find(item=>item.key===(form.originKey??''));
-  const suggestedMeasurementNumber=(()=>{if(!focusedContractId)return '';const used=new Set((data?.measurements??[]).filter(item=>item.contractId===focusedContractId).map(item=>Number(item.measurementNumber)).filter(value=>Number.isInteger(value)&&value>0));let next=1;while(used.has(next))next+=1;return String(next).padStart(3,'0');})();
+  const nextMeasurementSequence=(()=>{
+    if(!focusedContractId)return {number:'',competence:currentMonth()};
+    const contractMeasurements=(data?.measurements??[]).filter(item=>item.contractId===focusedContractId);
+    const used=new Set(contractMeasurements.map(item=>Number(item.measurementNumber)).filter(value=>Number.isInteger(value)&&value>0));
+    let next=1;while(used.has(next))next+=1;
+    const anchors=contractMeasurements.map(item=>({number:Number(item.measurementNumber),competence:item.competence?.slice(0,7)??''})).filter(item=>Number.isInteger(item.number)&&item.number>0&&/^\d{4}-\d{2}$/.test(item.competence));
+    const anchor=anchors.sort((a,b)=>Math.abs(a.number-next)-Math.abs(b.number-next))[0];
+    let competence=currentMonth();
+    if(anchor){
+      const [year,month]=anchor.competence.split('-').map(Number);
+      const date=new Date(Date.UTC(year,month-1+(next-anchor.number),1));
+      competence=`${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}`;
+    }
+    return {number:String(next).padStart(4,'0'),competence};
+  })();
+  const suggestedMeasurementNumber=nextMeasurementSequence.number;
+  const suggestedMeasurementCompetence=nextMeasurementSequence.competence;
 
   const defaults:Record<Exclude<Kind,null>,Record<string,string>>={
     work:{name:'',code:'',clientName:'',city:'',state:'',notes:''},structure:{workId:'',parentId:'',type:'tower',code:'',name:''},
@@ -80,7 +96,10 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     const base={...defaults[next]};
     if(focusedContractId&&['contractStatus','contractService','allocation','addendum','measurement'].includes(next))base.contractId=focusedContractId;
     if(focusedContract?.workId&&['structure','allocation','provisional','productionPeriod'].includes(next))base.workId=focusedContract.workId;
-    if(next==='measurement'&&suggestedMeasurementNumber)base.measurementNumber=suggestedMeasurementNumber;
+    if(next==='measurement'){
+      if(suggestedMeasurementNumber)base.measurementNumber=suggestedMeasurementNumber;
+      if(suggestedMeasurementCompetence)base.competence=suggestedMeasurementCompetence;
+    }
     setForm(base);setKind(next);
   }
   function close(){setKind(null);operations.clearFeedback();onDialogClosed?.();}
