@@ -1,0 +1,3 @@
+Deploy trigger for approved Engineering Planilhas layout.
+Source layout commit: d7ba78d1332467cdf22c1cc40da68fdc726d8dd4
+Requested audit/apply: 2026-09-07
