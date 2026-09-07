@@ -162,7 +162,7 @@ export function GuidedMeasurementFlow({scope,contractId,onChanged,onClose}:Props
   if(loading&&!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><LoadingState label="Carregando medição…"/></Dialog>;
   if(!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
 
-  const measurementOptions=[{value:'',label:'Selecione…'},...draftMeasurements.map(item=>({value:item.id,label:`${item.competence.slice(0,7)} · rascunho`}))];
+  const measurementOptions=[{value:'',label:'Selecione…'},...draftMeasurements.map(item=>({value:item.id,label:`${item.measurementNumber?`Medição ${item.measurementNumber} · `:''}${item.competence.slice(0,7)} · rascunho`}))];
   const originOptions=[{value:'',label:'Selecione…'},...model.origins.map(item=>({value:item.id,label:originLabel(item)}))];
 
   return <Dialog open variant="measurement-fullscreen" title="Lançar medição" description="Fluxo sequencial por origem, serviço e unidade" onClose={onClose} onBack={onClose}>

@@ -4,7 +4,7 @@ export interface MeasurementParityScope { tenantId:string; companyId:string }
 export type MeasurementOriginType='tower'|'addendum'|'provisional'|'other';
 export type MeasurementTargetKind='contract'|'addendum';
 
-export interface MeasurementParityMeasurement { id:string; competence:string; status:string }
+export interface MeasurementParityMeasurement { id:string; competence:string; status:string; measurementNumber:string }
 export interface MeasurementParityStage {
   legacyServiceId:string;
   code:string;
@@ -53,7 +53,7 @@ type ContractRow={id:string;work_id:string;contract_number:string};
 type ContractServiceRow={id:string;description:string;unit:string;contracted_quantity:number|string;unit_price:number|string;notes:string|null};
 type AddendumRow={id:string;addendum_number:string;status:string};
 type AddendumLineRow={id:string;addendum_id:string;description:string;unit:string;quantity_delta:number|string;unit_price:number|string;notes:string|null};
-type MeasurementRow={id:string;competence:string;status:string};
+type MeasurementRow={id:string;competence:string;status:string;measurement_number:string|null};
 type MeasurementLineRow={id:string;measurement_id:string;contract_service_id:string|null;contract_addendum_line_id:string|null;measured_quantity:number|string;notes:string|null};
 type OriginProfileRow={id:string;origin_key:string;origin_name:string;origin_type:MeasurementOriginType;floor_count:number|string;has_ground:boolean;modes:string[]|null;enterprise_type:string;houses:string[]|null;legacy_origin_id:string|null};
 type ScopeRow={origin_key:string;service_code:string;scope_active:boolean;start_floor:number|string|null;scope_floors:string[]|null;scope_units:string[]|null};
@@ -131,7 +131,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
     client.from('engineering_measurement_service_scopes').select('origin_key,service_code,scope_active,start_floor,scope_floors,scope_units').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('work_id',contract.work_id),
     client.from('contract_services').select('id,description,unit,contracted_quantity,unit_price,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).eq('status','active').order('created_at'),
     client.from('contract_addenda').select('id,addendum_number,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId),
-    client.from('measurements').select('id,competence,status').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).order('competence',{ascending:false}),
+    client.from('measurements').select('id,competence,status,measurement_number').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('contract_id',contractId).order('competence',{ascending:false}),
   ]);
   const firstError=[profilesResponse.error,scopesResponse.error,contractServicesResponse.error,addendaResponse.error,measurementsResponse.error].find(Boolean);
   if(firstError)throw firstError;
@@ -198,7 +198,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
     legacyContractId:profile?.legacy_origin_id??contractId,
     enterpriseType:profile?.enterprise_type??'apartamentos',
     houses:Array.isArray(profile?.houses)?profile.houses.map(value=>safeText(value)):[],
-    measurements:measurements.map(item=>({id:item.id,competence:item.competence,status:item.status})),
+    measurements:measurements.map(item=>({id:item.id,competence:item.competence,status:item.status,measurementNumber:item.measurement_number??''})),
     origins,
     lines,
   };
