@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: measurement hub flow (2026-09-07 16:32 BRT)
+# deploy trigger: complete measurement flow audit (2026-09-07)
 on:
   push:
     branches: [main]
