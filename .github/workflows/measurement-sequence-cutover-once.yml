@@ -1,0 +1,39 @@
+name: Measurement sequence cutover once
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch-measurement-sequence-cutover.py'
+      - '.github/workflows/measurement-sequence-cutover-once.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply sequential measurement numbering
+        run: python scripts/patch-measurement-sequence-cutover.py
+      - name: Install dependencies
+        run: npm install
+      - name: Verify
+        run: |
+          node scripts/architecture-guard.mjs
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/patch-measurement-sequence-cutover.py .github/workflows/measurement-sequence-cutover-once.yml
+          git add src/modules/engineering
+          git commit -m 'fix(engineering): sequential measurement numbers and finance cutover'
+          git push
