@@ -1,4 +1,5 @@
 name: Measurement fullscreen unit picker once
+# rerun after financial patch fix
 on:
   push:
     branches: [main]
