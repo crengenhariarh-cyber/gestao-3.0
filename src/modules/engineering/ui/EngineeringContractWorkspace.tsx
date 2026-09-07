@@ -85,7 +85,7 @@ export function EngineeringContractWorkspace({section,scope,contract,onChanged,o
       const floors=[...allocationEdit.selectedFloors].sort((a,b)=>Number(a)-Number(b));
       const totalTowerCapacity=allocationEdit.availableFloors.length*allocationEdit.unitsPerFloor;
       await operations.allocateContractService({workId,contractServiceId:allocationEdit.contractServiceId,structureId:allocationEdit.structureId,quantity:nextQuantity,notes:allocationEdit.notes||null,scopeConfig:allocationEdit.availableFloors.length?{active:floors.length>0,startFloor:floors.length?Number(floors[0]):null,floors,units:[],scopeQuantity:nextQuantity,outsideQuantity:Math.max(0,totalTowerCapacity-nextQuantity)}:null});
-      setAllocationEdit(null);changed();
+      setAllocationEdit(null);void operations.reload().catch(()=>undefined);
     }catch(error){setAllocationError(error instanceof Error?error.message:'Não foi possível salvar o quantitativo.');}
     finally{setAllocationSaving(false);}
   }
