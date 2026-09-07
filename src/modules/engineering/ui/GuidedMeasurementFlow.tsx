@@ -18,6 +18,7 @@ import './approved-measurement-sheet.css';
 interface Props {
   scope:{tenantId:string;companyId:string};
   contractId:string;
+  initialMeasurementId?:string;
   initialOriginId?:string;
   initialOriginName?:string;
   draftHeader?:Record<string,string>|null;
@@ -74,7 +75,7 @@ function stageReferences(model:MeasurementParityModel,origin:MeasurementParityOr
   return base;
 }
 
-export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initialOriginName='',draftHeader=null,onDraftPersisted,onChanged,onClose}:Props){
+export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',initialOriginId='',initialOriginName='',draftHeader=null,onDraftPersisted,onChanged,onClose}:Props){
   const [model,setModel]=useState<MeasurementParityModel|null>(null);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -103,7 +104,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialOriginId='',initi
 
   useEffect(()=>{void reload();},[reload]);
   const draftMeasurements=useMemo(()=>model?.measurements.filter(item=>item.status==='draft')??[],[model?.measurements]);
-  useEffect(()=>{if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId]);
+  useEffect(()=>{if(initialMeasurementId&&draftMeasurements.some(item=>item.id===initialMeasurementId)){setMeasurementId(initialMeasurementId);return;}if(measurementId&&draftMeasurements.some(item=>item.id===measurementId))return;setMeasurementId(draftMeasurements[0]?.id??'');},[draftMeasurements,measurementId,initialMeasurementId]);
   useEffect(()=>{if(initialOriginId&&model?.origins.some(item=>item.id===initialOriginId)){setOriginId(initialOriginId);return;}if(initialOriginName&&model){const match=model.origins.find(item=>normalize(item.name)===normalize(initialOriginName.replace(/^Aditivo\s*·\s*/i,'')));if(match)setOriginId(match.id);}},[initialOriginId,initialOriginName,model]);
   useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(false);},[measurementId,originId,draftMode,model?.origins]);
 
