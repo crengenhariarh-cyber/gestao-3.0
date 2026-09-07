@@ -1,0 +1,2 @@
+Force deploy of current main after bot-applied staged measurement parity fix.
+Target behavior: selecting Tower/Addendum in New Measurement opens the fullscreen measurement editor immediately.
