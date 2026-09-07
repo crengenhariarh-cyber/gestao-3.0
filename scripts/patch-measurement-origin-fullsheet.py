@@ -1,0 +1,34 @@
+from pathlib import Path
+
+p=Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
+s=p.read_text()
+
+old="  useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(true);},[measurementId,originId,draftMode,model?.origins]);"
+new="  useEffect(()=>{if(originId&&(measurementId||draftMode)&&model?.origins.some(item=>item.id===originId))setServicePickerOpen(false);},[measurementId,originId,draftMode,model?.origins]);"
+if old in s:s=s.replace(old,new)
+elif new not in s:raise SystemExit('origin auto-open effect not found')
+
+old="    setServicePickerOpen(Boolean(value&&(measurementId||draftMode)));"
+new="    setServicePickerOpen(false);"
+if old in s:s=s.replace(old,new)
+elif new not in s:raise SystemExit('changeOrigin picker line not found')
+
+anchor="      {(measurementId||draftMode)&&originId&&stages.length===0&&<div className=\"guided-measurement__empty\"><strong>Nenhum serviço nesta origem</strong><span>Esta origem não possui serviços disponíveis para medição.</span></div>}\n\n"
+insert="""      {(measurementId||draftMode)&&origin&&stages.length>0&&<section className=\"guided-measurement-fullsheet\">\n        <header className=\"guided-measurement-fullsheet__header\">\n          <div><small>Origem</small><h3>{originLabel(origin)}</h3></div>\n          <div className=\"guided-measurement-fullsheet__meta\">\n            <span><b>Medição</b> {draftHeader?.measurementNumber||draftMeasurements.find(item=>item.id===measurementId)?.measurementNumber||'—'}</span>\n            <span><b>Competência</b> {draftHeader?.competence||draftMeasurements.find(item=>item.id===measurementId)?.competence?.slice(0,7)||'—'}</span>\n            <span><b>Vencimento</b> {draftHeader?.dueDate||'—'}</span>\n            <span><b>Pagamento</b> {draftHeader?.paymentMethod||'PIX'}</span>\n          </div>\n        </header>\n        <div className=\"guided-measurement-fullsheet__search\"><Input label=\"Pesquisar serviço\" value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder=\"Código ou descrição\"/></div>\n        <div className=\"guided-measurement-fullsheet__table-wrap\"><table className=\"guided-measurement-fullsheet__table\"><thead><tr><th>Origem</th><th>Serviço</th><th>Referência</th><th>Contratado</th><th>Medido</th><th>Saldo</th><th>Tipo</th><th>Nesta medição</th><th>Total</th></tr></thead><tbody>{filteredServiceIndexes.map(({item,index})=>{\n          const lines=model.lines.filter(line=>line.targetKind===item.targetKind&&line.targetId===item.targetId);\n          const previous=lines.filter(line=>line.measurementId!==measurementId&&['draft','closed','approved'].includes(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0);\n          const current=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);\n          const remaining=Math.max(0,item.contractedQuantity-previous);\n          const refs=stageReferences(model,origin,item);\n          return <tr key={`${item.targetKind}:${item.targetId}`} className={index===serviceIndex?'is-current':''}><td>{originLabel(origin)}</td><td><small>{item.code||`#${index+1}`}</small><strong>{item.description}</strong>{item.scopeActive&&<em>Escopo configurado</em>}</td><td>{refs.length?<Button variant=\"secondary\" size=\"sm\" onClick={()=>chooseService(index)}>Selecionar apartamentos/unidades</Button>:<Button variant=\"secondary\" size=\"sm\" onClick={()=>chooseService(index)}>Lançar quantidade</Button>}</td><td>{qty(item.contractedQuantity)}</td><td>{qty(previous)}</td><td>{qty(remaining)}</td><td>Normal</td><td>{qty(current)}</td><td>{currency.format(current*item.unitPrice)}</td></tr>;\n        })}</tbody></table></div>\n        <footer className=\"guided-measurement-fullsheet__footer\"><span>{stages.length} serviço(s) · {originLabel(origin)}</span><Button variant=\"secondary\" onClick={onClose}>Voltar aos dados</Button></footer>\n      </section>}\n\n"""
+if insert not in s:
+    if anchor not in s:raise SystemExit('fullsheet anchor not found')
+    s=s.replace(anchor,anchor+insert)
+
+# Hide the single-service card until a row is explicitly chosen. It remains useful for non-reference/manual quantity services.
+old="      {(measurementId||draftMode)&&origin&&stage&&!finished&&<>"
+new="      {(measurementId||draftMode)&&origin&&stage&&!finished&&serviceIndex>=0&&!unitPickerOpen&&allStageReferences.length===0&&<>"
+if old in s:s=s.replace(old,new)
+elif new not in s:raise SystemExit('single service block condition not found')
+
+p.write_text(s)
+
+css=Path('src/modules/engineering/ui/guided-measurement-flow.css')
+c=css.read_text()
+styles='''\n.guided-measurement-fullsheet{display:flex;flex-direction:column;gap:14px;min-height:0;flex:1}.guided-measurement-fullsheet__header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:16px;border:1px solid var(--border-subtle,#d7dee8);border-radius:14px;background:var(--surface,#fff)}.guided-measurement-fullsheet__header h3{margin:4px 0 0}.guided-measurement-fullsheet__meta{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px 16px;font-size:13px}.guided-measurement-fullsheet__meta span{white-space:nowrap}.guided-measurement-fullsheet__search{max-width:720px}.guided-measurement-fullsheet__table-wrap{overflow:auto;min-height:0;flex:1;border:1px solid var(--border-subtle,#d7dee8);border-radius:14px;background:var(--surface,#fff)}.guided-measurement-fullsheet__table{width:100%;min-width:1180px;border-collapse:collapse}.guided-measurement-fullsheet__table th,.guided-measurement-fullsheet__table td{padding:12px;border-bottom:1px solid var(--border-subtle,#e5e7eb);text-align:left;vertical-align:middle}.guided-measurement-fullsheet__table th{position:sticky;top:0;z-index:2;background:var(--surface-muted,#f8fafc);font-size:12px;text-transform:uppercase}.guided-measurement-fullsheet__table td:nth-child(n+4){white-space:nowrap}.guided-measurement-fullsheet__table td:nth-child(2){min-width:360px}.guided-measurement-fullsheet__table td:nth-child(2) strong{display:block}.guided-measurement-fullsheet__table td:nth-child(2) em{display:block;margin-top:4px;font-size:11px}.guided-measurement-fullsheet__table tr.is-current{background:color-mix(in srgb,var(--primary,#2563eb) 5%,transparent)}.guided-measurement-fullsheet__footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0}.guided-measurement--parity{height:100%;display:flex;flex-direction:column;min-height:0}@media(max-width:760px){.guided-measurement-fullsheet__header{flex-direction:column}.guided-measurement-fullsheet__meta{justify-content:flex-start}.guided-measurement-fullsheet__footer{position:sticky;bottom:0;background:var(--surface,#fff);padding:10px}}\n'''
+if '.guided-measurement-fullsheet{' not in c:c+=styles
+css.write_text(c)
