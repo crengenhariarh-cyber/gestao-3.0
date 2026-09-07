@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: draft measurement isolation (2026-09-07)
+# deploy trigger: automatic measurement sequence (2026-09-07)
 on:
   push:
     branches: [main]
@@ -42,16 +42,19 @@ jobs:
       - name: Isolate draft measurements
         run: python3 scripts/fix-measurement-draft-isolation.py
 
+      - name: Apply automatic measurement sequence
+        run: python3 scripts/fix-measurement-auto-sequence.py
+
       - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css; then
+          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx; then
             echo "Measurement source already updated."
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css
-            git commit -m "fix(engineering): isolate draft measurement balances"
+            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx
+            git commit -m "fix(engineering): sync automatic measurement sequence"
             git push
           fi
 
@@ -103,6 +106,9 @@ jobs:
 
       - name: Isolate draft measurements
         run: python3 scripts/fix-measurement-draft-isolation.py
+
+      - name: Apply automatic measurement sequence
+        run: python3 scripts/fix-measurement-auto-sequence.py
 
       - name: Install dependencies
         run: npm install
