@@ -5,6 +5,7 @@ import { Card } from '../../../shared/ui/Card';
 import { Feedback } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
+import './BudgetPricingPanel.css';
 
 type ContractRow={id:string;contract_number:string;client_name?:string|null};
 type SettingsRow={id:string;contract_id:string|null;target_net_margin_percent:number|string};
@@ -76,20 +77,20 @@ export function BudgetPricingPanel({tenantId,companyId,costCenterId,budgetYear,a
  if(isPersonal)return null;
 
  return <Card title="Formação de preço" description="O preço é calculado para que, depois de pagar todas as despesas previstas, reste a margem líquida desejada. Retenções contratuais são compensadas no faturamento bruto.">
-  <div style={{display:'grid',gap:12}}>
+  <div className="budget-pricing__stack">
    {feedback&&<Feedback tone={feedback.tone} title={feedback.tone==='success'?'Concluído':'Não foi possível salvar'} message={feedback.message}/>} 
-   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+   <div className="budget-pricing__metrics">
     <div className="budget-workspace__metric"><div className="budget-workspace__metric-head"><span>Custo operacional</span><small>Previsto</small></div><strong>{money(annualOperationalCost)}</strong><div className="budget-workspace__metric-foot"><span>Base da formação de preço</span></div></div>
     <div className="budget-workspace__metric budget-workspace__metric--result"><div className="budget-workspace__metric-head"><span>Receita líquida necessária</span><small>Margem líquida {targetNetMargin.toFixed(2)}%</small></div><strong>{money(projectedNet)}</strong><div className="budget-workspace__metric-foot"><span>Lucro líquido projetado</span><b>{money(projectedProfit)}</b></div></div>
     <div className="budget-workspace__metric budget-workspace__metric--expense"><div className="budget-workspace__metric-head"><span>Retenções</span><small>Contrato</small></div><strong>{retentionRate.toFixed(2)}%</strong><div className="budget-workspace__metric-foot"><span>Fixa</span><b>{money(fixedRetention)}</b></div></div>
     <div className="budget-workspace__metric budget-workspace__metric--income"><div className="budget-workspace__metric-head"><span>Faturamento bruto</span><small>Necessário</small></div><strong>{money(projectedGross)}</strong><div className="budget-workspace__metric-foot"><span>Antes das retenções contratuais</span></div></div>
    </div>
-   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10,alignItems:'end'}}>
+   <div className="budget-pricing__controls">
     <Input label="Margem líquida desejada (%)" type="number" min="0" max="99.99" step="0.01" value={markupPercent} onChange={event=>setMarkupPercent(event.target.value)}/>
     <Select label="Contrato / regras de retenção" value={contractId} onChange={event=>setContractId(event.target.value)} options={contractOptions}/>
     <Button onClick={()=>{void save();}} disabled={saving||loading}>{saving?'Salvando…':'Salvar formação de preço'}</Button>
    </div>
-   <p className="ui-muted" style={{margin:0}}>Exemplo: custo de R$ 100.000,00 com margem líquida desejada de 20% exige receita líquida de R$ 125.000,00. Depois de pagar os R$ 100.000,00 de despesas, sobram R$ 25.000,00, que representam 20% da receita. Retenções contratuais, quando existentes, aumentam apenas o faturamento bruto necessário para preservar essa margem líquida.</p>
+   <p className="ui-muted budget-pricing__hint">Exemplo: custo de R$ 100.000,00 com margem líquida desejada de 20% exige receita líquida de R$ 125.000,00. Depois de pagar os R$ 100.000,00 de despesas, sobram R$ 25.000,00, que representam 20% da receita. Retenções contratuais, quando existentes, aumentam apenas o faturamento bruto necessário para preservar essa margem líquida.</p>
   </div>
  </Card>;
 }
