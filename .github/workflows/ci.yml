@@ -1,5 +1,6 @@
 name: CI
 
+# deploy trigger: approved Engenharia > Contrato layout (2026-09-07)
 on:
   push:
     branches: [main]
