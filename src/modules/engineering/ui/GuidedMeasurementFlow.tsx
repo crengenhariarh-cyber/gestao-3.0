@@ -185,7 +185,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
         const refreshed=await loadMeasurementParity(scope,contractId);
         const created=refreshed.measurements.find(item=>item.measurementNumber===measurementNumber&&item.status==='draft');
         if(!created)throw new Error('A medição foi criada, mas não pôde ser reaberta para lançar os serviços.');
-        activeMeasurementId=created.id;setMeasurementId(created.id);setModel(refreshed);onDraftPersisted?.();onChanged();
+        activeMeasurementId=created.id;setMeasurementId(created.id);setModel(refreshed);onDraftPersisted?.();
       }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível criar a medição.');return;}
     }
     if(!activeMeasurementId){setError('Crie ou selecione uma medição em rascunho antes de lançar os serviços.');return;}
@@ -194,7 +194,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     setSaving(true);setError(null);
     try{
       await replaceMeasurementParityStage(scope,{measurementId:activeMeasurementId,targetKind:stage.targetKind,targetId:stage.targetId,quantity:effectiveQuantity,references:referenceMode?selectedUnits:[],originName:origin.name,legacyServiceId:stage.legacyServiceId});
-      const nextModel=await reload();onChanged();setUnitPickerOpen(false);
+      const nextModel=await reload();setUnitPickerOpen(false);
       const nextOrigin=nextModel?.origins.find(item=>item.id===origin.id);
       const nextStages=nextOrigin?.services??stages;
       const nextIndex=serviceIndex+1;
@@ -207,11 +207,13 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     finally{setSaving(false);}
   }
 
-  if(loading&&!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><LoadingState label="Carregando medição…"/></Dialog>;
-  if(!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={onClose} onBack={onClose}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
+  function closeFlow(){onChanged();onClose();}
+
+  if(loading&&!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={closeFlow} onBack={closeFlow}><LoadingState label="Carregando medição…"/></Dialog>;
+  if(!model)return <Dialog open variant="measurement-fullscreen" title="Lançar medição" onClose={closeFlow} onBack={closeFlow}><Feedback tone="danger" title="Não foi possível carregar" message={error??'Dados indisponíveis.'}/></Dialog>;
 
 
-  return <Dialog open variant="measurement-fullscreen" title={origin?`Medição - ${originLabel(origin)}`:'Medição'} description={origin?'Elabore a medição dos serviços desta origem.':'Selecione a origem da medição.'} onClose={onClose} onBack={onClose}>
+  return <Dialog open variant="measurement-fullscreen" title={origin?`Medição - ${originLabel(origin)}`:'Medição'} description={origin?'Elabore a medição dos serviços desta origem.':'Selecione a origem da medição.'} onClose={closeFlow} onBack={closeFlow}>
     <div className="guided-measurement guided-measurement--parity approved-measurement-sheet">
       {error&&<Feedback tone="danger" title="Não foi possível continuar" message={error}/>} 
       {!measurementId&&!draftMode&&<div className="guided-measurement__empty"><strong>Crie a competência primeiro</strong><span>Use “Nova medição” antes de lançar os serviços.</span></div>}
@@ -250,7 +252,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
           })}</tbody></table></div>
           
         </section>
-        <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={onClose}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={onClose}>✓ Finalizar medição</Button></div></footer>
+        <footer className="approved-measurement-sheet__bottom-actions"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button variant="secondary" disabled={saving||effectiveQuantity<=0} onClick={()=>void saveCurrent()}>{saving?'Salvando…':'▣ Salvar rascunho'}</Button><Button onClick={closeFlow}>✓ Finalizar medição</Button></div></footer>
       </>}
     </div>
 
