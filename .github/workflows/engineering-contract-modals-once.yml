@@ -2,9 +2,10 @@ name: Engineering contract modals once
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - '.github/workflows/engineering-contract-modals-once.yml'
+      - .github/workflows/engineering-contract-modals-once.yml
 
 permissions:
   contents: write
@@ -16,67 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch engineering contract workspace
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          p=Path('src/modules/engineering/ui/EngineeringContractWorkspace.tsx')
-          s=p.read_text()
-
-          s=s.replace("import { Card } from '../../../shared/ui/Card';", "import { Card } from '../../../shared/ui/Card';\nimport { Dialog } from '../../../shared/ui/Dialog';")
-          s=s.replace("import { GuidedMeasurementFlow } from './GuidedMeasurementFlow';", "import { GuidedMeasurementFlow } from './GuidedMeasurementFlow';\nimport { EditEngineeringContractRetentionDialog } from './EditEngineeringContractRetentionDialog';\nimport { EngineeringAddendumSheetDialog } from './EngineeringAddendumSheetDialog';")
-
-          old="  const [allocationError,setAllocationError]=useState<string|null>(null);"
-          new=old+"\n  const [contractRetentionEditOpen,setContractRetentionEditOpen]=useState(false);"
-          if old not in s: raise SystemExit('state anchor not found')
-          s=s.replace(old,new,1)
-
-          old="    content=<div className=\"engineering-contract-workspace__page engineering-sheet\"><header className=\"engineering-sheet__head\"><div><small>{meta.eyebrow}</small><h3>{meta.title}</h3><p>{meta.description}</p></div><span className=\"engineering-sheet__contract-badge\">{contract.contractNumber}</span></header>{body}</div>;"
-          new="    content=<div className=\"engineering-contract-workspace__page engineering-sheet\"><header className=\"engineering-sheet__head\"><div><small>{meta.eyebrow}</small><h3>{meta.title}</h3><p>{meta.description}</p></div><div className=\"engineering-sheet__head-actions\"><span className=\"engineering-sheet__contract-badge\">{contract.contractNumber}</span>{section==='contrato'&&<Button size=\"sm\" onClick={()=>setContractRetentionEditOpen(true)}>Editar contrato</Button>}</div></header>{body}</div>;"
-          if old not in s: raise SystemExit('header anchor not found')
-          s=s.replace(old,new,1)
-
-          pattern=r"\{selectedStructure&&<div className=\"engineering-sheet__detail-card\">.*?</div>\}\n        \{selectedAddendum&&<div className=\"engineering-sheet__detail-card\">.*?</div>\}"
-          replacement="""{selectedStructure&&<Dialog open title={selectedStructure.name} description={`${structureAllocations.length} serviço(s) com quantitativo definido`} onClose={()=>setSheetGroup(null)} onBack={()=>setSheetGroup(null)} footer={<Button onClick={()=>open('allocation')}>＋ Distribuir serviço</Button>}><div className=\"engineering-sheet engineering-sheet--modal\"><div className=\"engineering-sheet__live-filter\"><span aria-hidden=\"true\">⌕</span><input autoFocus value={serviceSearch} onChange={event=>setServiceSearch(event.target.value)} placeholder=\"Filtrar serviços enquanto digita: código, descrição, unidade ou quantitativo…\" aria-label={`Filtrar serviços da ${selectedStructure.name}`}/>{serviceSearch&&<button type=\"button\" onClick={()=>setServiceSearch('')} aria-label=\"Limpar filtro\">×</button>}<small>{structureRows.length} de {structureAllocations.length}</small></div><div className=\"engineering-sheet__table-wrap engineering-sheet__table-wrap--detail\"><table className=\"engineering-sheet__table engineering-sheet__table--services\"><thead><tr><th>#</th><th>Serviço</th><th>Unidade</th><th>Valor unit.</th><th>Quantitativo</th><th>Ações</th></tr></thead><tbody>{structureRows.map(row=><tr key={row.service.id}><td>{String(row.index+1).padStart(3,'0')}</td><td><strong>{row.service.description}</strong></td><td>{row.service.unit}</td><td>{currency.format(row.service.unitPrice)}</td><td><strong>{quantity.format(row.allocation.allocatedQuantity)}</strong></td><td><Button size=\"sm\" variant=\"tertiary\" onClick={()=>{const cfg=towerConfig(selectedStructure.metadata);const availableFloors=cfg?Array.from({length:cfg.floorCount},(_,offset)=>String(cfg.firstFloor+offset)):[];const savedFloors=Array.isArray(row.allocation.scopeConfig?.floors)?row.allocation.scopeConfig.floors.map(String):[];setAllocationError(null);setAllocationEdit({contractServiceId:row.service.id,structureId:selectedStructure.id,serviceLabel:row.service.description,structureLabel:selectedStructure.name,unit:row.service.unit,quantity:String(row.allocation.allocatedQuantity),maxQuantity:row.service.quantity,notes:row.allocation.notes??'',availableFloors,selectedFloors:savedFloors,unitsPerFloor:cfg?.unitsPerFloor??0});}}>Editar quantitativo</Button></td></tr>)}</tbody></table>{structureRows.length===0&&emptyRow(serviceSearch?'Nenhum serviço corresponde ao filtro digitado.':'Nenhum serviço distribuído para esta estrutura.')}</div></div></Dialog>}
-        {selectedAddendum&&<EngineeringAddendumSheetDialog open scope={scope} addendumId={selectedAddendum.id} addendumNumber={selectedAddendum.number} statusLabel={labelStatus(selectedAddendum.status)} onClose={()=>setSheetGroup(null)} onEditLine={()=>open('addendumLine')}/>}"""
-          s2,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
-          if n!=1: raise SystemExit(f'plan sheet detail replacement count={n}')
-          s=s2
-
-          pattern=r"\{allocationEdit&&<div className=\"engineering-sheet-form\">.*?</div>\}\{guidedMeasurementOpen&&"
-          replacement="""{allocationEdit&&<Dialog open title=\"Editar quantitativo\" description={`${allocationEdit.structureLabel} · ${allocationEdit.serviceLabel}`} loading={allocationSaving} onClose={()=>!allocationSaving&&setAllocationEdit(null)} onBack={()=>!allocationSaving&&setAllocationEdit(null)} onConfirm={()=>void saveAllocationEdit()} confirmLabel=\"Salvar quantitativo\"><div className=\"engineering-sheet__subsection engineering-allocation-editor\"><div className=\"engineering-sheet__subhead\"><div><strong>{allocationEdit.serviceLabel}</strong><span>Serviço e torre já definidos pela linha selecionada.</span></div></div>{allocationEdit.availableFloors.length>0&&<div className=\"engineering-allocation-editor__floors\"><div><strong>Distribuição por pavimento</strong><span>Selecione os pavimentos deste serviço, como no Gestão 2.0.</span></div><div className=\"engineering-allocation-editor__floor-grid\">{allocationEdit.availableFloors.map(floor=><button key={floor} type=\"button\" className={allocationEdit.selectedFloors.includes(floor)?'is-selected':''} onClick={()=>toggleAllocationFloor(floor)}>{floor}º</button>)}</div>{allocationEdit.unit.trim().toLocaleUpperCase('pt-BR')==='APTO'&&allocationEdit.unitsPerFloor>0&&<small>{allocationEdit.selectedFloors.length} pavimento(s) × {allocationEdit.unitsPerFloor} aptos = {quantity.format(numberValue(allocationEdit.quantity))} · quantitativo anterior {quantity.format(allocationEdit.maxQuantity)}</small>}</div>}<label><span>Quantitativo</span><input autoFocus inputMode=\"decimal\" value={allocationEdit.quantity} onChange={event=>{setAllocationError(null);setAllocationEdit(current=>current?{...current,quantity:event.target.value}:current);}}/></label>{allocationError&&<div className=\"engineering-allocation-editor__error\" role=\"alert\">{allocationError}</div>}<label><span>Observações</span><textarea rows={3} value={allocationEdit.notes} onChange={event=>setAllocationEdit(current=>current?{...current,notes:event.target.value}:current)}/></label></div></Dialog>}{guidedMeasurementOpen&&"""
-          s2,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
-          if n!=1: raise SystemExit(f'allocation modal replacement count={n}')
-          s=s2
-
-          old="{guidedMeasurementOpen&&<GuidedMeasurementFlow scope={scope} contractId={contract.contractId} onChanged={changed} onClose={()=>setGuidedMeasurementOpen(false)}/>}</>;"
-          new="{contractRetentionEditOpen&&<EditEngineeringContractRetentionDialog open scope={scope} contractId={contract.contractId} contractNumber={contract.contractNumber} onClose={()=>setContractRetentionEditOpen(false)} onSaved={changed}/>}"+old
-          if old not in s: raise SystemExit('tail anchor not found')
-          s=s.replace(old,new,1)
-
-          p.write_text(s)
-          PY
-      - name: Add modal header styles
-        shell: bash
-        run: |
-          cat >> src/styles/engineering.css <<'CSS'
-
-          .engineering-sheet__head-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
-          .engineering-sheet--modal{min-height:0}
-          CSS
+      - name: Apply patch
+        run: python scripts/patch-engineering-contract-modals.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install
       - name: Verify
         run: |
-          npm install
           node scripts/architecture-guard.mjs
           npm run typecheck
           npm run lint
           npm test
           npm run build
       - name: Commit
-        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
