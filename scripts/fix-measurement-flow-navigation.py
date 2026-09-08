@@ -1,7 +1,7 @@
 from pathlib import Path
 
 path = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
-s = path.read_text()
+s = path.read_text(encoding='utf-8')
 
 replacements = [
     (
@@ -23,8 +23,17 @@ for old, new in replacements:
     if old in s:
         s = s.replace(old, new)
         changed = True
-    elif new not in s:
-        raise SystemExit(f'Expected navigation anchor not found: {old[:90]}')
 
-path.write_text(s)
-print('measurement navigation patched' if changed else 'measurement navigation already patched')
+# Newer measurement persistence/id-lock repairs intentionally supersede the exact
+# save/header anchors above. Do not fail CI just because the safe newer form exists.
+unsafe_patterns = [
+    "closeUnitPicker();onChanged();",
+    "await reload();onChanged();",
+    "function closeFlow(){onChanged();onClose();}",
+]
+for pattern in unsafe_patterns:
+    if pattern in s:
+        raise SystemExit(f'Unsafe navigation behavior still present: {pattern}')
+
+path.write_text(s, encoding='utf-8')
+print('measurement navigation patched' if changed else 'measurement navigation already safe')
