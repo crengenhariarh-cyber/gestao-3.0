@@ -1,0 +1,95 @@
+name: Fix measurement balance/save consistency once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-measurement-balance-save-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch measurement flow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
+          s = path.read_text()
+
+          def replace_required(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'Pattern not found: {label}')
+              s = s.replace(old, new)
+
+          replace_required(
+              "const measurementLineOrigin=(notes:string|null)=>notes?.match(/(?:^|\\|)\\s*origin=([^|]+)/i)?.[1]?.trim()??'';",
+              "const measurementLineOrigin=(notes:string|null)=>notes?.match(/(?:^|\\|)\\s*origin=([^|]+)/i)?.[1]?.trim()??'';\nconst countsAgainstMeasurementBalance=(status:string)=>['draft','closed','approved'].includes(status);",
+              'balance status helper',
+          )
+
+          replace_required(
+              "const previousLines=useMemo(()=>targetLines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)),[targetLines,activeMeasurementId]);",
+              "const previousLines=useMemo(()=>targetLines.filter(line=>line.measurementId!==activeMeasurementId&&countsAgainstMeasurementBalance(line.measurementStatus)),[targetLines,activeMeasurementId]);",
+              'current service previous lines',
+          )
+
+          replace_required(
+              "const previous=model.lines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)&&`${line.targetKind}:${line.targetId}`===key).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              "const previous=model.lines.filter(line=>line.measurementId!==activeMeasurementId&&countsAgainstMeasurementBalance(line.measurementStatus)&&`${line.targetKind}:${line.targetId}`===key).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              'filtered stages previous quantity',
+          )
+
+          replace_required(
+              "const qty=model.lines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)&&`${line.targetKind}:${line.targetId}`===key).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              "const qty=model.lines.filter(line=>line.measurementId!==activeMeasurementId&&countsAgainstMeasurementBalance(line.measurementStatus)&&`${line.targetKind}:${line.targetId}`===key).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              'origin summary previous quantity',
+          )
+
+          replace_required(
+              "const previous=lines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0);const current=lines.filter(line=>line.measurementId===measurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              "const previous=lines.filter(line=>line.measurementId!==activeMeasurementId&&countsAgainstMeasurementBalance(line.measurementStatus)).reduce((sum,line)=>sum+line.measuredQuantity,0);const current=lines.filter(line=>line.measurementId===activeMeasurementId).reduce((sum,line)=>sum+line.measuredQuantity,0);",
+              'table balance and current measurement',
+          )
+
+          replace_required(
+              "<header className=\"approved-measurement-origin-modal__header\"><div><small>{editLaunchedOnly?'EDITAR LANÇAMENTOS':'MEDIÇÃO'} · {originLabel(origin)}</small><h3>{editLaunchedOnly?'Editar lançamentos':'Medição'} - {originLabel(origin)}</h3><p>{editLaunchedOnly?'Exibindo somente os serviços já lançados nesta medição.':'Pesquise os serviços, selecione apartamentos/unidades e confirme esta origem.'}</p></div><Button variant=\"secondary\" size=\"sm\" onClick={closePicker}>✕</Button></header>",
+              "<header className=\"approved-measurement-origin-modal__header\"><div><small>{editLaunchedOnly?'EDITAR LANÇAMENTOS':'MEDIÇÃO'} · {originLabel(origin)}</small><h3>{editLaunchedOnly?'Editar lançamentos':'Medição'} - {originLabel(origin)}</h3><p>{editLaunchedOnly?'Exibindo somente os serviços já lançados nesta medição.':'Pesquise os serviços, selecione apartamentos/unidades e confirme esta origem.'}</p></div><Button variant=\"secondary\" size=\"sm\" onClick={closePicker}>✕</Button></header>\n      {error&&<Feedback tone=\"danger\" title=\"Não foi possível continuar\" message={error}/>} ",
+              'origin modal visible error',
+          )
+
+          replace_required(
+              "<header className=\"approved-unit-picker__header\"><div><small>{originLabel(origin)}</small><h3>{stage.code?`${stage.code} · `:''}{stage.description}</h3><p>Selecione os apartamentos/unidades que receberão este serviço.</p></div><Button variant=\"secondary\" size=\"sm\" onClick={closeUnitPicker}>✕</Button></header>",
+              "<header className=\"approved-unit-picker__header\"><div><small>{originLabel(origin)}</small><h3>{stage.code?`${stage.code} · `:''}{stage.description}</h3><p>Selecione os apartamentos/unidades que receberão este serviço.</p></div><Button variant=\"secondary\" size=\"sm\" onClick={closeUnitPicker}>✕</Button></header>\n      {error&&<Feedback tone=\"danger\" title=\"Não foi possível salvar este serviço\" message={error}/>} ",
+              'unit modal visible error',
+          )
+
+          path.write_text(s)
+          PY
+
+      - name: Validate build
+        run: npm ci && npm run build
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'fix(engineering): respect draft measurement balance when saving'
+          git pull --rebase origin main
+          git push origin HEAD:main
