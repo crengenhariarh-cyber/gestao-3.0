@@ -1,6 +1,7 @@
 name: CI
 
 # Measurement source is authoritative; legacy one-time print patch removed from CI.
+# Deploy trigger: publish current company-logo print fix (2026-09-08).
 on:
   push:
     branches: [main]
