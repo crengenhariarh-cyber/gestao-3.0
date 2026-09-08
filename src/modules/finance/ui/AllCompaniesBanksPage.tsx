@@ -41,6 +41,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
   }, [companies, repositories]);
 
   useEffect(() => { void load(); }, [load, refreshToken]);
+  useEffect(() => { const refresh = () => setRefreshToken((value) => value + 1); window.addEventListener('finance-data-changed', refresh); return () => window.removeEventListener('finance-data-changed', refresh); }, []);
 
   const options = [{ value: '', label: 'Selecione…' }, ...accounts.map((account) => ({ value: account.accountId, label: `${account.companyName} · ${account.name} · ${currency.format(account.currentBalance)}` }))];
   const destinationOptions = options.filter((option) => !option.value || option.value !== form.fromAccountId);
@@ -68,7 +69,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
       setForm({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
       setSuccess(`Transferência de ${currency.format(amount)} registrada de ${from.companyName} para ${to.companyName}.`);
       setRefreshToken((value) => value + 1);
-      window.dispatchEvent(new Event('finance-bank-order-changed'));
+      window.dispatchEvent(new Event('finance-data-changed'));
     } catch (cause) {
       setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível registrar a transferência.');
     } finally { setBusy(false); }
