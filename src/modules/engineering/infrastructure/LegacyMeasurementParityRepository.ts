@@ -120,6 +120,28 @@ function stageFromAddendum(row:AddendumLineRow):MeasurementParityStage{
   };
 }
 
+async function loadAllMeasurementLines(scope:MeasurementParityScope,measurementIds:string[]):Promise<MeasurementLineRow[]>{
+  if(!measurementIds.length)return [];
+  const client=getSupabaseClient();
+  const pageSize=1000;
+  const rows:MeasurementLineRow[]=[];
+  for(let from=0;;from+=pageSize){
+    const response=await client
+      .from('measurement_lines')
+      .select('id,measurement_id,contract_service_id,contract_addendum_line_id,measured_quantity,notes')
+      .eq('tenant_id',scope.tenantId)
+      .eq('company_id',scope.companyId)
+      .in('measurement_id',measurementIds)
+      .order('id',{ascending:true})
+      .range(from,from+pageSize-1);
+    if(response.error)throw response.error;
+    const page=(response.data??[]) as MeasurementLineRow[];
+    rows.push(...page);
+    if(page.length<pageSize)break;
+  }
+  return rows;
+}
+
 export async function loadMeasurementParity(scope:MeasurementParityScope,contractId:string):Promise<MeasurementParityModel>{
   const client=getSupabaseClient();
   const contractResponse=await client.from('engineering_contracts').select('id,work_id,contract_number').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).eq('id',contractId).single();
@@ -151,11 +173,7 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
   const addendumLines=(addendumLinesResponse.data??[]) as AddendumLineRow[];
 
   const measurementIds=measurements.map(item=>item.id);
-  const linesResponse=measurementIds.length
-    ? await client.from('measurement_lines').select('id,measurement_id,contract_service_id,contract_addendum_line_id,measured_quantity,notes').eq('tenant_id',scope.tenantId).eq('company_id',scope.companyId).in('measurement_id',measurementIds)
-    : {data:[],error:null};
-  if(linesResponse.error)throw linesResponse.error;
-  const measurementRows=(linesResponse.data??[]) as MeasurementLineRow[];
+  const measurementRows=await loadAllMeasurementLines(scope,measurementIds);
   const measurementStatusById=new Map(measurements.map(item=>[item.id,item.status]));
 
   const origins:MeasurementParityOrigin[]=profiles.map(profile=>{
