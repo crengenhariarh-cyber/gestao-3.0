@@ -72,7 +72,9 @@ export function EngineeringOperationsPanel({activeTab,scope,onChanged,actionsMod
     const anchor=anchors.sort((a,b)=>Math.abs(a.number-next)-Math.abs(b.number-next))[0];
     let competence=currentMonth();
     if(anchor){
-      const [year,month]=anchor.competence.split('-').map(Number);
+      const parts=anchor.competence.split('-');
+      const year=Number(parts[0]??0);
+      const month=Number(parts[1]??1);
       const date=new Date(Date.UTC(year,month-1+(next-anchor.number),1));
       competence=`${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}`;
     }
