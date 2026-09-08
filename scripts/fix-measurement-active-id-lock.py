@@ -21,6 +21,7 @@ replacements = [
 ("},[model,measurementId,stagePriceByTarget]);", "},[model,activeMeasurementId,stagePriceByTarget]);"),
 ("const currentLines=useMemo(()=>targetLines.filter(line=>line.measurementId===measurementId),[targetLines,measurementId]);", "const currentLines=useMemo(()=>targetLines.filter(line=>line.measurementId===activeMeasurementId),[targetLines,activeMeasurementId]);"),
 ("line.measurementId!==measurementId&&['closed','approved'].includes(line.measurementStatus)", "line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)"),
+("[targetLines,measurementId]);", "[targetLines,activeMeasurementId]);"),
 ("line.measurementId===measurementId&&`${line.targetKind}:${line.targetId}`===key", "line.measurementId===activeMeasurementId&&`${line.targetKind}:${line.targetId}`===key"),
 ("[model,origin,stages,serviceSearch,typeFilter,statusFilter,measurementId,editLaunchedOnly]", "[model,origin,stages,serviceSearch,typeFilter,statusFilter,activeMeasurementId,editLaunchedOnly]"),
 ("[model,origin,measurementId]", "[model,origin,activeMeasurementId]"),
@@ -47,6 +48,8 @@ if "measurementId:targetMeasurementId" not in text:
     raise SystemExit('save is not bound to target measurement')
 if "updateMeasurement({measurementId:activeMeasurementId" not in text:
     raise SystemExit('header save is not bound to active measurement')
+if "const previousLines=useMemo" in text and "[targetLines,measurementId]);" in text:
+    raise SystemExit('stale measurementId hook dependency remains')
 
 path.write_text(text, encoding='utf-8')
 print('Measurement active-id lock applied.')
