@@ -7,6 +7,7 @@ import { Input } from '../../../shared/ui/Input';
 import { Select } from '../../../shared/ui/Select';
 import { loadEngineeringProduction, type EngineeringProductionSnapshot } from '../infrastructure/EngineeringProductionReadRepository';
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
+import { EngineeringProductionEntryDialog } from './EngineeringProductionEntryDialog';
 
 type ProductionAction='productionPeriod'|'productionEntry'|'productionStatus'|null;
 interface Props { scope:{tenantId:string;companyId:string}; workName:string; contractNumber:string; onChanged:()=>void; }
@@ -37,6 +38,7 @@ export function EngineeringProductionWorkspace({scope,workName,contractNumber,on
   const changed=()=>{onChanged();void reload();};
   if(loading&&!snapshot)return <LoadingState label="Carregando Produção…"/>;
   if(error&&!snapshot)return <Feedback title="Produção indisponível" message={error} tone="danger"/>;
+  if(!snapshot)return null;
 
   return <section className="engineering-production-parity" aria-label="Produção">
     <header className="engineering-production-parity__head"><div><small>PRODUÇÃO</small><h3>{workName}</h3><p>Contrato {contractNumber} · acompanhamento, lançamentos e fechamentos.</p></div><span>{entries.length} lançamento(s)</span></header>
@@ -52,6 +54,7 @@ export function EngineeringProductionWorkspace({scope,workName,contractNumber,on
 
     <section className="engineering-production-parity__entries"><div className="engineering-production-parity__section-head"><div><h4>Lançamentos</h4><span>{visibleEntries.length} registro(s) no filtro atual</span></div>{periodFilter!=='all'&&<Button size="sm" variant="tertiary" onClick={()=>setPeriodFilter('all')}>Limpar competência</Button>}</div>{visibleEntries.length===0?<EmptyState title="Nenhuma produção encontrada" message={entries.length===0?'Ainda não há lançamentos de produção para esta obra.':'Nenhum lançamento corresponde aos filtros atuais.'}/>:<div className="engineering-production-parity__table-wrap"><table className="engineering-production-parity__table"><thead><tr><th>Data</th><th>Colaborador(es)</th><th>Estrutura</th><th>Serviço</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>{visibleEntries.map(item=>{const participants=item.participants.length?item.participants:[{employmentContractId:item.employmentContractId,employeeName:item.employeeName,percentage:100,value:item.productionValue??0}];return <tr key={item.id}><td>{dateLabel(item.productionDate)}</td><td>{participants.map(p=><div key={p.employmentContractId}><strong>{p.employeeName}</strong>{participants.length>1&&<span> · {quantity.format(p.percentage)}% · {currency.format(p.value)}</span>}</div>)}</td><td>{item.structureName}</td><td>{item.serviceName}</td><td>{quantity.format(item.executedQuantity)}</td><td>{item.unitValue===null?'—':currency.format(item.unitValue)}</td><td><strong>{item.productionValue===null?'—':currency.format(item.productionValue)}</strong></td></tr>;})}</tbody></table></div>}</section>
 
-    {action&&<EngineeringOperationsPanel activeTab="producao" scope={scope} onChanged={changed} initialKind={action} hideActions onDialogClosed={()=>setAction(null)}/>} 
+    <EngineeringProductionEntryDialog open={action==='productionEntry'} scope={scope} snapshot={snapshot} onClose={()=>setAction(null)} onSaved={changed}/>
+    {action&&action!=='productionEntry'&&<EngineeringOperationsPanel activeTab="producao" scope={scope} onChanged={changed} initialKind={action} hideActions onDialogClosed={()=>setAction(null)}/>} 
   </section>;
 }
