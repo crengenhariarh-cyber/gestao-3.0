@@ -1,63 +1,63 @@
 from pathlib import Path
 
-# The Android print spooler must receive an already embedded image, never an external URL.
-# Keep this repair idempotent so CI can validate the production source after it is applied.
 p = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
 s = p.read_text(encoding='utf-8')
 
-old_signature = "  function printMeasurement(){"
-new_signature = "  async function printMeasurement(){"
-if old_signature in s:
-    s = s.replace(old_signature, new_signature, 1)
-elif new_signature not in s:
-    raise SystemExit('printMeasurement signature not found')
-
-old_logo = """    const companyLogo=companyLogos[scope.companyId]??'/gestao-brand.svg';
-    root.innerHTML=`<header><div class=\"brand\"><img id=\"measurement-print-logo\" src=\"${companyLogo}\" alt=\"Logo da empresa\"></div>"""
-new_logo = """    const companyLogoUrl=companyLogos[scope.companyId]??'/gestao-brand.svg';
-    let companyLogo='';
+start = s.find("    const companyLogos:Record<string,string>={")
+end = s.find("    root.innerHTML=`<header>", start)
+if start == -1 or end == -1:
+    # Already migrated: validate the production-safe markers instead of failing.
+    required = [
+        "platform_companies?id=eq.${encodeURIComponent(scope.companyId)}&select=logo_url",
+        "registeredLogo.startsWith('data:image/')",
+        "'/company-cr.svg'",
+    ]
+    missing = [marker for marker in required if marker not in s]
+    if missing:
+        raise SystemExit(f'company logo block not found and migration markers missing: {missing}')
+else:
+    replacement = """    const companyLogoFallbacks:Record<string,string>={
+      '1ac1cde3-30fa-4fab-9ea0-8afbb34732e5':'/company-cr.svg',
+      '68e55f19-6d77-45cf-a86b-6a661f4c285a':'/gestao-brand.svg',
+    };
+    let companyLogo=companyLogoFallbacks[scope.companyId]??'/gestao-brand.svg';
     try{
-      const response=await fetch(companyLogoUrl,{cache:'force-cache'});
-      if(!response.ok)throw new Error(`HTTP ${response.status}`);
-      const blob=await response.blob();
-      companyLogo=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>typeof reader.result==='string'?resolve(reader.result):reject(new Error('Logo inválido'));reader.onerror=()=>reject(reader.error??new Error('Falha ao ler logo'));reader.readAsDataURL(blob);});
-      if(!companyLogo.startsWith('data:image/'))throw new Error('Formato de logo inválido');
+      const legacySupabaseUrl='https://nuigbsleackrwpoxwxdo.supabase.co';
+      const legacyAnonKey='sb_publishable_mui9_MiItgq_ySgyL_60MA_KLkA0Fe4';
+      const response=await fetch(`${legacySupabaseUrl}/rest/v1/platform_companies?id=eq.${encodeURIComponent(scope.companyId)}&select=logo_url`,{
+        headers:{apikey:legacyAnonKey,Authorization:`Bearer ${legacyAnonKey}`},
+        cache:'no-store',
+      });
+      if(response.ok){
+        const payload=await response.json() as Array<{logo_url?:string|null}>;
+        const registeredLogo=payload[0]?.logo_url??'';
+        if(registeredLogo.startsWith('data:image/'))companyLogo=registeredLogo;
+      }
     }catch{
-      setError('Não foi possível carregar o logo da empresa para a impressão. Tente novamente.');
-      return;
+      // Printing must remain available offline or if the legacy registry is unavailable.
+      // The local company-specific asset is used as the safe fallback.
     }
-    root.innerHTML=`<header><div class=\"brand\"><img id=\"measurement-print-logo\" src=\"${companyLogo}\" alt=\"Logo da empresa\"></div>"""
-if old_logo in s:
-    s = s.replace(old_logo, new_logo, 1)
-elif new_logo not in s:
-    raise SystemExit('company logo block not found')
+"""
+    s = s[:start] + replacement + s[end:]
 
-old_gate = """    const trigger=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
-    const logo=root.querySelector<HTMLImageElement>('#measurement-print-logo');
-    if(logo&&!logo.complete){let fired=false;const done=()=>{if(fired)return;fired=true;setTimeout(trigger,150);};logo.addEventListener('load',done,{once:true});logo.addEventListener('error',done,{once:true});setTimeout(done,1800);}else{setTimeout(trigger,150);}"""
-new_gate = """    const trigger=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
-    const logo=root.querySelector<HTMLImageElement>('#measurement-print-logo');
-    const printWithLogo=()=>setTimeout(trigger,150);
-    const failLogo=()=>{root.remove();style.remove();setError('O logo da empresa não pôde ser renderizado. A impressão foi cancelada para não gerar um documento sem identificação.');};
-    if(!logo){failLogo();return;}
-    if(logo.complete){if(logo.naturalWidth>0)printWithLogo();else failLogo();}
-    else{logo.addEventListener('load',printWithLogo,{once:true});logo.addEventListener('error',failLogo,{once:true});}"""
-if old_gate in s:
-    s = s.replace(old_gate, new_gate, 1)
-elif new_gate not in s:
-    raise SystemExit('logo print gate not found')
-
-# React event attributes must remain void-returning even though printing now awaits image embedding.
+# The print action is asynchronous but React event handlers must remain void-returning.
 s = s.replace('onClick={printMeasurement}>⎙ Imprimir medição</Button>', 'onClick={()=>{void printMeasurement();}}>⎙ Imprimir medição</Button>')
 
-if "const companyLogo=companyLogos[scope.companyId]" in s:
-    raise SystemExit('external companyLogo binding still present')
-if "logo.addEventListener('error',done" in s:
-    raise SystemExit('print-on-logo-error behavior still present')
-if "reader.readAsDataURL(blob)" not in s:
-    raise SystemExit('inline data URL conversion missing')
-if 'onClick={printMeasurement}>⎙ Imprimir medição</Button>' in s:
-    raise SystemExit('async print handler remains directly attached')
+# Regression guards: no external Storage URL and no print cancellation just because the logo registry is unreachable.
+for forbidden in [
+    'company-assets/company-logos/CR_',
+    'company-assets/company-logos/PR_',
+    "setError('Não foi possível carregar o logo da empresa para a impressão. Tente novamente.')",
+]:
+    if forbidden in s:
+        raise SystemExit(f'forbidden legacy print-logo behavior remains: {forbidden}')
+
+if "platform_companies?id=eq.${encodeURIComponent(scope.companyId)}&select=logo_url" not in s:
+    raise SystemExit('official company registry lookup missing')
+if "registeredLogo.startsWith('data:image/')" not in s:
+    raise SystemExit('embedded registered logo validation missing')
+if "'/company-cr.svg'" not in s:
+    raise SystemExit('CR local fallback missing')
 
 p.write_text(s, encoding='utf-8')
-print('Measurement print logo is now embedded before Android print.')
+print('Measurement print now uses the registered CR/PR logo as an embedded data image, with a local fallback.')
