@@ -18,7 +18,8 @@ const sections: readonly MenuSection[] = [
     { label:'Lançamentos', to:'/financeiro?tab=lancamentos', icon:'▤' },
     { label:'Contas do mês', to:'/contas-do-mes', icon:'▣' },
     { label:'Bancos', to:'/bancos', icon:'▥' },
-    { label:'Cartões', to:'/financeiro?tab=cartoes', icon:'▭' },
+    { label:'Cartões', to:'/cartoes', icon:'▭' },
+    { label:'Limites', to:'/limites', icon:'◔' },
     { label:'Dashboard financeiro', to:'/financeiro?tab=resumo', icon:'▥' },
   ]},
   { id:'engenharia', label:'Engenharia', icon:'♜', items:[
@@ -28,6 +29,23 @@ const sections: readonly MenuSection[] = [
   ]},
   { id:'rh', label:'Recursos Humanos', icon:'♙', items:[
     { label:'Recursos Humanos', to:'/rh', icon:'♙' },
+  ]},
+  { id:'relatorios', label:'Relatórios', icon:'▤', items:[
+    { label:'Central de relatórios', to:'/relatorios', icon:'▤' },
+  ]},
+  { id:'administracao', label:'Administração', icon:'⚙', items:[
+    { label:'Usuários e permissões', to:'/usuarios' },
+    { label:'Empresas do tenant', to:'/empresas' },
+    { label:'Cadastros e configurações', to:'/configuracoes' },
+    { label:'Clientes atendidos', to:'/clientes' },
+    { label:'Minhas empresas', to:'/minhas-empresas' },
+    { label:'Auditoria', to:'/auditoria' },
+    { label:'Saúde do sistema', to:'/sistema' },
+    { label:'Clientes SaaS e permissões', to:'/clientes-saas' },
+    { label:'Planos e módulos', to:'/planos-modulos' },
+  ]},
+  { id:'particular', label:'Área particular', icon:'♙', items:[
+    { label:'Acertos pessoais', to:'/acertos-pessoais' },
   ]},
 ];
 
@@ -40,7 +58,7 @@ export function CentralMenu({ open, onClose, onNavigate, onSignOut }: CentralMen
     return sections.map(section=>({...section,items:section.items.filter(item=>`${section.label} ${item.label}`.toLocaleLowerCase('pt-BR').includes(query))})).filter(section=>section.items.length>0);
   },[query]);
   function go(to:string){onNavigate(to);onClose();}
-  return <Dialog open={open} variant="central-menu" title="Central do Gestão" description="Módulos disponíveis" backLabel="Voltar ao início" onBack={()=>go('/')} onClose={onClose}>
+  return <Dialog open={open} variant="central-menu" title="Central do Gestão" description="Todos os módulos e cadastros" backLabel="Voltar ao início" onBack={()=>go('/')} onClose={onClose}>
     <div className="central-menu__content">
       <div className="central-menu__identity" aria-hidden="true"><img src="/gestao-icon.svg?v=3" alt=""/></div>
       <div className="central-menu__search"><Input label="Buscar" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar módulo, cadastro ou relatório"/></div>
