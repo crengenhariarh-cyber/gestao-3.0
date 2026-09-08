@@ -1,0 +1,106 @@
+name: Add addendum value measurement mode once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-addendum-value-measurement-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch addendum measurement mode
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
+          s = path.read_text(encoding='utf-8')
+
+          def replace_once(old, new, label):
+              global s
+              if new in s:
+                  return
+              if old not in s:
+                  raise SystemExit(f'Pattern not found: {label}')
+              s = s.replace(old, new, 1)
+
+          replace_once(
+              "const [pickerOpen,setPickerOpen]=useState(false); const [unitPickerOpen,setUnitPickerOpen]=useState(false); const [serviceSearch,setServiceSearch]=useState(''); const [typeFilter,setTypeFilter]=useState(''); const [statusFilter,setStatusFilter]=useState(''); const [editLaunchedOnly,setEditLaunchedOnly]=useState(false); const [selectedUnits,setSelectedUnits]=useState<string[]>([]); const [search,setSearch]=useState(''); const [manualQuantity,setManualQuantity]=useState('');",
+              "const [pickerOpen,setPickerOpen]=useState(false); const [unitPickerOpen,setUnitPickerOpen]=useState(false); const [serviceSearch,setServiceSearch]=useState(''); const [typeFilter,setTypeFilter]=useState(''); const [statusFilter,setStatusFilter]=useState(''); const [editLaunchedOnly,setEditLaunchedOnly]=useState(false); const [selectedUnits,setSelectedUnits]=useState<string[]>([]); const [search,setSearch]=useState(''); const [manualQuantity,setManualQuantity]=useState(''); const [addendumMeasureMode,setAddendumMeasureMode]=useState<'quantity'|'value'>('quantity');",
+              'addendum measurement mode state',
+          )
+
+          replace_once(
+              "const visible=available.filter(reference=>!normalize(search)||normalize(reference).includes(normalize(search)));\n  const grouped=useMemo(()=>{const groups=new Map<string,string[]>();for(const reference of visible){const level=referenceLevel(reference);groups.set(level,[...(groups.get(level)??[]),reference]);}const rank=(level:string)=>level==='TR'?-1:level==='OUTROS'?9999:Number(level);return [...groups.entries()].sort((a,b)=>rank(a[0])-rank(b[0]));},[visible]);\n  const effectiveQuantity=refs.length?selectedUnits.length:Number(manualQuantity.replace(',','.'))||0;",
+              "const visible=available.filter(reference=>!normalize(search)||normalize(reference).includes(normalize(search)));\n  const grouped=useMemo(()=>{const groups=new Map<string,string[]>();for(const reference of visible){const level=referenceLevel(reference);groups.set(level,[...(groups.get(level)??[]),reference]);}const rank=(level:string)=>level==='TR'?-1:level==='OUTROS'?9999:Number(level);return [...groups.entries()].sort((a,b)=>rank(a[0])-rank(b[0]));},[visible]);\n  const addendumValueMode=origin?.type==='addendum'&&addendumMeasureMode==='value';\n  const manualNumber=Number(manualQuantity.replace(/\\./g,'').replace(',','.'))||0;\n  const effectiveQuantity=addendumValueMode?(stage?.unitPrice?manualNumber/stage.unitPrice:0):(refs.length?selectedUnits.length:manualNumber);\n  const currentStageValue=currentLines.reduce((sum,line)=>sum+line.measuredQuantity*(stage?.unitPrice??0),0);\n  const previousStageValue=previousQty*(stage?.unitPrice??0);\n  const balanceStageValue=balance*(stage?.unitPrice??0);",
+              'value-mode calculations',
+          )
+
+          replace_once(
+              "useEffect(()=>{if(!stage){setSelectedUnits([]);setManualQuantity('');return;}setSelectedUnits(currentLines.map(line=>line.reference).filter((value):value is string=>Boolean(value)));const current=currentLines.reduce((sum,line)=>sum+line.measuredQuantity,0);setManualQuantity(currentLines.some(line=>line.reference)?'':current>0?String(current).replace('.',','):'');setSearch('');},[stage,currentLines]);",
+              "useEffect(()=>{if(!stage){setSelectedUnits([]);setManualQuantity('');return;}setSelectedUnits(currentLines.map(line=>line.reference).filter((value):value is string=>Boolean(value)));const current=currentLines.reduce((sum,line)=>sum+line.measuredQuantity,0);const currentValue=current*(stage.unitPrice??0);setManualQuantity(currentLines.some(line=>line.reference)?'':addendumValueMode&&currentValue>0?currentValue.toFixed(2).replace('.',','):current>0?String(current).replace('.',','):'');setSearch('');},[stage,currentLines,addendumValueMode]);",
+              'value-mode current value hydration',
+          )
+
+          replace_once(
+              "function openService(index:number){setServiceIndex(index);setSearch('');setError(null);setUnitPickerOpen(true);}",
+              "function openService(index:number){setServiceIndex(index);setSearch('');setError(null);setAddendumMeasureMode('quantity');setUnitPickerOpen(true);}",
+              'reset measurement mode on service open',
+          )
+
+          replace_once(
+              "if(!targetMeasurementId){setError('Crie ou selecione uma medição em rascunho.');return;} if(effectiveQuantity<=0&&currentLines.length===0){setError(refs.length?'Selecione ao menos uma unidade.':'Informe a quantidade medida.');return;} if(effectiveQuantity>balance+0.0001){setError('A quantidade excede o saldo disponível.');return;}",
+              "if(!targetMeasurementId){setError('Crie ou selecione uma medição em rascunho.');return;} if(addendumValueMode&&stage.unitPrice<=0){setError('Este aditivo não possui valor unitário válido para medição por valor.');return;} if(effectiveQuantity<=0&&currentLines.length===0){setError(addendumValueMode?'Informe o valor desta medição.':refs.length?'Selecione ao menos uma unidade.':'Informe a quantidade medida.');return;} if(effectiveQuantity>balance+0.0001){setError(addendumValueMode?'O valor informado excede o saldo disponível do aditivo.':'A quantidade excede o saldo disponível.');return;}",
+              'value-mode validation',
+          )
+
+          replace_once(
+              "references:refs.length?selectedUnits:[],originName:origin.name",
+              "references:addendumValueMode?[]:(refs.length?selectedUnits:[]),originName:origin.name",
+              'value-mode persistence without unit refs',
+          )
+
+          anchor = "<section className=\"approved-unit-picker__summary\"><div><span>Torre</span><strong>{originLabel(origin)}</strong><small>{refs.length?`${Math.max(1,Math.round(refs.length/Math.max(1,new Set(refs.map(referenceLevel)).size)))} apartamentos por pavimento`:'Serviço global'}</small></div><div><span>Serviço</span><strong>{stage.code||'—'}</strong><small>{currency.format(stage.unitPrice)} por unidade</small></div><div><span>Contratado</span><strong>{stage.contractedQuantity.toLocaleString('pt-BR')} un</strong><small>{currency.format(stage.contractedQuantity*stage.unitPrice)}</small></div><div><span>Já medido</span><strong>{previousQty.toLocaleString('pt-BR')} un</strong><small>{currency.format(previousQty*stage.unitPrice)}</small></div><div><span>Saldo</span><strong>{balance.toLocaleString('pt-BR')} un</strong><small>{currency.format(balance*stage.unitPrice)}</small></div></section>"
+          replacement = "<section className=\"approved-unit-picker__summary\"><div><span>{origin.type==='addendum'?'Aditivo':'Torre'}</span><strong>{originLabel(origin)}</strong><small>{origin.type==='addendum'?'Medição flexível por quantidade ou valor':refs.length?`${Math.max(1,Math.round(refs.length/Math.max(1,new Set(refs.map(referenceLevel)).size)))} apartamentos por pavimento`:'Serviço global'}</small></div><div><span>Serviço</span><strong>{stage.code||'—'}</strong><small>{currency.format(stage.unitPrice)} por unidade</small></div><div><span>Contratado</span><strong>{addendumValueMode?currency.format(stage.contractedQuantity*stage.unitPrice):`${stage.contractedQuantity.toLocaleString('pt-BR')} un`}</strong><small>{currency.format(stage.contractedQuantity*stage.unitPrice)}</small></div><div><span>Já medido</span><strong>{addendumValueMode?currency.format(previousStageValue):`${previousQty.toLocaleString('pt-BR')} un`}</strong><small>{currency.format(previousStageValue)}</small></div><div><span>Saldo</span><strong>{addendumValueMode?currency.format(balanceStageValue):`${balance.toLocaleString('pt-BR')} un`}</strong><small>{currency.format(balanceStageValue)}</small></div></section>"
+          replace_once(anchor, replacement, 'summary cards')
+
+          toolbar_anchor = "<div className=\"guided-measurement-picker__bar approved-unit-picker__toolbar approved-unit-picker__toolbar--compact\">{refs.length>0?<><Button variant=\"secondary\" onClick={()=>setSelectedUnits([])} disabled={selectedUnits.length===0}>Limpar seleção</Button><p><span>Selecionados:</span> <strong>{selectedUnits.length} un</strong> <span>· Valor total:</span> <strong>{currency.format(selectedUnits.length*stage.unitPrice)}</strong></p></>:<Input label=\"Quantidade nesta medição\" value={manualQuantity} onChange={event=>setManualQuantity(event.target.value)} inputMode=\"decimal\" placeholder=\"0,00\"/>}</div>"
+          toolbar_replacement = "{origin.type==='addendum'&&<div className=\"approved-unit-picker__mode\"><span>Tipo de medição</span><div><Button size=\"sm\" variant={addendumMeasureMode==='quantity'?'primary':'secondary'} onClick={()=>setAddendumMeasureMode('quantity')}>Quantidade</Button><Button size=\"sm\" variant={addendumMeasureMode==='value'?'primary':'secondary'} onClick={()=>{setAddendumMeasureMode('value');setSelectedUnits([]);setManualQuantity(currentStageValue>0?currentStageValue.toFixed(2).replace('.',','):'');}}>Valor</Button></div></div>}<div className=\"guided-measurement-picker__bar approved-unit-picker__toolbar approved-unit-picker__toolbar--compact\">{addendumValueMode?<><Input label=\"Valor nesta medição\" value={manualQuantity} onChange={event=>setManualQuantity(event.target.value)} inputMode=\"decimal\" placeholder=\"0,00\"/><p><span>Saldo disponível:</span> <strong>{currency.format(balanceStageValue)}</strong></p></>:refs.length>0?<><Button variant=\"secondary\" onClick={()=>setSelectedUnits([])} disabled={selectedUnits.length===0}>Limpar seleção</Button><p><span>Selecionados:</span> <strong>{selectedUnits.length} un</strong> <span>· Valor total:</span> <strong>{currency.format(selectedUnits.length*stage.unitPrice)}</strong></p></>:<Input label=\"Quantidade nesta medição\" value={manualQuantity} onChange={event=>setManualQuantity(event.target.value)} inputMode=\"decimal\" placeholder=\"0,00\"/>}</div>"
+          replace_once(toolbar_anchor, toolbar_replacement, 'mode selector and value input')
+
+          s = s.replace("{refs.length>0&&<div className=\"guided-measurement-picker__list", "{refs.length>0&&!addendumValueMode&&<div className=\"guided-measurement-picker__list", 1)
+
+          footer_old = "<footer className=\"approved-unit-picker__footer\"><div><strong>Resumo da seleção</strong><span>{selectedUnits.length>0?`${selectedUnits.length} unidade(s) · ${currency.format(selectedUnits.length*stage.unitPrice)}`:'Selecione os apartamentos para ver o resumo.'}</span></div><Button variant=\"secondary\" onClick={()=>setSelectedUnits([])} disabled={selectedUnits.length===0}>Limpar seleção</Button><Button onClick={()=>void confirmSelection()} disabled={saving||(effectiveQuantity<=0&&currentLines.length===0)}>{saving?'Salvando…':'✓ Confirmar seleção'}</Button></footer>"
+          footer_new = "<footer className=\"approved-unit-picker__footer\"><div><strong>{addendumValueMode?'Resumo do valor':'Resumo da seleção'}</strong><span>{addendumValueMode?(manualNumber>0?`${currency.format(manualNumber)} nesta medição · saldo ${currency.format(balanceStageValue)}`:'Informe o valor desta medição.'):(selectedUnits.length>0?`${selectedUnits.length} unidade(s) · ${currency.format(selectedUnits.length*stage.unitPrice)}`:'Selecione os apartamentos para ver o resumo.')}</span></div>{!addendumValueMode&&<Button variant=\"secondary\" onClick={()=>setSelectedUnits([])} disabled={selectedUnits.length===0}>Limpar seleção</Button>}<Button onClick={()=>void confirmSelection()} disabled={saving||(effectiveQuantity<=0&&currentLines.length===0)}>{saving?'Salvando…':addendumValueMode?'✓ Confirmar valor':'✓ Confirmar seleção'}</Button></footer>"
+          replace_once(footer_old, footer_new, 'value-mode footer')
+
+          path.write_text(s, encoding='utf-8')
+          print('Addendum measurement by value mode applied.')
+          PY
+
+      - name: Validate build
+        run: npm install --no-package-lock && npm run build
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'feat(engineering): allow measuring addenda by value'
+          git pull --rebase origin main
+          git push origin HEAD:main
