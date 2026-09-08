@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: measurement save + auto sequence repair (2026-09-07)
+# deploy trigger: measurement persistence consistency (2026-09-07)
 on:
   push:
     branches: [main]
@@ -48,6 +48,9 @@ jobs:
       - name: Repair automatic sequence typecheck
         run: python3 scripts/fix-measurement-auto-sequence-typecheck.py
 
+      - name: Apply measurement persistence consistency
+        run: python3 scripts/fix-measurement-persistence-consistency.py
+
       - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -57,7 +60,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx
-            git commit -m "fix(engineering): sync measurement flow repairs"
+            git commit -m "fix(engineering): sync measurement persistence repairs"
             git push
           fi
 
@@ -115,6 +118,9 @@ jobs:
 
       - name: Repair automatic sequence typecheck
         run: python3 scripts/fix-measurement-auto-sequence-typecheck.py
+
+      - name: Apply measurement persistence consistency
+        run: python3 scripts/fix-measurement-persistence-consistency.py
 
       - name: Install dependencies
         run: npm install
