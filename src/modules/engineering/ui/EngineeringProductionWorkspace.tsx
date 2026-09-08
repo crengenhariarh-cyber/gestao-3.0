@@ -9,7 +9,7 @@ import { loadEngineeringProduction, type EngineeringProductionSnapshot } from '.
 import { EngineeringOperationsPanel } from './EngineeringOperationsPanel';
 
 type ProductionAction='productionPeriod'|'productionEntry'|'productionStatus'|null;
-interface Props { scope:{tenantId:string;companyId:string}; workName:string; contractId:string; contractNumber:string; onChanged:()=>void; }
+interface Props { scope:{tenantId:string;companyId:string}; workName:string; contractNumber:string; onChanged:()=>void; }
 
 const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const quantity=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3});
@@ -17,7 +17,7 @@ const dateLabel=(value:string)=>{if(!value)return'—';const [year,month,day]=va
 const monthLabel=(value:string)=>{if(!value)return'—';const [year,month]=value.slice(0,7).split('-');return month&&year?`${month}/${year}`:value;};
 const statusLabel=(status:string)=>status==='closed'?'Fechado':'Aberto';
 
-export function EngineeringProductionWorkspace({scope,workName,contractId,contractNumber,onChanged}:Props){
+export function EngineeringProductionWorkspace({scope,workName,contractNumber,onChanged}:Props){
   const [snapshot,setSnapshot]=useState<EngineeringProductionSnapshot|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -26,8 +26,8 @@ export function EngineeringProductionWorkspace({scope,workName,contractId,contra
   const [action,setAction]=useState<ProductionAction>(null);
   const reload=useCallback(async()=>{setLoading(true);setError(null);try{setSnapshot(await loadEngineeringProduction(scope,workName));}catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível carregar a Produção.');}finally{setLoading(false);}},[scope,workName]);
   useEffect(()=>{void reload();},[reload]);
-  const periods=snapshot?.periods??[];
-  const entries=snapshot?.entries??[];
+  const periods=useMemo(()=>snapshot?.periods??[],[snapshot]);
+  const entries=useMemo(()=>snapshot?.entries??[],[snapshot]);
   const normalized=search.trim().toLocaleLowerCase('pt-BR');
   const visibleEntries=useMemo(()=>entries.filter(item=>{const matchesPeriod=periodFilter==='all'||item.periodId===periodFilter;const haystack=`${item.employeeName} ${item.structureName} ${item.serviceName} ${item.productionDate} ${item.notes??''}`.toLocaleLowerCase('pt-BR');return matchesPeriod&&(!normalized||haystack.includes(normalized));}),[entries,normalized,periodFilter]);
   const totalValue=entries.reduce((sum,item)=>sum+(item.productionValue??0),0);
