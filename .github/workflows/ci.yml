@@ -3,7 +3,7 @@ name: CI
 # O código versionado é a fonte de verdade. CI valida e publica; não reescreve módulos.
 on:
   push:
-    branches: [main]
+    branches: [main, rebuild/engineering-parity-2x]
   pull_request:
   workflow_dispatch:
 
@@ -53,7 +53,7 @@ jobs:
 
   deploy:
     name: Deploy Cloudflare Workers
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rebuild/engineering-parity-2x')
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
