@@ -1,6 +1,7 @@
 from pathlib import Path
 
 # The Android print spooler must receive an already embedded image, never an external URL.
+# Keep this repair idempotent so CI can validate the production source after it is applied.
 p = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
 s = p.read_text(encoding='utf-8')
 
