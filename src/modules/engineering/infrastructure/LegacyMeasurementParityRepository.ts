@@ -88,23 +88,23 @@ function resolveProfileIdForService(row:{description:string;notes:string|null},p
   const explicit=normalize(originFromNotes(row.notes));
   if(explicit){
     const exact=profiles.filter(profile=>profileKeys(profile).includes(explicit));
-    if(exact.length===1)return exact[0].id;
+    if(exact.length===1)return exact[0]!.id;
   }
 
   const normalizedNotes=normalize(row.notes);
   if(normalizedNotes){
     const byText=profiles.filter(profile=>profileKeys(profile).some(key=>key.length>1&&normalizedNotes.includes(key)));
-    if(byText.length===1)return byText[0].id;
+    if(byText.length===1)return byText[0]!.id;
   }
 
   const code=normalize(extractCode(row.description));
   if(code){
     const scopedKeys=new Set(scopeRows.filter(scope=>normalize(scope.service_code)===code).map(scope=>normalize(scope.origin_key)).filter(Boolean));
     const byScope=profiles.filter(profile=>profileKeys(profile).some(key=>scopedKeys.has(key)));
-    if(byScope.length===1)return byScope[0].id;
+    if(byScope.length===1)return byScope[0]!.id;
   }
 
-  return profiles.length===1?profiles[0].id:null;
+  return profiles.length===1?profiles[0]!.id:null;
 }
 
 function stageFromContract(row:ContractServiceRow,scopeRows:readonly ScopeRow[]):MeasurementParityStage{
