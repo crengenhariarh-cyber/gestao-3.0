@@ -140,7 +140,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     if(!model||!activeMeasurementId||measurementGross<=0)return;
     document.getElementById('measurement-print-root')?.remove();
     document.getElementById('measurement-print-style')?.remove();
-    const esc=(value:unknown)=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]??char));
+    const esc=(value:unknown)=>safeText(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]??char));
     const measurement=model.measurements.find(item=>item.id===activeMeasurementId);
     const status=measurement?.status==='draft'?'RASCUNHO':(measurement?.status??'').toLocaleUpperCase('pt-BR');
     const rows=model.origins.flatMap(origin=>origin.services.map(service=>{
