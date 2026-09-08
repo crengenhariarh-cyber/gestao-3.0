@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: measurement active-id lock (2026-09-07)
+# deploy trigger: measurement print mobile-safe (2026-09-08)
 on:
   push:
     branches: [main]
@@ -54,6 +54,9 @@ jobs:
       - name: Lock measurement to selected draft
         run: python3 scripts/fix-measurement-active-id-lock.py
 
+      - name: Apply mobile-safe measurement print
+        run: python3 scripts/fix-measurement-print-mobile.py
+
       - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -63,7 +66,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx
-            git commit -m "fix(engineering): sync selected measurement lock"
+            git commit -m "fix(engineering): sync measurement repairs including mobile print"
             git push
           fi
 
@@ -127,6 +130,9 @@ jobs:
 
       - name: Lock measurement to selected draft
         run: python3 scripts/fix-measurement-active-id-lock.py
+
+      - name: Apply mobile-safe measurement print
+        run: python3 scripts/fix-measurement-print-mobile.py
 
       - name: Install dependencies
         run: npm install
