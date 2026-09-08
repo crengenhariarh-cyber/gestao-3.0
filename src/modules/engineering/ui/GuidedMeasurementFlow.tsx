@@ -94,7 +94,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   const refs=useMemo(()=>model&&origin&&stage?stageReferences(model,origin,stage):[],[model,origin,stage]);
   const targetLines=useMemo(()=>model&&stage?model.lines.filter(line=>line.targetKind===stage.targetKind&&line.targetId===stage.targetId):[],[model,stage]);
   const currentLines=useMemo(()=>targetLines.filter(line=>line.measurementId===activeMeasurementId),[targetLines,activeMeasurementId]);
-  const previousLines=useMemo(()=>targetLines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)),[targetLines,measurementId]);
+  const previousLines=useMemo(()=>targetLines.filter(line=>line.measurementId!==activeMeasurementId&&['closed','approved'].includes(line.measurementStatus)),[targetLines,activeMeasurementId]);
   const previousQty=previousLines.reduce((sum,line)=>sum+line.measuredQuantity,0); const balance=Math.max(0,(stage?.contractedQuantity??0)-previousQty);
   const blocked=new Set(previousLines.map(line=>line.reference).filter((value):value is string=>Boolean(value))); const available=refs.filter(reference=>!blocked.has(reference)); const maxSelectable=Math.max(0,Math.min(available.length,Math.floor(balance)));
   const visible=available.filter(reference=>!normalize(search)||normalize(reference).includes(normalize(search)));
