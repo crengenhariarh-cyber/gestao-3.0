@@ -66,7 +66,7 @@ export function useFinanceOperations(scope: CompanyScope) {
       const [categories, costCenters, accounts, cards, cardInstallments, statements, installmentBalances, transfers, recurrences] = await Promise.all([
         repositories.registries.listCategories(scope),
         repositories.registries.listCostCenters(scope),
-        repositories.registries.listAccounts(scope),
+        repositories.registries.listTenantAccounts(scope.tenantId),
         repositories.cards.listCards(scope),
         repositories.cards.listInstallments(scope),
         repositories.cards.listStatements(scope),
