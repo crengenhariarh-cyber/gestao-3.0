@@ -15,6 +15,7 @@ import './engineering.css';
 import './engineering-contract-workspace.css';
 import './engineering-contract-summary-dashboard.css';
 import './engineering-parity-overview.css';
+import './engineering-parity-contracts.css';
 
 interface EngineeringPageProps { companies: readonly CompanySummary[]; initialCompanyId?: string; }
 
