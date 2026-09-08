@@ -23,3 +23,22 @@
 
 /* Full-tower scope + compact unit toolbar 2026-09-07 */
 .approved-unit-picker__toolbar--compact{grid-template-columns:auto minmax(240px,1fr)!important;align-items:center!important;padding:9px 22px!important;min-height:58px}.approved-unit-picker__toolbar--compact>p{grid-column:auto!important;justify-self:end!important;min-height:38px!important;margin:0!important}.approved-unit-picker__toolbar--compact>button{min-height:40px}.approved-unit-picker__floors{padding-top:8px!important}@media(max-width:640px){.approved-unit-picker__toolbar--compact{grid-template-columns:1fr!important;padding:8px 12px!important}.approved-unit-picker__toolbar--compact>p{justify-self:start!important}.approved-unit-picker__toolbar--compact>button{width:100%}}
+
+
+/* draft measurement print */
+@media print {
+  body * { visibility: hidden !important; }
+  .ui-dialog-backdrop,
+  .ui-dialog-backdrop *,
+  .ui-dialog[data-variant="measurement-fullscreen"],
+  .ui-dialog[data-variant="measurement-fullscreen"] * { visibility: visible !important; }
+  .ui-dialog-backdrop { position: static !important; inset: auto !important; background: #fff !important; padding: 0 !important; }
+  .ui-dialog[data-variant="measurement-fullscreen"] { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 0 !important; }
+  .ui-dialog[data-variant="measurement-fullscreen"] .ui-dialog__header,
+  .measurement-hub__footer,
+  .measurement-hub__selector,
+  .measurement-hub__origins button em { display: none !important; }
+  .measurement-hub { padding: 0 !important; }
+  .measurement-hub::before { content: "MEDIÇÃO EM RASCUNHO"; display: block; margin: 0 0 12px; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+  @page { size: A4 portrait; margin: 12mm; }
+}
