@@ -76,7 +76,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
 
   return <div className="app-company-sections app-company-sections--banks">
     <section className="app-company-sections--banks__controls" aria-label="Ações de bancos">
-      <PageHeader id="all-banks-title" title="Bancos" subtitle="Todas as empresas" actions={<Button variant="primary" onClick={() => { setError(null); setSuccess(null); setOpen(true); }}>Transferir entre bancos</Button>} />
+      <PageHeader id="all-banks-title" title="Bancos" description="Todas as empresas" actions={<Button variant="primary" onClick={() => { setError(null); setSuccess(null); setOpen(true); }}>Transferir entre bancos</Button>} />
       {success && <Feedback tone="success" title="Transferência" message={success} />}
       {error && !open && <Feedback tone="danger" title="Transferência" message={error} />}
       {loading && <LoadingState label="Carregando contas de todas as empresas…" />}
