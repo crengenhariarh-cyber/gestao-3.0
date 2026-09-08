@@ -136,7 +136,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   }
   async function saveHeader(){if(!activeMeasurementId)return;const measurementNumber=header.measurementNumber.trim(),competence=header.competence.trim();if(!measurementNumber){setError('Informe o número da medição.');return;}if(!competence){setError('Informe a competência.');return;}setHeaderSaving(true);setError(null);try{await operations.updateMeasurement({measurementId:activeMeasurementId,measurementNumber,competence,dueDate:header.dueDate||null,expectedPaymentDate:header.expectedPaymentDate||null,paymentMethod:header.paymentMethod||null,notes:header.notes||null});await reload();}catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível salvar os dados da medição.');throw cause;}finally{setHeaderSaving(false);}}
   async function finalizeMeasurement(){if(!activeMeasurementId){setError('Salve ao menos um serviço antes de finalizar a medição.');return;}try{await saveHeader();await operations.setMeasurementStatus(activeMeasurementId,'close');onChanged();onClose();}catch{return;}}
-  function printMeasurement(){
+  async function printMeasurement(){
     if(!model||!activeMeasurementId||measurementGross<=0)return;
     document.getElementById('measurement-print-root')?.remove();
     document.getElementById('measurement-print-style')?.remove();
@@ -156,7 +156,18 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
       '1ac1cde3-30fa-4fab-9ea0-8afbb34732e5':'https://nuigbsleackrwpoxwxdo.supabase.co/storage/v1/object/public/company-assets/company-logos/CR_1756269998618_76039.png',
       '68e55f19-6d77-45cf-a86b-6a661f4c285a':'https://nuigbsleackrwpoxwxdo.supabase.co/storage/v1/object/public/company-assets/company-logos/PR_1756269998620_567409.png',
     };
-    const companyLogo=companyLogos[scope.companyId]??'/gestao-brand.svg';
+    const companyLogoUrl=companyLogos[scope.companyId]??'/gestao-brand.svg';
+    let companyLogo='';
+    try{
+      const response=await fetch(companyLogoUrl,{cache:'force-cache'});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const blob=await response.blob();
+      companyLogo=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>typeof reader.result==='string'?resolve(reader.result):reject(new Error('Logo inválido'));reader.onerror=()=>reject(reader.error??new Error('Falha ao ler logo'));reader.readAsDataURL(blob);});
+      if(!companyLogo.startsWith('data:image/'))throw new Error('Formato de logo inválido');
+    }catch{
+      setError('Não foi possível carregar o logo da empresa para a impressão. Tente novamente.');
+      return;
+    }
     root.innerHTML=`<header><div class="brand"><img id="measurement-print-logo" src="${companyLogo}" alt="Logo da empresa"></div><div class="title"><h1>Medição ${esc(header.measurementNumber||'—')}</h1><span class="badge">${esc(status)}</span></div></header><section class="meta"><div class="box"><span>Competência</span><strong>${esc(competence)}</strong></div><div class="box"><span>Vencimento previsto</span><strong>${esc(formatDate(header.dueDate))}</strong></div><div class="box"><span>Forma de pagamento</span><strong>${esc(header.paymentMethod||'—')}</strong></div></section><section class="financial"><div class="box"><span>Bruto</span><strong>${esc(currency.format(measurementGross))}</strong></div><div class="box"><span>INSS</span><strong>${esc(currency.format(inssValue))}</strong></div><div class="box"><span>ISS</span><strong>${esc(currency.format(issValue))}</strong></div><div class="box"><span>Retenção</span><strong>${esc(currency.format(rtValue))}</strong></div><div class="box net"><span>Líquido</span><strong>${esc(currency.format(measurementNet))}</strong></div></section><h2>Serviços desta medição</h2><table><thead><tr><th style="width:15%">Origem</th><th style="width:9%">Código</th><th style="width:35%">Descrição</th><th style="width:7%">Un.</th><th style="width:9%;text-align:right">Qtd.</th><th style="width:12%;text-align:right">Unitário</th><th style="width:13%;text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="obs"><strong>Observações:</strong> ${esc(header.notes||'—')}</div><div class="footer"><span>Gestão 3.0 · Engenharia</span><span>Documento emitido em ${esc(new Date().toLocaleString('pt-BR'))}</span></div>`;
     const style=document.createElement('style');
     style.id='measurement-print-style';
@@ -165,7 +176,11 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     document.body.appendChild(root);
     const trigger=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
     const logo=root.querySelector<HTMLImageElement>('#measurement-print-logo');
-    if(logo&&!logo.complete){let fired=false;const done=()=>{if(fired)return;fired=true;setTimeout(trigger,150);};logo.addEventListener('load',done,{once:true});logo.addEventListener('error',done,{once:true});setTimeout(done,1800);}else{setTimeout(trigger,150);}
+    const printWithLogo=()=>setTimeout(trigger,150);
+    const failLogo=()=>{root.remove();style.remove();setError('O logo da empresa não pôde ser renderizado. A impressão foi cancelada para não gerar um documento sem identificação.');};
+    if(!logo){failLogo();return;}
+    if(logo.complete){if(logo.naturalWidth>0)printWithLogo();else failLogo();}
+    else{logo.addEventListener('load',printWithLogo,{once:true});logo.addEventListener('error',failLogo,{once:true});}
     // Deliberately keep the print DOM alive. Android's print spooler can snapshot
     // the page after window.print()/afterprint returns; removing it early creates
     // a blank PDF preview. It is removed on the next print invocation instead.
@@ -182,7 +197,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
       <section className="measurement-hub__financial"><div><span>Bruto da medição</span><strong>{currency.format(measurementGross)}</strong></div><div><span>INSS ({retentions.inss.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(inssValue)}</strong></div><div><span>ISS ({retentions.iss.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(issValue)}</strong></div><div><span>Retenção ({retentions.rt.toLocaleString('pt-BR',{maximumFractionDigits:2})}%)</span><strong>{currency.format(rtValue)}</strong></div><div className="is-net"><span>Líquido da medição</span><strong>{currency.format(measurementNet)}</strong></div></section>
       <section className="measurement-hub__origin-picker"><div><strong>Selecionar origem</strong><span>Escolha Torre 4, Torre 6 ou um aditivo.</span></div><Select label="Torre / Aditivo" value="" onChange={event=>void openOrigin(event.target.value)} options={[{value:'',label:'Selecione uma torre ou aditivo…'},...model.origins.map(item=>({value:item.id,label:originLabel(item)}))]}/></section>
       <section className="measurement-hub__origins"><header><div><strong>Origens já adicionadas nesta medição</strong><span>Os valores abaixo compõem o bruto geral da medição.</span></div></header>{originRows.length===0?<div className="measurement-hub__empty">Nenhuma torre ou aditivo lançado ainda.</div>:<div className="measurement-hub__origin-list">{originRows.map(row=><button key={row.origin.id} type="button" onClick={()=>void openOrigin(row.origin.id,true)}><span><strong>{originLabel(row.origin)}</strong><small>{row.serviceCount} serviço(s) lançado(s)</small></span><b>{currency.format(row.gross)}</b><em>Editar ›</em></button>)}</div>}</section>
-      <footer className="approved-measurement-sheet__bottom-actions measurement-hub__footer"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button className="measurement-print-action" variant="secondary" disabled={!activeMeasurementId||measurementGross<=0} onClick={printMeasurement}>⎙ Imprimir medição</Button><Button variant="secondary" disabled={headerSaving||!measurementId} onClick={()=>void saveHeader()}>{headerSaving?'Salvando…':'▣ Salvar rascunho'}</Button><Button disabled={headerSaving||!measurementId||measurementGross<=0} onClick={()=>void finalizeMeasurement()}>✓ Finalizar medição</Button></div></footer>
+      <footer className="approved-measurement-sheet__bottom-actions measurement-hub__footer"><Button variant="secondary" onClick={closeFlow}>Cancelar medição</Button><div><Button className="measurement-print-action" variant="secondary" disabled={!activeMeasurementId||measurementGross<=0} onClick={()=>{void printMeasurement();}}>⎙ Imprimir medição</Button><Button variant="secondary" disabled={headerSaving||!measurementId} onClick={()=>void saveHeader()}>{headerSaving?'Salvando…':'▣ Salvar rascunho'}</Button><Button disabled={headerSaving||!measurementId||measurementGross<=0} onClick={()=>void finalizeMeasurement()}>✓ Finalizar medição</Button></div></footer>
     </div>
 
     {pickerOpen&&origin&&<div className="guided-measurement-picker" role="dialog" aria-modal="true" aria-label={`Medição - ${originLabel(origin)}`}><div className="guided-measurement-picker__panel approved-measurement-origin-modal">
