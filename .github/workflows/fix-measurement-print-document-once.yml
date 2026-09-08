@@ -1,0 +1,77 @@
+name: Fix measurement print document once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-measurement-print-document-once.yml'
+permissions:
+  contents: write
+jobs:
+  patch-build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch real print document
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
+          s=p.read_text(encoding='utf-8')
+          anchor="  async function finalizeMeasurement(){if(!activeMeasurementId){setError('Salve ao menos um serviço antes de finalizar a medição.');return;}try{await saveHeader();await operations.setMeasurementStatus(activeMeasurementId,'close');onChanged();onClose();}catch{return;}}\n  function closeFlow(){onClose();}"
+          replacement=r'''  async function finalizeMeasurement(){if(!activeMeasurementId){setError('Salve ao menos um serviço antes de finalizar a medição.');return;}try{await saveHeader();await operations.setMeasurementStatus(activeMeasurementId,'close');onChanged();onClose();}catch{return;}}
+  function printMeasurement(){
+    if(!model||!activeMeasurementId||measurementGross<=0)return;
+    const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]??char));
+    const measurement=model.measurements.find(item=>item.id===activeMeasurementId);
+    const status=measurement?.status==='draft'?'RASCUNHO':(measurement?.status??'').toLocaleUpperCase('pt-BR');
+    const rows=model.origins.flatMap(origin=>origin.services.map(service=>{
+      const quantity=model.lines.filter(line=>line.measurementId===activeMeasurementId&&line.targetKind===service.targetKind&&line.targetId===service.targetId).reduce((sum,line)=>sum+line.measuredQuantity,0);
+      if(quantity<=0)return null;
+      return `<tr><td>${esc(originLabel(origin))}</td><td>${esc(service.code||'—')}</td><td>${esc(service.description)}</td><td>${esc(service.unit)}</td><td class="num">${esc(quantity.toLocaleString('pt-BR',{maximumFractionDigits:3}))}</td><td class="num">${esc(currency.format(service.unitPrice))}</td><td class="num strong">${esc(currency.format(quantity*service.unitPrice))}</td></tr>`;
+    }).filter((row):row is string=>Boolean(row))).join('');
+    const popup=window.open('','_blank');
+    if(!popup){setError('O navegador bloqueou a janela de impressão. Permita pop-ups para imprimir a medição.');return;}
+    const logo=`${window.location.origin}/gestao-brand.svg`;
+    const competence=header.competence?new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(new Date(`${header.competence}-01T12:00:00`)):'—';
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medição ${esc(header.measurementNumber||'')}</title><style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;font-size:10.5px}header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1d4ed8;padding-bottom:10px;margin-bottom:14px}.brand{display:flex;gap:12px;align-items:center}.brand img{width:150px;max-height:54px;object-fit:contain;object-position:left center}.title{text-align:right}.title h1{font-size:18px;margin:0 0 4px}.badge{display:inline-block;border:1px solid #d97706;color:#92400e;background:#fffbeb;border-radius:999px;padding:3px 8px;font-weight:700;font-size:9px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.box{border:1px solid #d1d5db;border-radius:8px;padding:8px}.box span{display:block;color:#6b7280;font-size:8.5px;margin-bottom:3px;text-transform:uppercase}.box strong{font-size:11px}.financial{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}.financial .box{padding:7px}.financial .net{border-color:#86efac;background:#f0fdf4}h2{font-size:12px;margin:14px 0 7px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border-bottom:1px solid #e5e7eb;padding:6px 5px;vertical-align:top;word-wrap:break-word}th{background:#f3f4f6;text-align:left;font-size:8px;text-transform:uppercase;color:#4b5563}.num{text-align:right}.strong{font-weight:700}.obs{margin-top:12px;border:1px solid #e5e7eb;border-radius:8px;padding:8px;min-height:34px}.footer{margin-top:16px;padding-top:8px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:8px;display:flex;justify-content:space-between}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><header><div class="brand"><img id="print-logo" src="${logo}" alt="Gestão 3.0"></div><div class="title"><h1>Medição ${esc(header.measurementNumber||'—')}</h1><span class="badge">${esc(status)}</span></div></header><section class="meta"><div class="box"><span>Competência</span><strong>${esc(competence)}</strong></div><div class="box"><span>Vencimento previsto</span><strong>${esc(header.dueDate||'—')}</strong></div><div class="box"><span>Forma de pagamento</span><strong>${esc(header.paymentMethod||'—')}</strong></div></section><section class="financial"><div class="box"><span>Bruto</span><strong>${esc(currency.format(measurementGross))}</strong></div><div class="box"><span>INSS</span><strong>${esc(currency.format(inssValue))}</strong></div><div class="box"><span>ISS</span><strong>${esc(currency.format(issValue))}</strong></div><div class="box"><span>Retenção</span><strong>${esc(currency.format(rtValue))}</strong></div><div class="box net"><span>Líquido</span><strong>${esc(currency.format(measurementNet))}</strong></div></section><h2>Serviços desta medição</h2><table><thead><tr><th style="width:15%">Origem</th><th style="width:9%">Código</th><th style="width:35%">Descrição</th><th style="width:7%">Un.</th><th style="width:9%;text-align:right">Qtd.</th><th style="width:12%;text-align:right">Unitário</th><th style="width:13%;text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="obs"><strong>Observações:</strong> ${esc(header.notes||'—')}</div><div class="footer"><span>Gestão 3.0 · Engenharia</span><span>Documento emitido em ${esc(new Date().toLocaleString('pt-BR'))}</span></div><script>const finish=()=>setTimeout(()=>{window.focus();window.print();},250);const img=document.getElementById('print-logo');if(img&& !img.complete){img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,1500)}else{finish()}<\/script></body></html>`);
+    popup.document.close();
+  }
+  function closeFlow(){onClose();}'''
+          if 'function printMeasurement(){' not in s:
+              if anchor not in s: raise SystemExit('print function anchor not found')
+              s=s.replace(anchor,replacement,1)
+          s=s.replace('onClick={()=>window.print()}>⎙ Imprimir medição</Button>','onClick={printMeasurement}>⎙ Imprimir medição</Button>')
+          p.write_text(s,encoding='utf-8')
+          print('Isolated measurement print document applied.')
+          PY
+      - name: Install dependencies
+        run: npm install
+      - name: Validate
+        run: npm run typecheck && npm run build
+      - name: Commit source fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(engineering): render measurement print in isolated document'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Deploy current fixed build
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4 deploy
