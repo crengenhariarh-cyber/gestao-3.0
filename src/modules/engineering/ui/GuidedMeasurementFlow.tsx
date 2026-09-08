@@ -152,27 +152,11 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
     const formatDate=(value:string)=>{if(!value)return '—';const [y,m,d]=value.split('-');return y&&m&&d?`${d}/${m}/${y}`:value;};
     const root=document.createElement('div');
     root.id='measurement-print-root';
-    const companyLogoFallbacks:Record<string,string>={
-      '1ac1cde3-30fa-4fab-9ea0-8afbb34732e5':'/company-cr.svg',
-      '68e55f19-6d77-45cf-a86b-6a661f4c285a':'/gestao-brand.svg',
+    const companyLogos:Record<string,string>={
+      '1ac1cde3-30fa-4fab-9ea0-8afbb34732e5':'/company-cr.webp',
+      '68e55f19-6d77-45cf-a86b-6a661f4c285a':'/company-pr.webp',
     };
-    let companyLogo=companyLogoFallbacks[scope.companyId]??'/gestao-brand.svg';
-    try{
-      const legacySupabaseUrl='https://nuigbsleackrwpoxwxdo.supabase.co';
-      const legacyAnonKey='sb_publishable_mui9_MiItgq_ySgyL_60MA_KLkA0Fe4';
-      const response=await fetch(`${legacySupabaseUrl}/rest/v1/platform_companies?id=eq.${encodeURIComponent(scope.companyId)}&select=logo_url`,{
-        headers:{apikey:legacyAnonKey,Authorization:`Bearer ${legacyAnonKey}`},
-        cache:'no-store',
-      });
-      if(response.ok){
-        const payload=await response.json() as Array<{logo_url?:string|null}>;
-        const registeredLogo=payload[0]?.logo_url??'';
-        if(registeredLogo.startsWith('data:image/'))companyLogo=registeredLogo;
-      }
-    }catch{
-      // Printing must remain available offline or if the legacy registry is unavailable.
-      // The local company-specific asset is used as the safe fallback.
-    }
+    const companyLogo=companyLogos[scope.companyId]??'/gestao-brand.svg';
     root.innerHTML=`<header><div class="brand"><img id="measurement-print-logo" src="${companyLogo}" alt="Logo da empresa"></div><div class="title"><h1>Medição ${esc(header.measurementNumber||'—')}</h1><span class="badge">${esc(status)}</span></div></header><section class="meta"><div class="box"><span>Competência</span><strong>${esc(competence)}</strong></div><div class="box"><span>Vencimento previsto</span><strong>${esc(formatDate(header.dueDate))}</strong></div><div class="box"><span>Forma de pagamento</span><strong>${esc(header.paymentMethod||'—')}</strong></div></section><section class="financial"><div class="box"><span>Bruto</span><strong>${esc(currency.format(measurementGross))}</strong></div><div class="box"><span>INSS</span><strong>${esc(currency.format(inssValue))}</strong></div><div class="box"><span>ISS</span><strong>${esc(currency.format(issValue))}</strong></div><div class="box"><span>Retenção</span><strong>${esc(currency.format(rtValue))}</strong></div><div class="box net"><span>Líquido</span><strong>${esc(currency.format(measurementNet))}</strong></div></section><h2>Serviços desta medição</h2><table><thead><tr><th style="width:15%">Origem</th><th style="width:9%">Código</th><th style="width:35%">Descrição</th><th style="width:7%">Un.</th><th style="width:9%;text-align:right">Qtd.</th><th style="width:12%;text-align:right">Unitário</th><th style="width:13%;text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table><div class="obs"><strong>Observações:</strong> ${esc(header.notes||'—')}</div><div class="footer"><span>Gestão 3.0 · Engenharia</span><span>Documento emitido em ${esc(new Date().toLocaleString('pt-BR'))}</span></div>`;
     const style=document.createElement('style');
     style.id='measurement-print-style';
