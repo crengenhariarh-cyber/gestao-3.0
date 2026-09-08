@@ -1,7 +1,6 @@
 name: CI
 
-# Measurement source is authoritative; legacy one-time print patch removed from CI.
-# Deploy trigger: publish current company-logo print fix (2026-09-08).
+# Measurement source is authoritative; official company logos are synced during CI/deploy.
 on:
   push:
     branches: [main]
@@ -27,6 +26,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Sync official company logos
+        run: node scripts/sync-official-company-logos.mjs
+
+      - name: Use local official company logos in print
+        run: python3 scripts/use-local-official-company-logos.py
 
       - name: Apply measurement navigation repair
         run: python3 scripts/fix-measurement-flow-navigation.py
@@ -101,6 +106,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Sync official company logos
+        run: node scripts/sync-official-company-logos.mjs
+
+      - name: Use local official company logos in print
+        run: python3 scripts/use-local-official-company-logos.py
 
       - name: Apply measurement navigation repair
         run: python3 scripts/fix-measurement-flow-navigation.py
