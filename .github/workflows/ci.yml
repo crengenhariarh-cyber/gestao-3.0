@@ -1,6 +1,6 @@
 name: CI
 
-# deploy trigger: measurement persistence consistency (2026-09-07)
+# deploy trigger: measurement active-id lock (2026-09-07)
 on:
   push:
     branches: [main]
@@ -51,6 +51,9 @@ jobs:
       - name: Apply measurement persistence consistency
         run: python3 scripts/fix-measurement-persistence-consistency.py
 
+      - name: Lock measurement to selected draft
+        run: python3 scripts/fix-measurement-active-id-lock.py
+
       - name: Persist measurement repairs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -60,7 +63,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx
-            git commit -m "fix(engineering): sync measurement persistence repairs"
+            git commit -m "fix(engineering): sync selected measurement lock"
             git push
           fi
 
@@ -121,6 +124,9 @@ jobs:
 
       - name: Apply measurement persistence consistency
         run: python3 scripts/fix-measurement-persistence-consistency.py
+
+      - name: Lock measurement to selected draft
+        run: python3 scripts/fix-measurement-active-id-lock.py
 
       - name: Install dependencies
         run: npm install
