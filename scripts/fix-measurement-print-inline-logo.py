@@ -46,12 +46,17 @@ if old_gate in s:
 elif new_gate not in s:
     raise SystemExit('logo print gate not found')
 
+# React event attributes must remain void-returning even though printing now awaits image embedding.
+s = s.replace('onClick={printMeasurement}>⎙ Imprimir medição</Button>', 'onClick={()=>{void printMeasurement();}}>⎙ Imprimir medição</Button>')
+
 if "const companyLogo=companyLogos[scope.companyId]" in s:
     raise SystemExit('external companyLogo binding still present')
 if "logo.addEventListener('error',done" in s:
     raise SystemExit('print-on-logo-error behavior still present')
 if "reader.readAsDataURL(blob)" not in s:
     raise SystemExit('inline data URL conversion missing')
+if 'onClick={printMeasurement}>⎙ Imprimir medição</Button>' in s:
+    raise SystemExit('async print handler remains directly attached')
 
 p.write_text(s, encoding='utf-8')
 print('Measurement print logo is now embedded before Android print.')
