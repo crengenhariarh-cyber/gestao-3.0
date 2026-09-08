@@ -24,8 +24,8 @@ const sections: readonly MenuSection[] = [
   ]},
   { id:'engenharia', label:'Engenharia', icon:'♜', items:[
     { label:'Contratos', to:'/engenharia', icon:'▤' },
-    { label:'Produção', disabled:true, icon:'⚙' },
-    { label:'Orçamentos', disabled:true, icon:'⚙' },
+    { label:'Produção', to:'/engenharia?area=producao', icon:'⚒' },
+    { label:'Orçamentos', to:'/orcamento', icon:'▦' },
   ]},
   { id:'rh', label:'Recursos Humanos', icon:'♙', items:[
     { label:'Recursos Humanos', to:'/rh', icon:'♙' },
