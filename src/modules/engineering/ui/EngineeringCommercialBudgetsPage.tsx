@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import { Badge } from '../../../shared/ui/Badge';
 import { Button } from '../../../shared/ui/Button';
@@ -17,14 +17,15 @@ const today=()=>new Date().toISOString().slice(0,10);
 function label(company:CompanySummary){return company.tradeName??company.legalName;}
 function emptyItem():EngineeringCommercialBudgetItem{return{id:crypto.randomUUID(),category:'Serviços gerais',subcategory:'Itens do orçamento',description:'',quantity:1,unit:'un',unitPrice:0};}
 function emptyDraft(company:CompanySummary):EngineeringCommercialBudgetDraft{return{tenantId:company.tenantId,companyId:company.id,title:'',issuer:label(company),customer:'',project:'',issueDate:today(),validityDays:15,paymentTerms:'',notes:'',status:'Em andamento',items:[]};}
-function tone(status:EngineeringCommercialBudgetStatus){return status==='Contrato'||status==='Aprovado'?'success':status==='Recusado'||status==='Cancelado'?'danger':status==='Em andamento'?'warning':'neutral';}
-export function EngineeringCommercialBudgetsPage({companies,initialCompanyId}:{companies:readonly CompanySummary[];initialCompanyId?:string}){
+function tone(status:EngineeringCommercialBudgetStatus):'neutral'|'success'|'warning'|'danger'{return status==='Contrato'||status==='Aprovado'?'success':status==='Recusado'||status==='Cancelado'?'danger':status==='Em andamento'?'warning':'neutral';}
+export function EngineeringCommercialBudgetsPage({companies,initialCompanyId}:{companies:readonly CompanySummary[];initialCompanyId?:string|undefined}){
  const engineeringCompanies=companies.filter(company=>!`${company.tradeName??''} ${company.legalName}`.toLocaleUpperCase('pt-BR').includes('PESSOAL'));
  const [companyId,setCompanyId]=useState(initialCompanyId&&engineeringCompanies.some(c=>c.id===initialCompanyId)?initialCompanyId:engineeringCompanies[0]?.id??'');
  const [budgets,setBudgets]=useState<EngineeringCommercialBudget[]>([]);const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [success,setSuccess]=useState<string|null>(null);const [query,setQuery]=useState('');const [status,setStatus]=useState('Todos');const [draft,setDraft]=useState<EngineeringCommercialBudgetDraft|null>(null);const [item,setItem]=useState<EngineeringCommercialBudgetItem>(emptyItem());
  const company=engineeringCompanies.find(c=>c.id===companyId)??engineeringCompanies[0];
- async function reload(){if(!company){setLoading(false);return;}setLoading(true);setError(null);try{setBudgets(await listEngineeringCommercialBudgets([{tenantId:company.tenantId,companyId:company.id}]));}catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível carregar os orçamentos.');}finally{setLoading(false);}}
- useEffect(()=>{void reload();},[companyId]);
+ const scopeTenantId=company?.tenantId??'';const scopeCompanyId=company?.id??'';
+ const reload=useCallback(async()=>{if(!scopeTenantId||!scopeCompanyId){setLoading(false);return;}setLoading(true);setError(null);try{setBudgets(await listEngineeringCommercialBudgets([{tenantId:scopeTenantId,companyId:scopeCompanyId}]));}catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível carregar os orçamentos.');}finally{setLoading(false);}},[scopeTenantId,scopeCompanyId]);
+ useEffect(()=>{void reload();},[reload]);
  const visible=useMemo(()=>{const term=query.trim().toLocaleLowerCase('pt-BR');return budgets.filter(b=>(status==='Todos'||b.status===status)&&(!term||`${b.title} ${b.customer} ${b.project}`.toLocaleLowerCase('pt-BR').includes(term)));},[budgets,query,status]);
  const totalOpen=budgets.filter(b=>b.status==='Em andamento'||b.status==='Aprovado').reduce((sum,b)=>sum+b.total,0);const converted=budgets.filter(b=>b.status==='Contrato').length;
  function openNew(){if(company){setDraft(emptyDraft(company));setItem(emptyItem());setError(null);setSuccess(null);}}
