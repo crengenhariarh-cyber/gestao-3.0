@@ -77,7 +77,7 @@ jobs:
           PY
 
       - name: Validate build
-        run: npm ci && npm run build
+        run: npm install --no-package-lock && npm run build
 
       - name: Commit patch
         shell: bash
