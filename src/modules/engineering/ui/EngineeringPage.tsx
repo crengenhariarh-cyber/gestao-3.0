@@ -118,7 +118,7 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
           {secondarySections.map(section=><Button key={section.id} size="sm" variant={contractSection===section.id?'primary':'tertiary'} onClick={()=>navigateContract(section.id)}><span aria-hidden="true">{section.icon}</span>{section.label}</Button>)}
         </nav>}
 
-        {contractSection==='resumo'?<EngineeringContractSummaryDashboard contract={selectedContract} onNavigate={navigateLegacyContract}/>:contractSection==='producao'?<EngineeringProductionWorkspace scope={maintenanceScope} workId={selectedContract.workId} contractId={selectedContract.contractId} contractNumber={selectedContract.contractNumber} onChanged={refresh}/>:<EngineeringContractWorkspace section={contractSection} scope={maintenanceScope} contract={selectedContract} onChanged={refresh} onNavigate={navigateLegacyContract}/>} 
+        {contractSection==='resumo'?<EngineeringContractSummaryDashboard contract={selectedContract} onNavigate={navigateLegacyContract}/>:contractSection==='producao'?<EngineeringProductionWorkspace scope={maintenanceScope} workName={selectedContract.workName} contractId={selectedContract.contractId} contractNumber={selectedContract.contractNumber} onChanged={refresh}/>:<EngineeringContractWorkspace section={contractSection} scope={maintenanceScope} contract={selectedContract} onChanged={refresh} onNavigate={navigateLegacyContract}/>} 
       </div>}
     </Dialog>
   </section>;
