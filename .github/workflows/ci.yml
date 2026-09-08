@@ -1,14 +1,14 @@
 name: CI
 
-# Measurement source is authoritative; official company logos are synced during CI/deploy.
+# O código versionado é a fonte de verdade. CI valida e publica; não reescreve módulos.
 on:
   push:
-    branches: [main]
+    branches: [main, rebuild/engineering-parity-2x]
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   VITE_SUPABASE_URL: https://ogmtzxotpukddzowhqwl.supabase.co
@@ -33,46 +33,6 @@ jobs:
       - name: Use local official company logos in print
         run: python3 scripts/use-local-official-company-logos.py
 
-      - name: Apply measurement navigation repair
-        run: python3 scripts/fix-measurement-flow-navigation.py
-
-      - name: Apply approved unit picker
-        run: python3 scripts/apply-approved-unit-picker.py
-
-      - name: Apply full tower measurement scope
-        run: python3 scripts/fix-measurement-full-tower-scope.py
-
-      - name: Apply launched-only measurement edit
-        run: python3 scripts/fix-measurement-edit-launched-only.py
-
-      - name: Isolate draft measurements
-        run: python3 scripts/fix-measurement-draft-isolation.py
-
-      - name: Apply automatic measurement sequence
-        run: python3 scripts/fix-measurement-auto-sequence.py
-
-      - name: Repair automatic sequence typecheck
-        run: python3 scripts/fix-measurement-auto-sequence-typecheck.py
-
-      - name: Apply measurement persistence consistency
-        run: python3 scripts/fix-measurement-persistence-consistency.py
-
-      - name: Lock measurement to selected draft
-        run: python3 scripts/fix-measurement-active-id-lock.py
-
-      - name: Persist measurement repairs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          if git diff --quiet -- src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx; then
-            echo "Measurement source already updated."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/modules/engineering/ui/GuidedMeasurementFlow.tsx src/modules/engineering/ui/guided-measurement-flow.css src/modules/engineering/ui/EngineeringOperationsPanel.tsx
-            git commit -m "fix(engineering): sync measurement repairs"
-            git push
-          fi
-
       - name: Install dependencies
         run: npm install
 
@@ -93,7 +53,7 @@ jobs:
 
   deploy:
     name: Deploy Cloudflare Workers
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/rebuild/engineering-parity-2x')
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -112,33 +72,6 @@ jobs:
 
       - name: Use local official company logos in print
         run: python3 scripts/use-local-official-company-logos.py
-
-      - name: Apply measurement navigation repair
-        run: python3 scripts/fix-measurement-flow-navigation.py
-
-      - name: Apply approved unit picker
-        run: python3 scripts/apply-approved-unit-picker.py
-
-      - name: Apply full tower measurement scope
-        run: python3 scripts/fix-measurement-full-tower-scope.py
-
-      - name: Apply launched-only measurement edit
-        run: python3 scripts/fix-measurement-edit-launched-only.py
-
-      - name: Isolate draft measurements
-        run: python3 scripts/fix-measurement-draft-isolation.py
-
-      - name: Apply automatic measurement sequence
-        run: python3 scripts/fix-measurement-auto-sequence.py
-
-      - name: Repair automatic sequence typecheck
-        run: python3 scripts/fix-measurement-auto-sequence-typecheck.py
-
-      - name: Apply measurement persistence consistency
-        run: python3 scripts/fix-measurement-persistence-consistency.py
-
-      - name: Lock measurement to selected draft
-        run: python3 scripts/fix-measurement-active-id-lock.py
 
       - name: Install dependencies
         run: npm install
