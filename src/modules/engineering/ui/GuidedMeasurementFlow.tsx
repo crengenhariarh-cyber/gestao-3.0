@@ -136,7 +136,7 @@ export function GuidedMeasurementFlow({scope,contractId,initialMeasurementId='',
   }
   async function saveHeader(){if(!activeMeasurementId)return;const measurementNumber=header.measurementNumber.trim(),competence=header.competence.trim();if(!measurementNumber){setError('Informe o número da medição.');return;}if(!competence){setError('Informe a competência.');return;}setHeaderSaving(true);setError(null);try{await operations.updateMeasurement({measurementId:activeMeasurementId,measurementNumber,competence,dueDate:header.dueDate||null,expectedPaymentDate:header.expectedPaymentDate||null,paymentMethod:header.paymentMethod||null,notes:header.notes||null});await reload();}catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível salvar os dados da medição.');throw cause;}finally{setHeaderSaving(false);}}
   async function finalizeMeasurement(){if(!activeMeasurementId){setError('Salve ao menos um serviço antes de finalizar a medição.');return;}try{await saveHeader();await operations.setMeasurementStatus(activeMeasurementId,'close');onChanged();onClose();}catch{return;}}
-  async function printMeasurement(){
+  function printMeasurement(){
     if(!model||!activeMeasurementId||measurementGross<=0)return;
     document.getElementById('measurement-print-root')?.remove();
     document.getElementById('measurement-print-style')?.remove();
