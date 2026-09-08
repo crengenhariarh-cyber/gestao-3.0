@@ -1,0 +1,2 @@
+Trigger production CI/deploy for addendum measurement-by-value mode.
+Source implementation commit: ee03132
