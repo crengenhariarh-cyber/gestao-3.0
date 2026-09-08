@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# The Android print spooler must receive an already embedded image, never an external URL.
 p = Path('src/modules/engineering/ui/GuidedMeasurementFlow.tsx')
 s = p.read_text(encoding='utf-8')
 
@@ -45,7 +46,6 @@ if old_gate in s:
 elif new_gate not in s:
     raise SystemExit('logo print gate not found')
 
-# Regression guards: Android print must not receive an external logo URL and must never print after image error.
 if "const companyLogo=companyLogos[scope.companyId]" in s:
     raise SystemExit('external companyLogo binding still present')
 if "logo.addEventListener('error',done" in s:
