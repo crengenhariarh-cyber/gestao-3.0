@@ -80,6 +80,33 @@ function scopeFor(rows:readonly ScopeRow[],originName:string,code:string){
   return rows.find(row=>normalize(row.origin_key)===normalize(originName)&&normalize(row.service_code)===normalize(code));
 }
 
+function profileKeys(profile:OriginProfileRow){
+  return [normalize(profile.origin_name),normalize(profile.origin_key)].filter(Boolean);
+}
+
+function resolveProfileIdForService(row:{description:string;notes:string|null},profiles:readonly OriginProfileRow[],scopeRows:readonly ScopeRow[]):string|null{
+  const explicit=normalize(originFromNotes(row.notes));
+  if(explicit){
+    const exact=profiles.filter(profile=>profileKeys(profile).includes(explicit));
+    if(exact.length===1)return exact[0].id;
+  }
+
+  const normalizedNotes=normalize(row.notes);
+  if(normalizedNotes){
+    const byText=profiles.filter(profile=>profileKeys(profile).some(key=>key.length>1&&normalizedNotes.includes(key)));
+    if(byText.length===1)return byText[0].id;
+  }
+
+  const code=normalize(extractCode(row.description));
+  if(code){
+    const scopedKeys=new Set(scopeRows.filter(scope=>normalize(scope.service_code)===code).map(scope=>normalize(scope.origin_key)).filter(Boolean));
+    const byScope=profiles.filter(profile=>profileKeys(profile).some(key=>scopedKeys.has(key)));
+    if(byScope.length===1)return byScope[0].id;
+  }
+
+  return profiles.length===1?profiles[0].id:null;
+}
+
 function stageFromContract(row:ContractServiceRow,scopeRows:readonly ScopeRow[]):MeasurementParityStage{
   const originName=originFromNotes(row.notes);
   const code=extractCode(row.description);
@@ -176,12 +203,15 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
   const measurementRows=await loadAllMeasurementLines(scope,measurementIds);
   const measurementStatusById=new Map(measurements.map(item=>[item.id,item.status]));
 
+  const contractProfileByService=new Map(contractServices.map(row=>[row.id,resolveProfileIdForService(row,profiles,scopeRows)]));
+  const addendumProfileByLine=new Map(addendumLines.map(row=>[row.id,resolveProfileIdForService(row,profiles,scopeRows)]));
+
   const origins:MeasurementParityOrigin[]=profiles.map(profile=>{
     const contractStages=contractServices
-      .filter(row=>normalize(originFromNotes(row.notes))===normalize(profile.origin_name))
+      .filter(row=>contractProfileByService.get(row.id)===profile.id)
       .map(row=>stageFromContract(row,scopeRows));
     const addendumStages=addendumLines
-      .filter(row=>normalize(originFromNotes(row.notes))===normalize(profile.origin_name))
+      .filter(row=>addendumProfileByLine.get(row.id)===profile.id)
       .map(stageFromAddendum);
     return {
       id:profile.id,
@@ -193,6 +223,20 @@ export async function loadMeasurementParity(scope:MeasurementParityScope,contrac
       services:[...contractStages,...addendumStages],
     };
   }).filter(origin=>origin.services.length>0);
+
+  const unassignedContract=contractServices.filter(row=>!contractProfileByService.get(row.id)).map(row=>stageFromContract(row,scopeRows));
+  const unassignedAddenda=addendumLines.filter(row=>!addendumProfileByLine.get(row.id)).map(stageFromAddendum);
+  if(unassignedContract.length||unassignedAddenda.length){
+    origins.push({
+      id:'unassigned-services',
+      name:'Serviços sem origem',
+      type:'other',
+      floorCount:0,
+      hasGround:false,
+      modes:['unidade','valor'],
+      services:[...unassignedContract,...unassignedAddenda],
+    });
+  }
 
   const lines:MeasurementParityLine[]=measurementRows.flatMap(row=>{
     const targetKind:MeasurementTargetKind|null=row.contract_service_id?'contract':row.contract_addendum_line_id?'addendum':null;
@@ -232,12 +276,14 @@ export async function replaceMeasurementParityStage(scope:MeasurementParityScope
   legacyServiceId:string;
 }){
   const client=getSupabaseClient();
+  const normalizedReferences=Array.from(new Set(input.references.map(value=>value.trim()).filter(Boolean)));
+  if(normalizedReferences.length!==input.references.filter(value=>value.trim()).length)throw new Error('Há unidades duplicadas na seleção. Revise antes de confirmar.');
   const response=await client.rpc('replace_measurement_stage',{
     p_measurement_id:input.measurementId,
     p_contract_service_id:input.targetKind==='contract'?input.targetId:null,
     p_contract_addendum_line_id:input.targetKind==='addendum'?input.targetId:null,
-    p_quantity:input.references.length?null:input.quantity,
-    p_references:input.references.length?input.references:null,
+    p_quantity:normalizedReferences.length?null:input.quantity,
+    p_references:normalizedReferences.length?normalizedReferences:null,
     p_notes:`origin=${input.originName} | legacy_service=${input.legacyServiceId}`,
   });
   if(response.error)throw response.error;
