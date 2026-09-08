@@ -63,6 +63,22 @@
 .engineering-parity-contract .engineering-sheet__table--services td:nth-child(2){min-width:300px}
 .engineering-parity-contract .engineering-sheet__table--services .ui-button{min-height:34px;padding-inline:10px}
 
+/* Aditivos, provisórios e demais planilhas operacionais: uma barra única, indicadores leves e tabela objetiva. */
+.engineering-parity-contract .engineering-sheet__toolbar{grid-template-columns:minmax(240px,1fr) 132px auto auto;gap:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.engineering-parity-contract .engineering-sheet__toolbar .engineering-sheet__search{min-height:42px}
+.engineering-parity-contract .engineering-sheet__toolbar select{min-height:42px}
+.engineering-parity-contract .engineering-sheet__toolbar .ui-button,
+.engineering-parity-contract .engineering-sheet__toolbar button{min-height:42px;white-space:nowrap}
+.engineering-parity-contract .engineering-sheet__stats{gap:7px}
+.engineering-parity-contract .engineering-sheet__stats>div{min-height:60px;padding:8px 10px;background:var(--surface-subtle);box-shadow:none}
+.engineering-parity-contract .engineering-sheet__stats span{font-size:.64rem}
+.engineering-parity-contract .engineering-sheet__stats strong{font-size:.82rem}
+.engineering-parity-contract .engineering-sheet__table-wrap{border-radius:12px;box-shadow:none}
+.engineering-parity-contract .engineering-sheet__table th{font-size:.65rem;padding:9px 10px}
+.engineering-parity-contract .engineering-sheet__table td{padding:9px 10px}
+.engineering-parity-contract .engineering-sheet__table td .ui-button,
+.engineering-parity-contract .engineering-sheet__table td button{min-height:34px;padding-inline:9px}
+
 @media(max-width:760px){
   .engineering-parity-contract .engineering-contract-approved__tools{grid-template-columns:minmax(0,1fr) 118px;padding:10px}
   .engineering-parity-contract .engineering-contract-approved__tools .ui-button,
@@ -71,6 +87,8 @@
   .engineering-parity-contract .engineering-contract-approved__addenda-grid{grid-template-columns:1fr}
   .engineering-parity-contract .engineering-contract-approved__structure{grid-template-columns:42px minmax(0,1fr) auto}
   .engineering-parity-contract .engineering-contract-approved__structure-meta{display:none}
+  .engineering-parity-contract .engineering-sheet__toolbar{grid-template-columns:minmax(0,1fr) 112px;padding:9px}
+  .engineering-parity-contract .engineering-sheet__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:430px){
@@ -89,4 +107,11 @@
   .engineering-parity-contract .engineering-contract-approved__section-head span{display:none}
   .engineering-parity-contract .engineering-contract-approved__addendum{min-height:54px;padding:8px 9px}
   .engineering-parity-contract .engineering-sheet{padding:6px;border:0}
+  .engineering-parity-contract .engineering-sheet__toolbar{grid-template-columns:1fr 100px;gap:6px;padding:7px}
+  .engineering-parity-contract .engineering-sheet__toolbar .ui-button,
+  .engineering-parity-contract .engineering-sheet__toolbar button{min-height:38px;padding-inline:8px;font-size:.69rem}
+  .engineering-parity-contract .engineering-sheet__stats{gap:5px}
+  .engineering-parity-contract .engineering-sheet__stats>div{min-height:54px;padding:7px}
+  .engineering-parity-contract .engineering-sheet__stats strong{font-size:.74rem}
+  .engineering-parity-contract .engineering-sheet__table{min-width:620px}
 }
