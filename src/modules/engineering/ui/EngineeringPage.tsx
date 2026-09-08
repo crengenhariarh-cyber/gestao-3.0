@@ -75,13 +75,13 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
   const maintenanceCompany=selectedContract?companies.find(item=>item.id===selectedContract.companyId)??null:null;
   const maintenanceScope=maintenanceCompany?{tenantId:maintenanceCompany.tenantId,companyId:maintenanceCompany.id}:null;
   const openContract=(contract:EngineeringContractSummary)=>{setContractSection(productionFocus?'producao':'resumo');setShowMoreSections(false);setSelectedContract(contract);};
-  const closeContract=()=>{setSelectedContract(null);setContractSection('resumo');setShowMoreSections(false);};
-  const navigateContract=(section:ContractPageSection)=>{setContractSection(section);if(secondarySections.some(item=>item.id===section))setShowMoreSections(true);};
+  const closeContract=()=>{setSelectedContract(null);setContractSection(productionFocus?'producao':'resumo');setShowMoreSections(false);};
+  const navigateContract=(section:ContractPageSection)=>{if(productionFocus)return;setContractSection(section);if(secondarySections.some(item=>item.id===section))setShowMoreSections(true);};
   const navigateLegacyContract=(section:EngineeringContractSection)=>navigateContract(section);
 
   return <section className="engineering-overview engineering-overview--contratos engineering-parity-overview" aria-labelledby="engineering-title">
     <header className="engineering-parity-header">
-      <div><h1 id="engineering-title">{productionFocus?'Produção':'Engenharia'}</h1><p className="ui-muted">{productionFocus?'Selecione a obra para acessar a produção':'Obras e contratos'}</p></div>
+      <div><h1 id="engineering-title">{productionFocus?'Produção':'Engenharia'}</h1><p className="ui-muted">{productionFocus?'Selecione a obra para acessar exclusivamente a produção':'Obras e contratos'}</p></div>
       {!productionFocus&&<Button onClick={()=>setCreateOpen(true)} disabled={engineeringCompanies.length===0}>＋ Novo contrato</Button>}
     </header>
 
@@ -105,17 +105,17 @@ export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProp
     </section>
 
     <NewEngineeringContractDialog open={createOpen} companies={companies} {...(selectedCompany ? { initialCompanyId: selectedCompany.id } : {})} onClose={()=>setCreateOpen(false)} onSaved={refresh}/>
-    <Dialog open={selectedContract!==null} title={selectedContract?.workName??'Contrato'} description={selectedContract?`${selectedContract.clientName??'Cliente'} · ${selectedContract.contractNumber} · ${statusLabel(selectedContract.status)}`:undefined} onClose={closeContract} onBack={closeContract}>
+    <Dialog open={selectedContract!==null} title={selectedContract?.workName??(productionFocus?'Produção':'Contrato')} description={selectedContract?`${selectedContract.clientName??'Cliente'} · ${selectedContract.contractNumber} · ${statusLabel(selectedContract.status)}`:undefined} onClose={closeContract} onBack={closeContract}>
       {selectedContract&&maintenanceScope&&<div className="engineering-contract-workspace engineering-parity-contract">
         <div className="engineering-contract-workspace__summary"><span>Contratado <strong>{currency.format(selectedContract.updatedContractValue)}</strong></span><span>Medido <strong>{currency.format(selectedContract.measuredNet)}</strong></span><span>Saldo <strong>{currency.format(selectedContract.grossBalance)}</strong></span></div>
-        <nav className="engineering-contract-workspace__nav engineering-parity-primary-nav" aria-label="Áreas principais do contrato">
+        {!productionFocus&&<><nav className="engineering-contract-workspace__nav engineering-parity-primary-nav" aria-label="Áreas principais do contrato">
           {primarySections.map(section=><Button key={section.id} size="sm" variant={contractSection===section.id?'primary':'secondary'} onClick={()=>navigateContract(section.id)}><span className="engineering-contract-workspace__nav-icon" aria-hidden="true">{section.icon}</span>{section.label}</Button>)}
           <Button size="sm" variant={showMoreSections||secondarySections.some(item=>item.id===contractSection)?'primary':'secondary'} onClick={()=>setShowMoreSections(value=>!value)}>••• Mais</Button>
         </nav>
         {showMoreSections&&<nav className="engineering-parity-secondary-nav" aria-label="Outras áreas do contrato">
           {secondarySections.map(section=><Button key={section.id} size="sm" variant={contractSection===section.id?'primary':'tertiary'} onClick={()=>navigateContract(section.id)}><span aria-hidden="true">{section.icon}</span>{section.label}</Button>)}
-        </nav>}
-        {contractSection==='resumo'?<EngineeringContractSummaryDashboard contract={selectedContract} onNavigate={navigateLegacyContract}/>:contractSection==='producao'?<EngineeringProductionWorkspace scope={maintenanceScope} workName={selectedContract.workName} contractNumber={selectedContract.contractNumber} onChanged={refresh}/>:<EngineeringContractWorkspace section={contractSection} scope={maintenanceScope} contract={selectedContract} onChanged={refresh} onNavigate={navigateLegacyContract}/>} 
+        </nav>}</>}
+        {productionFocus?<EngineeringProductionWorkspace scope={maintenanceScope} workName={selectedContract.workName} contractNumber={selectedContract.contractNumber} onChanged={refresh}/>:contractSection==='resumo'?<EngineeringContractSummaryDashboard contract={selectedContract} onNavigate={navigateLegacyContract}/>:contractSection==='producao'?<EngineeringProductionWorkspace scope={maintenanceScope} workName={selectedContract.workName} contractNumber={selectedContract.contractNumber} onChanged={refresh}/>:<EngineeringContractWorkspace section={contractSection} scope={maintenanceScope} contract={selectedContract} onChanged={refresh} onNavigate={navigateLegacyContract}/>} 
       </div>}
     </Dialog>
   </section>;
