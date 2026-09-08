@@ -1,0 +1,92 @@
+/* Engenharia parity 2.x — contratos e planilhas
+   Camada definitiva de composição visual da reconstrução.
+   Não altera dados, regras de persistência ou contratos de domínio. */
+
+.engineering-parity-contract .engineering-contract-approved,
+.engineering-parity-contract .engineering-sheets-approved{display:grid;gap:16px}
+
+/* Barra de trabalho: pesquisa primeiro, ações claras depois. */
+.engineering-parity-contract .engineering-contract-approved__tools{display:grid;grid-template-columns:minmax(260px,1fr) 150px auto auto;gap:10px;align-items:end;padding:12px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.engineering-parity-contract .engineering-contract-approved__tools .engineering-sheet__search{min-height:44px}
+.engineering-parity-contract .engineering-contract-approved__tools select{min-height:44px}
+.engineering-parity-contract .engineering-contract-approved__tools .ui-button,
+.engineering-parity-contract .engineering-contract-approved__tools button{min-height:44px;white-space:nowrap}
+
+/* Indicadores compactos: servem de contexto, não dominam a tela. */
+.engineering-parity-contract .engineering-contract-approved__stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.engineering-parity-contract .engineering-contract-approved__stats>div{min-height:72px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-subtle);box-shadow:none}
+.engineering-parity-contract .engineering-contract-approved__stat-icon{width:34px;height:34px;font-size:.9rem}
+.engineering-parity-contract .engineering-contract-approved__stats small{font-size:.66rem}
+.engineering-parity-contract .engineering-contract-approved__stats strong{font-size:.88rem}
+
+/* Seções com hierarquia simples, no espírito do 2.0. */
+.engineering-parity-contract .engineering-contract-approved__section{display:grid;gap:10px;padding:0;border:0;background:transparent}
+.engineering-parity-contract .engineering-contract-approved__section-head{padding:2px 2px 6px;border-bottom:1px solid var(--border)}
+.engineering-parity-contract .engineering-contract-approved__section-head strong{font-size:.95rem}
+.engineering-parity-contract .engineering-contract-approved__section-head span{font-size:.72rem;color:var(--muted)}
+
+/* Torres/blocos passam a funcionar como lista objetiva de acesso. */
+.engineering-parity-contract .engineering-contract-approved__structure-list{display:grid;gap:8px}
+.engineering-parity-contract .engineering-contract-approved__structure{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(105px,auto) auto;align-items:center;gap:10px;min-height:64px;width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);text-align:left;box-shadow:none;cursor:pointer}
+.engineering-parity-contract .engineering-contract-approved__structure:hover{border-color:color-mix(in srgb,var(--primary) 36%,var(--border) 64%);background:color-mix(in srgb,var(--primary) 3%,var(--surface) 97%)}
+.engineering-parity-contract .engineering-contract-approved__building{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:var(--info-bg);color:var(--primary);font-size:1rem}
+.engineering-parity-contract .engineering-contract-approved__structure-name{display:grid;gap:2px;min-width:0}
+.engineering-parity-contract .engineering-contract-approved__structure-name strong{font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.engineering-parity-contract .engineering-contract-approved__structure-name small{font-size:.67rem;color:var(--muted)}
+.engineering-parity-contract .engineering-contract-approved__structure-meta{display:grid;gap:2px;text-align:right;white-space:nowrap}
+.engineering-parity-contract .engineering-contract-approved__structure-meta small{font-size:.6rem;color:var(--muted)}
+.engineering-parity-contract .engineering-contract-approved__structure-meta b{font-size:.75rem}
+.engineering-parity-contract .engineering-contract-approved__open{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:5px 10px;border-radius:999px;background:var(--info-bg);color:var(--primary);font-size:.68rem;font-weight:800;white-space:nowrap}
+.engineering-parity-contract .engineering-contract-approved__chevron{display:none}
+
+/* Em Contrato, a coluna “Situação ativa” é ruído: a própria lista já contém somente estruturas do contrato. */
+.engineering-parity-contract:not(.engineering-sheets-approved) .engineering-contract-approved__structure-meta:nth-of-type(2){display:none}
+
+/* Aditivos permanecem separados da planilha-base, mas com leitura direta. */
+.engineering-parity-contract .engineering-contract-approved__addenda-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.engineering-parity-contract .engineering-contract-approved__addendum{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:60px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);text-align:left;cursor:pointer}
+.engineering-parity-contract .engineering-contract-approved__addendum-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--info-bg);color:var(--primary)}
+.engineering-parity-contract .engineering-contract-approved__addendum-copy{display:grid;gap:2px;min-width:0}
+.engineering-parity-contract .engineering-contract-approved__addendum-copy strong{font-size:.86rem}
+.engineering-parity-contract .engineering-contract-approved__addendum-copy small{font-size:.66rem;color:var(--muted)}
+.engineering-parity-contract .engineering-contract-approved__addendum-open{font-size:.68rem;font-weight:800;color:var(--primary);white-space:nowrap}
+
+/* Dashboard e gráficos já estão na navegação principal; duplicar ações no fim aumenta complexidade. */
+.engineering-parity-contract .engineering-contract-approved__bottom-actions{display:none}
+
+/* Planilha aberta: filtro sempre visível e tabela limpa. */
+.engineering-parity-contract .engineering-sheet{gap:10px;padding:10px}
+.engineering-parity-contract .engineering-sheet__live-filter{position:sticky;top:0;z-index:3;background:var(--surface)}
+.engineering-parity-contract .engineering-sheet__table-wrap--detail{max-height:64dvh;border-radius:12px}
+.engineering-parity-contract .engineering-sheet__table--services th{font-size:.66rem}
+.engineering-parity-contract .engineering-sheet__table--services td{padding-block:9px}
+.engineering-parity-contract .engineering-sheet__table--services td:nth-child(2){min-width:300px}
+.engineering-parity-contract .engineering-sheet__table--services .ui-button{min-height:34px;padding-inline:10px}
+
+@media(max-width:760px){
+  .engineering-parity-contract .engineering-contract-approved__tools{grid-template-columns:minmax(0,1fr) 118px;padding:10px}
+  .engineering-parity-contract .engineering-contract-approved__tools .ui-button,
+  .engineering-parity-contract .engineering-contract-approved__tools button{width:100%}
+  .engineering-parity-contract .engineering-contract-approved__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .engineering-parity-contract .engineering-contract-approved__addenda-grid{grid-template-columns:1fr}
+  .engineering-parity-contract .engineering-contract-approved__structure{grid-template-columns:42px minmax(0,1fr) auto}
+  .engineering-parity-contract .engineering-contract-approved__structure-meta{display:none}
+}
+
+@media(max-width:430px){
+  .engineering-parity-contract .engineering-contract-approved,
+  .engineering-parity-contract .engineering-sheets-approved{gap:12px}
+  .engineering-parity-contract .engineering-contract-approved__tools{grid-template-columns:1fr 104px;gap:7px;padding:8px}
+  .engineering-parity-contract .engineering-contract-approved__tools .ui-button,
+  .engineering-parity-contract .engineering-contract-approved__tools button{min-height:40px;padding-inline:8px;font-size:.7rem}
+  .engineering-parity-contract .engineering-contract-approved__stats{gap:6px}
+  .engineering-parity-contract .engineering-contract-approved__stats>div{min-height:58px;padding:7px 8px}
+  .engineering-parity-contract .engineering-contract-approved__stat-icon{display:none}
+  .engineering-parity-contract .engineering-contract-approved__structure{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;min-height:58px;padding:8px 9px}
+  .engineering-parity-contract .engineering-contract-approved__building{width:36px;height:36px}
+  .engineering-parity-contract .engineering-contract-approved__structure-name strong{font-size:.82rem}
+  .engineering-parity-contract .engineering-contract-approved__open{padding-inline:8px;font-size:.62rem}
+  .engineering-parity-contract .engineering-contract-approved__section-head span{display:none}
+  .engineering-parity-contract .engineering-contract-approved__addendum{min-height:54px;padding:8px 9px}
+  .engineering-parity-contract .engineering-sheet{padding:6px;border:0}
+}
