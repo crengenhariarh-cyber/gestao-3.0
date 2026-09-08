@@ -297,12 +297,11 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     }
     const match = templates.find((item) =>
       (normalized(item.description) === query || normalized(item.description).includes(query)) &&
-      (allCompaniesMode || item.companyId === companyId));
+      item.companyId === companyId);
     if (!match) {
       set('description', description);
       return;
     }
-    if (allCompaniesMode) setCompanyId(match.companyId);
     setForm((current) => ({
       ...current, description, entryType: match.entryType, categoryId: match.categoryId, costCenterId: match.costCenterId,
       accountRef: match.accountRef, paymentMethod: match.paymentMethod, cardRef: match.cardRef, launchType: 'single',
