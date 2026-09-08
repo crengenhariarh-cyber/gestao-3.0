@@ -37,6 +37,7 @@ jobs:
         run: npm run build
       - name: Persist repair
         run: |
+          # Commit only the audited source repair; this workflow does not alter measurement data.
           if git diff --quiet; then
             echo "Repair already applied."
             exit 0
