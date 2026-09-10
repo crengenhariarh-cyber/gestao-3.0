@@ -13,6 +13,54 @@ Nenhuma funcionalidade do Gestão 3.0 é considerada concluída enquanto estiver
 - **REESTRUTURAR**: regra atual do 3.0 está concentrada na UI ou depende de inferências frágeis e deve ser movida para fonte oficial de dados/domínio.
 - **VALIDAR**: estrutura parece correta, mas o fluxo real precisa ser testado ponta a ponta.
 
+# Matriz 00 — Navegação, rotas e páginas
+
+Regra desta matriz: uma rota só é considerada funcional quando abre o módulo correto. Renderizar componente de outro módulo ou uma página genérica de reconstrução é falha estrutural, mesmo que não haja erro de navegação.
+
+| Entrada do menu 3.0 | Rota 3.0 | Referência 2.0 | Situação 3.0 | Classificação | Ação alvo |
+|---|---|---|---|---|---|
+| Lançamentos | `/financeiro?tab=lancamentos` | `TransactionsPage` | Página real dentro do workspace financeiro | VALIDAR | Conferir paridade de cadastro/edição/empresa/parcelamento |
+| Contas do mês | `/contas-do-mes` | `AccountsPage` | Página real | VALIDAR | Conferir vencidas, parcial, pago e atualização de saldo |
+| Bancos | `/bancos` | `BanksPage` | Página real | COPIAR 2.0 + MANTER 3.0 | Recuperar produtividade/clareza do 2.0 sem perder arquitetura nova |
+| Cartões | `/cartoes` | `CardsPage` | Página real | VALIDAR | Conferir faturas, parcelamento, histórico e impressão |
+| Limites | `/limites` | `BudgetsPage` | Duplicava Orçamento no 3.0 | REMOVER MENU | Não expor como módulo separado; manter compatibilidade temporária de rota |
+| Dashboard financeiro | `/financeiro?tab=resumo` | `DashboardPage` | Página real dentro do workspace | VALIDAR | Conferir indicadores e filtros reais |
+| Contratos | `/engenharia` | `MeasurementsPage` + fluxos de engenharia evoluídos | Página real | MANTER 3.0 + PARIDADE | Preservar arquitetura nova e recuperar funções maduras |
+| Produção | `/producao` | `ProductionPage` | Tinha rota própria, mas reutilizava página de Engenharia/Medição | REESTRUTURAR | Página dedicada; compartilhar dados de obra/contrato, não a navegação de Medição |
+| Orçamentos Engenharia | `/orcamentos` | Fluxo comercial/orçamentário legado | Página real | VALIDAR | Confirmar persistência, impressão, observações e totais |
+| Recursos Humanos | `/rh` | `HrModulePage` | Página real | PARIDADE | Consolidar RH operacional/financeiro conforme escopo 3.0 |
+| Central de relatórios | `/relatorios` | `ReportsPage` | Placeholder | COPIAR 2.0 + REESTRUTURAR | Criar página real de relatórios com fontes 3.0 |
+| Usuários e permissões | `/usuarios` | `UsersPage` | Placeholder | PARIDADE | Reconstruir usuários, perfis, permissões por módulo/empresa |
+| Empresas do tenant | `/empresas` | Evolução SaaS do 3.0 | Placeholder | MANTER 3.0 | Implementar gestão real de empresas do tenant |
+| Cadastros e configurações | `/configuracoes` | `SettingsPage` | Placeholder | COPIAR 2.0 + MANTER 3.0 | Recriar configurações usando DS e estrutura 3.0 |
+| Clientes atendidos | `/clientes` | Cadastros distribuídos do 2.0 | Placeholder | REESTRUTURAR | Consolidar cadastro real, sem criar tela vazia |
+| Minhas empresas | `/minhas-empresas` | Evolução multiempresa do 3.0 | Placeholder | MANTER 3.0 | Implementar sobre tenant/company reais |
+| Auditoria | `/auditoria` | `AuditPage` | Placeholder | PARIDADE | Recuperar rastreabilidade funcional e adaptar ao modelo 3.0 |
+| Saúde do sistema | `/sistema` | `SystemHealthPage` | Placeholder | COPIAR 2.0 + MANTER 3.0 | Reconstruir diagnóstico real do ambiente 3.0 |
+| Clientes SaaS e permissões | `/clientes-saas` | Evolução SaaS do 3.0 | Placeholder | MANTER 3.0 | Implementar somente com dados reais e permissões reais |
+| Planos e módulos | `/planos-modulos` | Evolução SaaS do 3.0 | Placeholder | MANTER 3.0 | Implementar catálogo/ativação real por cliente |
+| Acertos pessoais | `/acertos-pessoais` | `PersonalSettlementsPage` | Placeholder | COPIAR 2.0 + PARIDADE | Reconstruir página funcional e integração bancária |
+
+## Achados críticos — Navegação
+
+### N01 — Limites duplicado com Orçamento
+No 3.0, `/limites` renderizava o mesmo `BudgetWorkspacePage` de Orçamento. Como Orçamento passou a concentrar o planejamento, a entrada `Limites` foi removida do menu central. A rota antiga deve permanecer apenas enquanto houver necessidade de compatibilidade com links salvos.
+
+**Critério de aceite:** usuário não vê duas entradas diferentes levando ao mesmo módulo.
+
+### N02 — Produção renderizando fluxo de Engenharia/Medição
+No 3.0, `/engenharia` e `/producao` apontavam para `EngineeringPageDashboard`. Isso permitia que elementos de Medição/Engenharia fossem exibidos em Produção. A Produção possui banco e componentes próprios e deve ter entrada de página dedicada.
+
+**Critério de aceite:** clicar em Produção nunca abre Medição nem dashboard geral de Engenharia; após selecionar obra, o usuário acessa exclusivamente competências, lançamentos, colaboradores, fechamento/reabertura e relatórios de Produção.
+
+### N03 — Placeholder não é página funcional
+`ModuleRecoveryPage` é apenas sinalização de reconstrução. Rotas que ainda o utilizam devem permanecer classificadas como incompletas.
+
+**Critério de aceite:** nenhuma rota de menu é dada como concluída enquanto renderizar `ModuleRecoveryPage`.
+
+### N04 — Não reconstruir SaaS copiando legado
+Empresas do tenant, Minhas empresas, Clientes SaaS e Planos/módulos são capacidades estruturais do 3.0. O 2.0 pode servir de referência de UX onde aplicável, mas a fonte de verdade precisa ser tenant/company/permissões do 3.0.
+
 # Matriz 01 — Engenharia / Medição
 
 | Área / função | Gestão 2.0 | Gestão 3.0 | Classificação | Ação alvo |
