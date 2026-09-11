@@ -1,34 +1,11 @@
 # Gestão 3.0
 
-Reconstrução limpa e profissional do sistema Gestão.
+Aplicação PWA do Gestão 3.0, reconstruída com arquitetura modular, isolamento por tenant/empresa, design system compartilhado e integração com Supabase.
 
-## Princípios
+## Qualidade
 
-- Não copiar código legado do Gestão 2.0.
-- Preservar regras de negócio validadas por meio de uma nova implementação.
-- Arquitetura de monólito modular com fronteiras rígidas entre domínios.
-- `tenant_id` e `company_id` estruturais.
-- Segurança e isolamento garantidos no banco por RLS.
-- Design System obrigatório para toda a interface.
-- Operações críticas idempotentes, auditáveis e testadas.
-- Produção protegida; desenvolvimento e homologação separados.
+O pipeline de CI valida arquitetura, TypeScript, ESLint, testes e build antes da publicação.
 
-## Domínios
+## Módulos em reconstrução e paridade
 
-- Plataforma e identidade
-- Cadastros
-- Financeiro
-- Orçamento
-- RH
-- Contratos e medições
-- Produção
-- Relatórios e auditoria
-- Portal Master
-
-## Estado
-
-Fase 3 — Fundação Técnica.
-
-Este repositório começa do zero. O Gestão 2.0 permanece apenas como referência funcional e fonte para futura migração controlada de dados.
-
-Fluxos de contrato e planilhas utilizam os componentes compartilhados do sistema.
+A evolução segue a auditoria comparativa com o Gestão 2.0 em `docs/AUDITORIA_PARIDADE_GESTAO_2_0_3_0.md`, preservando a arquitetura do 3.0 e recuperando comportamentos maduros do sistema anterior.
