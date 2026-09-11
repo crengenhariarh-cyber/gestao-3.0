@@ -63,8 +63,10 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
   const selectedTotal = selectedItems.reduce((total, item) => total + item.amount, 0);
   const allSelected = expenses.length > 0 && expenses.every(item => selected.includes(`${item.companyId}|${item.installmentId}`));
   const paymentAmount = paymentForm.amount;
-  const remainingAfter = Math.max(paymentSummary.remaining - paymentAmount, 0);
-  const overpayAmount = Math.max(paymentAmount - paymentSummary.remaining, 0);
+  const settlementDifference = paymentAmount - paymentSummary.remaining;
+  const absoluteDifference = Math.abs(settlementDifference);
+  const differsFromRemaining = absoluteDifference > 0.005;
+  const remainingAfter = paymentMode === 'total' ? 0 : Math.max(paymentSummary.remaining - paymentAmount, 0);
   const receiving = target?.entryType === 'income';
 
   function closeAction() { setAction(null); setTarget(null); setLoadedEntry(null); setError(null); setOverpayConfirm(false); }
@@ -77,6 +79,8 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
   }
   function choosePaymentMode(mode: PaymentMode) {
     setPaymentMode(mode);
+    setError(null);
+    setOverpayConfirm(false);
     if (mode === 'total') setPaymentForm(current => ({ ...current, amount: paymentSummary.remaining }));
   }
 
@@ -114,7 +118,7 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
     try {
       const scope = { tenantId: target.tenantId, companyId: target.companyId };
       if (target.sourceKind === 'financial_installment') {
-        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey(target.entryType === 'income' ? 'summary-receipt' : 'planning-payment'), notes: paymentForm.notes || null });
+        await finance.settlements.record({ ...scope, installmentId: actualInstallmentId(target), accountId: paymentForm.accountId, settledOn: paymentForm.settledOn, amount: paymentAmount, idempotencyKey: actionKey(target.entryType === 'income' ? 'summary-receipt' : 'planning-payment'), notes: paymentForm.notes || null, settlesInFull: paymentMode === 'total' });
       } else {
         const card = parseCardItem(target);
         if (!card) throw new Error('Fatura inválida');
@@ -131,7 +135,12 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
 
   function requestPayment() {
     if (!target || !paymentForm.accountId || paymentAmount <= 0) return;
-    if (paymentAmount > paymentSummary.remaining + 0.005) { setOverpayConfirm(true); return; }
+    setError(null);
+    if (paymentMode === 'partial' && paymentAmount > paymentSummary.remaining + 0.005) {
+      setError(`No modo parcial, o valor não pode ultrapassar o saldo restante de ${money(paymentSummary.remaining)}.`);
+      return;
+    }
+    if (paymentMode === 'total' && differsFromRemaining) { setOverpayConfirm(true); return; }
     void performPayment();
   }
 
@@ -229,16 +238,16 @@ export function PlanningPaymentsDialog({ open, entries, onClose, onChanged, dire
         {error && <Feedback tone="danger" title={receiving ? 'Não foi possível receber' : 'Não foi possível pagar'} message={error} />}
         <div className="payment-app__hero"><span className="payment-app__icon" aria-hidden="true">▤</span><div><strong>{target?.description ?? (receiving ? 'Recebimento' : 'Pagamento')}</strong><span>{target?.sourceKind === 'card_statement' ? 'FATURA DE CARTÃO' : target?.installmentCount && target.installmentCount > 1 ? `PARCELA ${target.installmentNumber}/${target.installmentCount}` : receiving ? 'RECEITA' : 'DESPESA'}</span></div></div>
         <div className="payment-app__totals"><div><span>Total original</span><strong>{money(paymentSummary.original)}</strong></div><div><span>{receiving ? 'Já recebido' : 'Já pago'}</span><strong>{money(paymentSummary.paid)}</strong></div><div><span>Restante</span><strong>{money(paymentSummary.remaining)}</strong></div></div>
-        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>{receiving ? 'Recebimento total' : 'Pagamento total'}</strong><small>Liquidar o valor restante</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>{receiving ? 'Recebimento parcial' : 'Pagamento parcial'}</strong><small>{receiving ? 'Receber parte ou informar outro valor' : 'Pagar parte ou informar outro valor'}</small></span></Button></div>
+        <div className="payment-app__modes"><Button variant={paymentMode === 'total' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('total')} aria-pressed={paymentMode === 'total'}><span className="payment-app__mode-icon" aria-hidden="true">✓</span><span><strong>{receiving ? 'Recebimento total' : 'Pagamento total'}</strong><small>Liquidar o título pelo valor efetivo</small></span></Button><Button variant={paymentMode === 'partial' ? 'primary' : 'secondary'} className="payment-app__mode" onClick={() => choosePaymentMode('partial')} aria-pressed={paymentMode === 'partial'}><span className="payment-app__mode-icon" aria-hidden="true">◔</span><span><strong>{receiving ? 'Recebimento parcial' : 'Pagamento parcial'}</strong><small>{receiving ? 'Receber parte e manter saldo pendente' : 'Pagar parte e manter saldo pendente'}</small></span></Button></div>
         <div className="payment-app__bank"><Select label="Banco" value={paymentForm.accountId} onChange={event => setPaymentForm(current => ({ ...current, accountId: event.target.value }))} options={accountOptions} required /></div>
-        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label={receiving ? 'Valor efetivamente recebido' : 'Valor efetivamente pago'} value={paymentForm.amount} onValueChange={amount => setPaymentForm(current => ({ ...current, amount }))} required /></div>
+        <div className="payment-app__fields"><Input label="Data efetiva" type="date" value={paymentForm.settledOn} onChange={event => setPaymentForm(current => ({ ...current, settledOn: event.target.value }))} required /><MoneyInput label={receiving ? 'Valor efetivamente recebido' : 'Valor efetivamente pago'} value={paymentForm.amount} onValueChange={amount => { setError(null); setOverpayConfirm(false); setPaymentForm(current => ({ ...current, amount })); }} required /></div>
         <Input label="Observação" value={paymentForm.notes} onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))} placeholder="Opcional" />
-        <div className={`payment-app__result ${overpayAmount > 0 ? 'is-warning' : ''}`.trim()}><span>{overpayAmount > 0 ? 'Valor acima do restante' : 'Saldo restante após confirmar'}</span><strong>{overpayAmount > 0 ? `+ ${money(overpayAmount)}` : money(remainingAfter)}</strong></div>
+        <div className={`payment-app__result ${paymentMode === 'total' && differsFromRemaining ? 'is-warning' : ''}`.trim()}><span>{paymentMode === 'total' && differsFromRemaining ? `Valor ${settlementDifference > 0 ? 'acima' : 'abaixo'} do restante` : 'Saldo restante após confirmar'}</span><strong>{paymentMode === 'total' && differsFromRemaining ? `${settlementDifference > 0 ? '+' : '-'} ${money(absoluteDifference)}` : money(remainingAfter)}</strong></div>
       </div>
     </Dialog>
 
-    <Dialog open={overpayConfirm} title={receiving ? 'Confirmar valor acima da receita' : 'Confirmar valor acima da despesa'} description={target ? `Você informou ${money(paymentAmount)}, mas o saldo restante de ${target.description} é ${money(paymentSummary.remaining)}.` : undefined} loading={busy} confirmLabel={receiving ? 'Sim, receber este valor' : 'Sim, pagar este valor'} onClose={() => setOverpayConfirm(false)} onBack={() => setOverpayConfirm(false)} onConfirm={() => { void performPayment(); }}>
-      <div className="payment-app__warning"><strong>Diferença de {money(overpayAmount)}</strong><span>{receiving ? 'O valor integral informado será creditado na conta bancária. A receita ficará quitada e o excedente ficará registrado como valor efetivamente recebido.' : 'O valor integral informado será descontado da conta bancária. A despesa ficará quitada e o excedente ficará registrado como valor efetivamente pago.'}</span></div>
+    <Dialog open={overpayConfirm} title="Confirmar valor diferente" description={target ? `Você informou ${money(paymentAmount)}, mas o saldo restante de ${target.description} é ${money(paymentSummary.remaining)}.` : undefined} loading={busy} confirmLabel={receiving ? 'Confirmar recebimento total' : 'Confirmar pagamento total'} onClose={() => setOverpayConfirm(false)} onBack={() => setOverpayConfirm(false)} onConfirm={() => { void performPayment(); }}>
+      <div className="payment-app__warning"><strong>Diferença de {settlementDifference > 0 ? '+' : '-'} {money(absoluteDifference)}</strong><span>{receiving ? 'O valor efetivamente recebido será creditado na conta selecionada e a receita será considerada totalmente liquidada.' : 'O valor efetivamente pago será descontado da conta selecionada e a despesa será considerada totalmente liquidada.'}</span><span>O valor original permanece preservado no lançamento; a diferença fica registrada na baixa.</span></div>
     </Dialog>
 
     <Dialog open={action === 'edit'} title="Editar lançamento" description={loadedEntry && loadedEntry.installmentCount > 1 ? `Este lançamento possui ${loadedEntry.installmentCount} parcelas; a edição é da série.` : 'Edite sem sair do planejamento.'} loading={busy} confirmLabel="Salvar" onClose={closeAction} onBack={closeAction} onConfirm={() => { void saveEdit(); }}>
