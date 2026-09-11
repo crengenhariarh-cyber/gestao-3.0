@@ -7,6 +7,7 @@ import { Button } from '../../../shared/ui/Button';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Feedback, LoadingState } from '../../../shared/ui/Feedback';
 import { Input } from '../../../shared/ui/Input';
+import { MoneyInput } from '../../../shared/ui/MoneyInput';
 import { PageHeader } from '../../../shared/ui/PageHeader';
 import { Select } from '../../../shared/ui/Select';
 
@@ -14,7 +15,6 @@ type GlobalAccount = FinancialAccountBalance & { companyName: string };
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function companyName(company: CompanySummary): string { return company.tradeName ?? company.legalName; }
 function today(): string { return new Date().toISOString().slice(0, 10); }
-function money(value: string): number { return Number(value.replace(',', '.')); }
 
 export function AllCompaniesBanksPage({ companies }: { companies: readonly CompanySummary[] }) {
   const repositories = useMemo(() => getFinanceRepositories(), []);
@@ -25,7 +25,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [form, setForm] = useState({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
+  const [form, setForm] = useState({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: 0, notes: '' });
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -49,7 +49,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
   async function transfer() {
     const from = accounts.find((item) => item.accountId === form.fromAccountId);
     const to = accounts.find((item) => item.accountId === form.toAccountId);
-    const amount = money(form.amount);
+    const amount = form.amount;
     if (!from || !to) { setError('Selecione a conta de origem e a conta de destino.'); return; }
     if (!Number.isFinite(amount) || amount <= 0) { setError('Informe um valor válido para a transferência.'); return; }
     if (from.accountId === to.accountId) { setError('Origem e destino precisam ser contas diferentes.'); return; }
@@ -66,7 +66,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
         notes: form.notes || null,
       });
       setOpen(false);
-      setForm({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: '', notes: '' });
+      setForm({ fromAccountId: '', toAccountId: '', transferOn: today(), amount: 0, notes: '' });
       setSuccess(`Transferência de ${currency.format(amount)} registrada de ${from.companyName} para ${to.companyName}.`);
       setRefreshToken((value) => value + 1);
       window.dispatchEvent(new Event('finance-data-changed'));
@@ -89,7 +89,7 @@ export function AllCompaniesBanksPage({ companies }: { companies: readonly Compa
         <Select label="Conta de origem" value={form.fromAccountId} options={options} onChange={(event) => setForm((current) => ({ ...current, fromAccountId: event.target.value, toAccountId: current.toAccountId === event.target.value ? '' : current.toAccountId }))} />
         <Select label="Conta de destino" value={form.toAccountId} options={destinationOptions} onChange={(event) => setForm((current) => ({ ...current, toAccountId: event.target.value }))} />
         <Input label="Data" type="date" value={form.transferOn} onChange={(event) => setForm((current) => ({ ...current, transferOn: event.target.value }))} />
-        <Input label="Valor" inputMode="decimal" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" />
+        <MoneyInput label="Valor" value={form.amount} onValueChange={(amount) => setForm((current) => ({ ...current, amount }))} required />
         <Input label="Observação" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
         <div className="dialog__actions"><Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>Cancelar</Button><Button variant="primary" onClick={() => void transfer()} disabled={busy}>{busy ? 'Transferindo…' : 'Confirmar transferência'}</Button></div>
       </div>
