@@ -16,12 +16,19 @@ type SettlementRow={id:string;tenant_id:string;company_id:string;person_name:str
 type ItemRow={id:string;settlement_id:string;item_date:string;description:string;amount:number|string;notes:string|null;financial_account_id:string|null};
 type MovementRow={id:string;settlement_id:string;movement_date:string;amount:number|string;note:string|null;financial_account_id:string|null};
 type AccountRow={account_id:string;name:string;bank_institution:string|null;current_balance:number|string;status:string};
+type RpcResponse={data:unknown;error:{message:string}|null};
 
 function text(value:string){return value.trim();}
 function nullable(value:string){const normalized=value.trim();return normalized||null;}
 
 export class SupabasePersonalSettlementsRepository implements PersonalSettlementsRepository {
   constructor(private readonly client:SupabaseClient){}
+
+  private async rpc(name:string,args:Record<string,unknown>):Promise<unknown>{
+    const response=await this.client.rpc(name,args) as unknown as RpcResponse;
+    if(response.error)throw new Error(response.error.message);
+    return response.data;
+  }
 
   async load(scope:PersonalSettlementScope):Promise<PersonalSettlementsSnapshot>{
     const [settlementsResult,itemsResult,movementsResult,accountsResult]=await Promise.all([
@@ -39,13 +46,13 @@ export class SupabasePersonalSettlementsRepository implements PersonalSettlement
   }
 
   async create(input:NewPersonalSettlement):Promise<string>{
-    const {data,error}=await this.client.rpc('create_personal_settlement',{p_tenant_id:input.scope.tenantId,p_company_id:input.scope.companyId,p_person_name:text(input.personName),p_direction:input.direction,p_started_on:input.startedOn,p_description:nullable(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});if(error)throw error;return String(data);
+    const data=await this.rpc('create_personal_settlement',{p_tenant_id:input.scope.tenantId,p_company_id:input.scope.companyId,p_person_name:text(input.personName),p_direction:input.direction,p_started_on:input.startedOn,p_description:nullable(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});return String(data);
   }
-  async addItem(input:PersonalSettlementItemInput):Promise<string>{const{data,error}=await this.client.rpc('add_personal_settlement_item',{p_settlement_id:input.settlementId,p_item_date:input.itemDate,p_description:text(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});if(error)throw error;return String(data);}
-  async updateItem(itemId:string,input:Omit<PersonalSettlementItemInput,'settlementId'>):Promise<void>{const{error}=await this.client.rpc('update_personal_settlement_item',{p_item_id:itemId,p_item_date:input.itemDate,p_description:text(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});if(error)throw error;}
-  async deleteItem(itemId:string):Promise<void>{const{error}=await this.client.rpc('delete_personal_settlement_item',{p_item_id:itemId});if(error)throw error;}
-  async addMovement(input:PersonalSettlementMovementInput):Promise<string>{const{data,error}=await this.client.rpc('record_personal_settlement_movement',{p_settlement_id:input.settlementId,p_movement_date:input.movementDate,p_amount:input.amount,p_note:nullable(input.note),p_account_id:input.accountId});if(error)throw error;return String(data);}
-  async updateMovement(movementId:string,input:Omit<PersonalSettlementMovementInput,'settlementId'>):Promise<void>{const{error}=await this.client.rpc('update_personal_settlement_movement',{p_movement_id:movementId,p_movement_date:input.movementDate,p_amount:input.amount,p_note:nullable(input.note),p_account_id:input.accountId});if(error)throw error;}
-  async deleteMovement(movementId:string):Promise<void>{const{error}=await this.client.rpc('delete_personal_settlement_movement',{p_movement_id:movementId});if(error)throw error;}
-  async deleteSettlement(settlementId:string):Promise<void>{const{error}=await this.client.rpc('delete_personal_settlement',{p_settlement_id:settlementId});if(error)throw error;}
+  async addItem(input:PersonalSettlementItemInput):Promise<string>{const data=await this.rpc('add_personal_settlement_item',{p_settlement_id:input.settlementId,p_item_date:input.itemDate,p_description:text(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});return String(data);}
+  async updateItem(itemId:string,input:Omit<PersonalSettlementItemInput,'settlementId'>):Promise<void>{await this.rpc('update_personal_settlement_item',{p_item_id:itemId,p_item_date:input.itemDate,p_description:text(input.description),p_amount:input.amount,p_notes:nullable(input.notes),p_account_id:input.accountId});}
+  async deleteItem(itemId:string):Promise<void>{await this.rpc('delete_personal_settlement_item',{p_item_id:itemId});}
+  async addMovement(input:PersonalSettlementMovementInput):Promise<string>{const data=await this.rpc('record_personal_settlement_movement',{p_settlement_id:input.settlementId,p_movement_date:input.movementDate,p_amount:input.amount,p_note:nullable(input.note),p_account_id:input.accountId});return String(data);}
+  async updateMovement(movementId:string,input:Omit<PersonalSettlementMovementInput,'settlementId'>):Promise<void>{await this.rpc('update_personal_settlement_movement',{p_movement_id:movementId,p_movement_date:input.movementDate,p_amount:input.amount,p_note:nullable(input.note),p_account_id:input.accountId});}
+  async deleteMovement(movementId:string):Promise<void>{await this.rpc('delete_personal_settlement_movement',{p_movement_id:movementId});}
+  async deleteSettlement(settlementId:string):Promise<void>{await this.rpc('delete_personal_settlement',{p_settlement_id:settlementId});}
 }
