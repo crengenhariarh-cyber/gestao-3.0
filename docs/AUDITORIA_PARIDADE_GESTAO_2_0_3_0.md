@@ -110,7 +110,7 @@ A Medição Consolidada do Gestão 2.0 será usada como referência funcional e 
 - RLS ativo nas três tabelas do módulo; `anon` sem `SELECT`; `authenticated` com apenas `SELECT` direto.
 - Inclusão/edição/exclusão realizadas somente por RPCs com validação de autenticação, empresa e propriedade do registro.
 - Auditor de performance corrigido para os índices e políticas criados por este módulo.
-- CI exige Architecture Guard, TypeScript, ESLint, testes e build antes da publicação.
+- Architecture Guard, TypeScript, ESLint, testes e build validados com sucesso antes da publicação.
 
 ## Critérios globais de aceite
 - Paridade funcional mínima com o Gestão 2.0.
