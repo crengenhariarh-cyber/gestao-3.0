@@ -65,14 +65,52 @@ Tratar como caso de regressão obrigatório.
 ## Decisão visual — Medição
 A Medição Consolidada do Gestão 2.0 será usada como referência funcional e de composição visual onde for superior. O código não será copiado diretamente. O Gestão 3.0 deve usar seus próprios componentes compartilhados, modal fullscreen, design system e arquitetura modular.
 
-## Próximas matrizes
-1. Engenharia — Contratos / Planilhas / Aditivos / Fechamentos / Produção
-2. Financeiro — Home / Planejamento / Contas do mês / Entradas / Despesas
-3. Bancos / Transferências
-4. Cartões / Faturas
-5. Orçamento
-6. RH Operacional / RH Financeiro
-7. Dashboards / Relatórios / Permissões / PWA
+# Matriz 02 — Navegação / páginas
+
+| Rota / item | Gestão 2.0 | Gestão 3.0 | Estado | Ação |
+|---|---|---|---|---|
+| `/financeiro` / Lançamentos | `TransactionsPage` | `FinanceWorkspacePage` | REAL | Manter e auditar paridade funcional |
+| `/contas-do-mes` | `AccountsPage` | `AllCompaniesMonthlyAccountsPage` | REAL | Auditar filtros/status/parciais |
+| `/bancos` | `BanksPage` | `BanksPage` / `AllCompaniesBanksPage` | REAL | Auditar visual e transferências |
+| `/cartoes` | `CardsPage` | `CardsPage` | REAL | Auditar fatura/parcelas/limite |
+| Limites | `BudgetsPage` | redundante com Orçamento | REDUNDANTE | Removido do menu; rota legada temporária |
+| `/engenharia` | `MeasurementsPage` + contratos | `EngineeringPageDashboard` | REAL | Manter 3.0 e completar paridade |
+| `/producao` | `ProductionPage` próprio | workspace próprio em reconstrução | REAL / SEPARAR | Expor como página independente |
+| `/orcamentos` | fluxo comercial | `EngineeringCommercialBudgetsPage` | REAL | Auditar impressão/persistência |
+| `/rh` | legado `/rh-financeiro` | `HrWorkspacePage` | REAL | Auditar Operacional + Financeiro |
+| `/relatorios` | `ReportsPage` | `ModuleRecoveryPage` | PLACEHOLDER | Reconstruir |
+| `/usuarios` | `UsersPage` | `ModuleRecoveryPage` | PLACEHOLDER | Reconstruir permissões |
+| `/configuracoes` | `SettingsPage` | `ModuleRecoveryPage` | PLACEHOLDER | Reconstruir cadastros/configuração |
+| `/auditoria` | `AuditPage` | `ModuleRecoveryPage` | PLACEHOLDER | Reconstruir |
+| `/sistema` | `SystemHealthPage` | `ModuleRecoveryPage` | PLACEHOLDER | Reconstruir |
+| `/acertos-pessoais` | `PersonalSettlementsPage` | `PersonalSettlementsPage` modular | RECUPERADO | Paridade funcional do 2.0 com RLS, tenant/company e razão financeiro do 3.0 |
+
+# Matriz 03 — Área particular / Acertos pessoais
+
+| Função | Gestão 2.0 | Gestão 3.0 recuperado | Decisão |
+|---|---|---|---|
+| Privacidade | `user_id` + owner | `user_id` + RLS + tenant/company | MANTER 3.0 |
+| Eu devo / devem para mim | Sim | Sim | PARIDADE |
+| KPIs | Eu devo, devem para mim, saldo líquido | Mesmos 3 KPIs | PARIDADE |
+| Múltiplos itens por pessoa | Sim | Sim | PARIDADE |
+| Pagamento/recebimento parcial | Sim | Sim | PARIDADE |
+| Status aberto/parcial/quitado | Sim | Sim | PARIDADE |
+| Histórico de itens e abatimentos | Sim | Sim | PARIDADE |
+| Editar/excluir item | Sim, com proteção contra total menor que já abatido | Mesma validação no banco | PARIDADE + MELHORIA |
+| Editar/excluir pagamento | Sim | Sim, operação controlada | PARIDADE + MELHORIA |
+| Conta opcional no item | Sim | Sim | PARIDADE |
+| Conta obrigatória no pagamento/recebimento | Sim | Sim | PARIDADE |
+| Integração bancária | `lancamentos` legado | `financial_entries` + `financial_settlements` + razão bancário | MANTER 3.0 |
+| Excluir pessoa | Preserva histórico bancário já realizado | Preserva histórico bancário já realizado | PARIDADE |
+| Responsividade | Layout próprio legado | Design system 3.0, desktop + mobile | MANTER 3.0 |
+| Escrita direta nas tabelas | Sim/legado | Não; mutations somente por RPC autorizada | MANTER 3.0 |
+
+## Validação técnica — Acertos pessoais
+- Estrutura aplicada no Supabase 3.0 sem consultar dados pessoais existentes.
+- RLS ativo nas três tabelas do módulo; `anon` sem `SELECT`; `authenticated` com apenas `SELECT` direto.
+- Inclusão/edição/exclusão realizadas somente por RPCs com validação de autenticação, empresa e propriedade do registro.
+- Auditor de performance corrigido para os índices e políticas criados por este módulo.
+- Architecture Guard, TypeScript, ESLint, testes e build validados com sucesso antes da publicação.
 
 ## Critérios globais de aceite
 - Paridade funcional mínima com o Gestão 2.0.

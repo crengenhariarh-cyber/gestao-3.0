@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import type { CompanySummary } from '../../platform/domain/AccessContext';
 import type { EngineeringContractSummary, EngineeringOverview } from '../domain/overview';
 import { Button } from '../../../shared/ui/Button';
@@ -45,8 +45,9 @@ const secondarySections:ContractNavItem[]=[
 ];
 
 export function EngineeringPage({companies,initialCompanyId}:EngineeringPageProps){
+  const location=useLocation();
   const [searchParams]=useSearchParams();
-  const productionFocus=searchParams.get('area')==='producao';
+  const productionFocus=location.pathname==='/producao'||searchParams.get('area')==='producao';
   const [refreshToken,setRefreshToken]=useState(0);
   const [contractSearch,setContractSearch]=useState('');
   const [contractStatus,setContractStatus]=useState('all');
