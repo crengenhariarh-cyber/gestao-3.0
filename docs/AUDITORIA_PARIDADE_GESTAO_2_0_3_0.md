@@ -105,6 +105,13 @@ A Medição Consolidada do Gestão 2.0 será usada como referência funcional e 
 | Responsividade | Layout próprio legado | Design system 3.0, desktop + mobile | MANTER 3.0 |
 | Escrita direta nas tabelas | Sim/legado | Não; mutations somente por RPC autorizada | MANTER 3.0 |
 
+## Validação técnica — Acertos pessoais
+- Estrutura aplicada no Supabase 3.0 sem consultar dados pessoais existentes.
+- RLS ativo nas três tabelas do módulo; `anon` sem `SELECT`; `authenticated` com apenas `SELECT` direto.
+- Inclusão/edição/exclusão realizadas somente por RPCs com validação de autenticação, empresa e propriedade do registro.
+- Auditor de performance corrigido para os índices e políticas criados por este módulo.
+- CI exige Architecture Guard, TypeScript, ESLint, testes e build antes da publicação.
+
 ## Critérios globais de aceite
 - Paridade funcional mínima com o Gestão 2.0.
 - Nenhuma perda de dados em edição/salvamento.
