@@ -1,12 +1,34 @@
+import { useEffect, useState } from 'react';
+
 type FeedbackTone = 'info' | 'success' | 'warning' | 'danger';
 
 interface FeedbackProps {
   title: string;
   message?: string;
   tone?: FeedbackTone;
+  persistent?: boolean;
+  dismissAfterMs?: number;
 }
 
-export function Feedback({ title, message, tone = 'info' }: FeedbackProps) {
+const DEFAULT_DISMISS_MS: Record<FeedbackTone, number> = {
+  success: 2500,
+  info: 3500,
+  warning: 4500,
+  danger: 5000,
+};
+
+export function Feedback({ title, message, tone = 'info', persistent = false, dismissAfterMs }: FeedbackProps) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+    if (persistent) return;
+    const timeout = window.setTimeout(() => setVisible(false), dismissAfterMs ?? DEFAULT_DISMISS_MS[tone]);
+    return () => window.clearTimeout(timeout);
+  }, [dismissAfterMs, message, persistent, title, tone]);
+
+  if (!visible) return null;
+
   return (
     <div className={`ui-feedback ui-feedback--${tone}`} role={tone === 'danger' ? 'alert' : 'status'}>
       <strong>{title}</strong>
