@@ -29,7 +29,30 @@ type SmartTemplate = {
   accountRef: string;
   paymentMethod: PaymentMethod;
   cardRef: string;
+  counterparty: string;
+  launchType: LaunchType;
+  installmentCount: string;
   occurredOn: string;
+};
+type FinancialTemplateMetaRow = {
+  id: string;
+  company_id: string;
+  payment_method: string | null;
+  planned_account_id: string | null;
+  planned_account_company_id: string | null;
+  created_at: string;
+};
+type CardTemplateRow = {
+  company_id: string;
+  expense_company_id: string | null;
+  card_id: string;
+  purchase_date: string;
+  description: string;
+  counterparty_name: string | null;
+  category_id: string;
+  cost_center_id: string | null;
+  installment_count: number | string;
+  created_at: string;
 };
 
 interface QuickEntryDialogProps {
@@ -61,6 +84,39 @@ function parsePaymentRef(value: string): { companyId: string; resourceId: string
   const separator = value.indexOf('::');
   if (separator <= 0) return null;
   return { companyId: value.slice(0, separator), resourceId: value.slice(separator + 2) };
+}
+
+function paymentMethodFromStored(value: string | null | undefined): PaymentMethod {
+  const raw = normalized(value ?? '');
+  if (!raw || raw === 'pix') return 'pix';
+  if (raw === 'debit' || raw.includes('debito')) return 'debit';
+  if (raw === 'credit' || raw.includes('credito')) return 'credit';
+  if (raw === 'cash' || raw.includes('dinheiro')) return 'cash';
+  if (raw === 'transfer' || raw.includes('transfer')) return 'transfer';
+  if (raw.includes('boleto')) return 'boleto';
+  return 'other';
+}
+
+function smartTemplateRank(template: SmartTemplate, query: string): number {
+  const description = normalized(template.description);
+  if (description === query) return 3;
+  if (description.startsWith(query)) return 2;
+  if (description.includes(query)) return 1;
+  return 0;
+}
+
+function findSmartTemplate(templates: readonly SmartTemplate[], query: string): SmartTemplate | null {
+  let best: SmartTemplate | null = null;
+  let bestRank = 0;
+  for (const template of templates) {
+    const rank = smartTemplateRank(template, query);
+    if (rank > bestRank) {
+      best = template;
+      bestRank = rank;
+      if (rank === 3) break;
+    }
+  }
+  return best;
 }
 
 function companyName(company: CompanySummary): string {
@@ -176,8 +232,7 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
     setPaymentLoading(true);
     void (async () => {
       const repositories = getFinanceRepositories();
-      const sourceCompanies = allCompaniesMode ? companies : company ? [company] : [];
-      const rows = await Promise.all(sourceCompanies.map(async (owner) => {
+      const rows = await Promise.all(companies.map(async (owner) => {
         const ownerScope = { tenantId: owner.tenantId, companyId: owner.id };
         const [accounts, cards] = await Promise.all([
           repositories.registries.listAccounts(ownerScope),
@@ -201,50 +256,90 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       }
     });
     return () => { cancelled = true; };
-  }, [allCompaniesMode, companies, company, open]);
+  }, [companies, open]);
 
   useEffect(() => {
     if (!open || companies.length === 0) return;
     let cancelled = false;
     void (async () => {
       const repositories = getFinanceRepositories();
-      const entryLists = await Promise.all(companies.map(async (entryCompany) => {
-        const rows = await repositories.entries.list({ tenantId: entryCompany.tenantId, companyId: entryCompany.id });
-        return rows.map((row) => ({
-          description: row.description,
-          companyId: entryCompany.id,
-          entryType: row.entryType,
-          categoryId: row.categoryId,
-          costCenterId: row.costCenterId ?? '',
-          accountRef: row.plannedAccountId ? paymentRef(entryCompany.id, row.plannedAccountId) : '',
-          paymentMethod: 'pix' as PaymentMethod,
-          cardRef: '',
-          occurredOn: row.dueDate,
-        }));
-      }));
-      const cardTemplates: SmartTemplate[] = [];
+      const supabase = getSupabaseClient();
       const tenantId = companies[0]?.tenantId;
-      if (tenantId) {
-        const { data } = await getSupabaseClient()
-          .from('card_transactions')
-          .select('company_id,expense_company_id,card_id,purchase_date,description,category_id,cost_center_id')
+      if (!tenantId) return;
+
+      const [entryLists, financialMetaResult, cardResult] = await Promise.all([
+        Promise.all(companies.map(async (entryCompany) => ({
+          companyId: entryCompany.id,
+          rows: await repositories.entries.list({ tenantId: entryCompany.tenantId, companyId: entryCompany.id }),
+        }))),
+        supabase
+          .from('financial_entries')
+          .select('id,company_id,payment_method,planned_account_id,planned_account_company_id,created_at')
           .eq('tenant_id', tenantId)
-          .order('purchase_date', { ascending: false })
-          .limit(200);
-        for (const row of data ?? []) {
-          cardTemplates.push({
-            description: String(row.description ?? ''),
-            companyId: String(row.expense_company_id ?? row.company_id ?? ''),
-            entryType: 'expense',
-            categoryId: String(row.category_id ?? ''),
-            costCenterId: row.cost_center_id ? String(row.cost_center_id) : '',
-            accountRef: '', paymentMethod: 'credit',
-            cardRef: paymentRef(String(row.company_id ?? ''), String(row.card_id ?? '')),
-            occurredOn: String(row.purchase_date ?? ''),
+          .order('created_at', { ascending: false })
+          .limit(1000)
+          .returns<FinancialTemplateMetaRow[]>(),
+        supabase
+          .from('card_transactions')
+          .select('company_id,expense_company_id,card_id,purchase_date,description,counterparty_name,category_id,cost_center_id,installment_count,created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(1000)
+          .returns<CardTemplateRow[]>(),
+      ]);
+
+      if (financialMetaResult.error) throw financialMetaResult.error;
+      if (cardResult.error) throw cardResult.error;
+
+      const metaByEntryId = new Map((financialMetaResult.data ?? []).map((row) => [row.id, row]));
+      const seenEntryIds = new Set<string>();
+      const financialTemplates: SmartTemplate[] = [];
+      for (const list of entryLists) {
+        for (const row of list.rows) {
+          if (seenEntryIds.has(row.entryId)) continue;
+          seenEntryIds.add(row.entryId);
+          const meta = metaByEntryId.get(row.entryId);
+          const method = paymentMethodFromStored(meta?.payment_method);
+          const accountCompanyId = meta?.planned_account_company_id ?? list.companyId;
+          const installmentCount = Math.max(1, row.installmentCount);
+          financialTemplates.push({
+            description: row.description,
+            companyId: list.companyId,
+            entryType: row.entryType,
+            categoryId: row.categoryId,
+            costCenterId: row.costCenterId ?? '',
+            accountRef: row.plannedAccountId ? paymentRef(accountCompanyId, row.plannedAccountId) : '',
+            paymentMethod: method,
+            cardRef: '',
+            counterparty: row.counterpartyName ?? '',
+            launchType: installmentCount > 1 ? 'installment' : 'single',
+            installmentCount: String(Math.max(2, installmentCount)),
+            occurredOn: meta?.created_at ?? row.dueDate,
           });
         }
       }
-      if (!cancelled) setTemplates([...cardTemplates, ...entryLists.flat()].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn)));
+
+      const cardTemplates: SmartTemplate[] = (cardResult.data ?? []).map((row) => {
+        const installmentCount = Math.max(1, Number(row.installment_count || 1));
+        return {
+          description: String(row.description ?? ''),
+          companyId: String(row.expense_company_id ?? row.company_id ?? ''),
+          entryType: 'expense' as const,
+          categoryId: String(row.category_id ?? ''),
+          costCenterId: row.cost_center_id ? String(row.cost_center_id) : '',
+          accountRef: '',
+          paymentMethod: 'credit' as const,
+          cardRef: paymentRef(String(row.company_id ?? ''), String(row.card_id ?? '')),
+          counterparty: String(row.counterparty_name ?? ''),
+          launchType: installmentCount > 1 ? 'installment' as const : 'single' as const,
+          installmentCount: String(Math.max(2, installmentCount)),
+          occurredOn: row.created_at || row.purchase_date,
+        };
+      });
+
+      if (!cancelled) {
+        setTemplates([...cardTemplates, ...financialTemplates].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn)));
+      }
     })().catch(() => { if (!cancelled) setTemplates([]); });
     return () => { cancelled = true; };
   }, [companies, open]);
@@ -252,8 +347,8 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
   const activeCostCenters = (references?.costCenters ?? []).filter((item) => item.status === 'active');
   const categories = (references?.categories ?? []).filter((item) => item.status === 'active' && (item.kind === 'both' || item.kind === form.entryType));
   const costCenters = canonicalCostCenters(activeCostCenters);
-  const accountOptions = [{ value: '', label: 'Selecione' }, ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name }))];
-  const cardOptions = [{ value: '', label: 'Selecione o cartão' }, ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: item.name }))];
+  const accountOptions = [{ value: '', label: 'Selecione' }, ...paymentAccounts.map((item) => ({ value: paymentRef(item.companyId, item.id), label: `${item.ownerLabel} · ${item.name}` }))];
+  const cardOptions = [{ value: '', label: 'Selecione o cartão' }, ...paymentCards.map((item) => ({ value: paymentRef(item.companyId, item.id), label: `${item.ownerLabel} · ${item.name}` }))];
   const categoryOptions = [{ value: '', label: 'Selecione' }, ...categories.map((item) => ({ value: item.id, label: item.name }))];
   const costCenterOptions = [{ value: '', label: 'Selecione' }, ...costCenters.map(({ item, label }) => ({ value: item.id, label }))];
   const paymentOptions = [
@@ -295,16 +390,26 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
       set('description', description);
       return;
     }
-    const match = templates.find((item) =>
-      (normalized(item.description) === query || normalized(item.description).includes(query)) &&
-      item.companyId === companyId);
+    const match = findSmartTemplate(templates, query);
     if (!match) {
       set('description', description);
       return;
     }
+    if (match.companyId && match.companyId !== companyId && companies.some((item) => item.id === match.companyId)) {
+      setCompanyId(match.companyId);
+    }
     setForm((current) => ({
-      ...current, description, entryType: match.entryType, categoryId: match.categoryId, costCenterId: match.costCenterId,
-      accountRef: match.accountRef, paymentMethod: match.paymentMethod, cardRef: match.cardRef, launchType: 'single',
+      ...current,
+      description,
+      entryType: match.entryType,
+      categoryId: match.categoryId,
+      costCenterId: match.costCenterId,
+      accountRef: match.paymentMethod === 'credit' ? '' : match.accountRef,
+      paymentMethod: match.paymentMethod,
+      cardRef: match.paymentMethod === 'credit' ? match.cardRef : '',
+      counterparty: match.counterparty,
+      launchType: match.launchType,
+      installmentCount: match.installmentCount,
       includeInBudget: false,
     }));
   }
@@ -425,6 +530,26 @@ export function QuickEntryDialog({ open, companies, initialCompanyId = '', allCo
           window.dispatchEvent(new Event('finance-bank-order-changed'));
         }
       }
+
+      const learnedTemplate: SmartTemplate = {
+        description: form.description.trim(),
+        companyId: company.id,
+        entryType: form.entryType,
+        categoryId: form.categoryId,
+        costCenterId: form.costCenterId,
+        accountRef: form.paymentMethod === 'credit' ? '' : form.accountRef,
+        paymentMethod: form.paymentMethod,
+        cardRef: form.paymentMethod === 'credit' ? form.cardRef : '',
+        counterparty: form.counterparty.trim(),
+        launchType: form.launchType,
+        installmentCount: form.installmentCount,
+        occurredOn: new Date().toISOString(),
+      };
+      setTemplates((current) => [
+        learnedTemplate,
+        ...current.filter((item) => !(normalized(item.description) === normalized(learnedTemplate.description) && item.companyId === learnedTemplate.companyId)),
+      ]);
+
       await operations.loadReferences();
       resetAfterSave(keepData);
       setLocalSuccess(keepData ? 'Lançamento concluído. Dados principais mantidos.' : 'Lançamento concluído. Pronto para o próximo lançamento.');
