@@ -29,6 +29,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           tone="danger"
           title="Não foi possível exibir esta tela"
           message="A aplicação encontrou um erro inesperado. Nenhuma alteração nova foi enviada por esta tela após a falha."
+          persistent
         />
         <Button onClick={this.reload}>Recarregar aplicação</Button>
       </main>
